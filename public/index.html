@@ -30,7 +30,7 @@
       z-index: 10;
       pointer-events: none;
     }
-    .overlay.hidden { display: none; }
+    .overlay.hidden { display: none !important; }
 
     /* ── EMAIL OVERLAY ── */
     #email-overlay {
@@ -64,6 +64,29 @@
       cursor: pointer; transition: opacity 0.2s;
     }
     .card-btn:hover { opacity: 0.85; }
+
+    /* ── SPEECH BUTTON ── */
+    #speech-btn {
+      position: fixed; bottom: 36px; right: 36px; z-index: 50;
+      width: 88px; height: 88px;
+      background: rgba(13,13,15,0.88);
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s, transform 0.15s;
+    }
+    #speech-btn:hover {
+      border-color: #00e87b;
+      transform: scale(1.06);
+    }
+    #speech-btn svg { pointer-events: none; }
+    #speech-btn span {
+      font-family: monospace; font-size: 9px;
+      letter-spacing: 0.12em; color: rgba(255,255,255,0.4);
+      text-transform: uppercase; pointer-events: none;
+    }
 
     /* ── MAIN OVERLAY (after email) ── */
     #main-overlay {
@@ -144,6 +167,17 @@
       </div>
     </div>
   </div>
+
+  <!-- ── SPEECH BUTTON ── -->
+  <button id="speech-btn" title="Push to talk">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#00e87b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="9" y="2" width="6" height="11" rx="3"/>
+      <path d="M5 10a7 7 0 0 0 14 0"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+      <line x1="8" y1="23" x2="16" y2="23"/>
+    </svg>
+    <span>hold</span>
+  </button>
 
   <script>
     const v   = document.getElementById('v');
