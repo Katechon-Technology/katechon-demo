@@ -4,18 +4,42 @@
   <meta charset="UTF-8">
   <title>Katechon</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js"></script>
   <style>
+    :root {
+      --bg: #050608;
+      --panel: rgba(9, 12, 15, 0.78);
+      --panel-strong: rgba(9, 12, 15, 0.92);
+      --line: rgba(255,255,255,0.10);
+      --line-hot: rgba(0,232,123,0.62);
+      --text: #f2f4f7;
+      --muted: rgba(242,244,247,0.62);
+      --soft: rgba(242,244,247,0.36);
+      --green: #00e87b;
+      --cyan: #7de8ff;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    body {
+      color: var(--text);
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    }
 
     video { width: 100%; height: 100%; object-fit: contain; display: block; }
 
     #status {
       position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); color: #00e87b;
+      background: rgba(0,0,0,0.7); color: var(--green);
       font-family: monospace; font-size: 12px; padding: 6px 14px;
       border-radius: 4px; letter-spacing: 0.1em;
       pointer-events: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(0,232,123,0.7);
     }
 
     /* ── SHARED OVERLAY BASE ──
@@ -39,37 +63,146 @@
 
     .email-card {
       pointer-events: all;
-      background: rgba(13,13,15,0.82);
-      border: 1px solid rgba(255,255,255,0.07);
+      position: relative;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0) 82px),
+        var(--panel-strong);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 24px 28px;
-      width: 320px;
-      backdrop-filter: blur(10px);
+      padding: 18px 18px 20px;
+      width: 376px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.34);
+      backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+    .email-card::before,
+    .email-card::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+    .email-card::before {
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .email-card::after {
+      left: 18px; right: 18px; top: 48px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(125,232,255,0.35), transparent);
+    }
+    .window-row {
+      display: flex; align-items: center; justify-content: space-between;
+      min-height: 18px;
+      margin-bottom: 28px;
+    }
+    .modal-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--text);
+    }
+    .mark-glyph {
+      width: 18px;
+      height: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+      font-family: monospace;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 16px rgba(0,232,123,0.08);
+    }
+    .mark-line {
+      width: 42px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(0,232,123,0.76), rgba(125,232,255,0.18), transparent);
+      transform-origin: left center;
+    }
+    .window-id {
+      font-family: monospace; font-size: 10px; letter-spacing: 0.16em;
+      color: var(--soft); text-transform: uppercase;
+    }
+    .email-kicker,
+    .main-kicker,
+    .tile-kicker {
+      font-family: monospace; text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+    .email-kicker {
+      color: var(--cyan);
+      font-size: 10px;
+      margin-bottom: 10px;
+    }
+    .email-title {
+      font-size: 25px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: 0;
+      margin-bottom: 8px;
+    }
+    .email-copy {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+      margin-bottom: 22px;
+      max-width: 290px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
     }
     .card-input {
-      width: 100%; background: #0d0d0f;
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 6px; padding: 12px 16px;
+      width: 100%; background: rgba(5,6,8,0.78);
+      border: 1px solid rgba(255,255,255,0.11);
+      border-radius: 6px; padding: 13px 15px;
       font-family: monospace; font-size: 13px;
-      color: #e8e8ec; margin-bottom: 12px;
-      outline: none; transition: border-color 0.2s;
+      color: var(--text);
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .card-input:focus { border-color: #00e87b; }
-    .card-input::placeholder { color: #6b6b78; }
+    .card-input:focus {
+      border-color: var(--line-hot);
+      box-shadow: 0 0 0 3px rgba(0,232,123,0.10);
+    }
+    .card-input::placeholder { color: rgba(242,244,247,0.34); }
     .card-btn {
-      width: 100%; background: #00e87b; color: #000;
-      border: none; border-radius: 6px; padding: 12px;
+      width: 100%; background: var(--green); color: #061009;
+      border: none; border-radius: 6px; padding: 13px 14px;
       font-family: monospace; font-size: 12px; font-weight: 700;
       letter-spacing: 0.15em; text-transform: uppercase;
-      cursor: pointer; transition: opacity 0.2s;
+      cursor: pointer; transition: opacity 0.2s, box-shadow 0.2s;
+      position: relative; overflow: hidden;
     }
-    .card-btn:hover { opacity: 0.85; }
-
+    .card-btn:hover {
+      opacity: 0.9;
+      box-shadow: 0 0 24px rgba(0,232,123,0.18);
+    }
+    .card-btn:hover::after {
+      transform: translateX(110%);
+      transition: transform 0.7s ease;
+    }
+    .card-btn span {
+      position: relative;
+      z-index: 1;
+    }
+    .card-btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.38) 50%, transparent 80%);
+      transform: translateX(-110%);
+      pointer-events: none;
+    }
     /* ── SPEECH BUTTON ── */
     #speech-btn {
       position: fixed; bottom: 36px; right: 36px; z-index: 50;
       width: 88px; height: 88px;
-      background: rgba(13,13,15,0.88);
+      background: rgba(9,12,15,0.88);
       border: 1.5px solid rgba(255,255,255,0.12);
       border-radius: 50%;
       cursor: pointer;
@@ -78,7 +211,7 @@
       transition: border-color 0.2s, transform 0.15s;
     }
     #speech-btn:hover {
-      border-color: #00e87b;
+      border-color: var(--green);
       transform: scale(1.06);
     }
     #speech-btn.listening {
@@ -100,9 +233,9 @@
     /* ── TRANSCRIPT TOAST ── */
     #transcript {
       position: fixed; bottom: 140px; right: 36px;
-      background: rgba(13,13,15,0.9); border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(9,12,15,0.9); border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px; padding: 8px 14px;
-      font-family: monospace; font-size: 12px; color: #e8e8ec;
+      font-family: monospace; font-size: 12px; color: var(--text);
       letter-spacing: 0.05em; max-width: 280px;
       opacity: 0; transform: translateY(6px);
       transition: opacity 0.2s, transform 0.2s;
@@ -112,79 +245,154 @@
 
     /* ── MAIN OVERLAY (after email) ── */
     #main-overlay {
-      padding: 36px 40px;
-      display: flex; flex-direction: column; gap: 32px;
+      padding: 32px 38px;
+      display: flex; flex-direction: column; gap: 28px;
     }
 
+    .main-head {
+      max-width: 680px;
+    }
+    .main-kicker {
+      display: inline-flex; align-items: center; gap: 9px;
+      color: var(--cyan);
+      font-size: 10px;
+      margin-bottom: 12px;
+    }
+    .main-kicker .status-dot {
+      width: 7px; height: 7px;
+    }
     .main-title {
-      font-family: "Helvetica Neue", Arial, sans-serif;
-      font-size: 4.2vw; font-weight: 700;
-      color: #fff; line-height: 1.1;
+      font-size: 54px; font-weight: 760;
+      color: var(--text); line-height: 1.02;
+      letter-spacing: 0;
     }
     .main-sub {
-      font-family: "Helvetica Neue", Arial, sans-serif;
-      font-size: 1.4vw; color: rgba(255,255,255,0.7);
-      margin-top: -20px;
+      font-size: 17px; color: var(--muted);
+      margin-top: 12px;
+      line-height: 1.35;
+    }
+    .main-divider {
+      height: 1px;
+      background: linear-gradient(90deg, rgba(125,232,255,0.45), rgba(255,255,255,0.08), transparent);
     }
 
     .gif-row {
-      display: flex; gap: 20px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
       pointer-events: all;
     }
     .gif-box {
-      flex: 1; aspect-ratio: 4/3;
+      aspect-ratio: 4/3;
       border-radius: 6px; overflow: hidden;
       cursor: pointer;
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.06);
-      transition: border-color 0.2s, transform 0.15s;
+      transition: border-color 0.2s, box-shadow 0.2s;
       position: relative;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.24);
     }
     .gif-box:hover {
-      border-color: #00e87b;
-      transform: translateY(-2px);
+      border-color: var(--line-hot);
+      box-shadow: 0 16px 45px rgba(0,0,0,0.32), 0 0 0 1px rgba(0,232,123,0.07);
     }
     .gif-box img,
     .gif-box video {
       width: 100%; height: 100%; object-fit: cover; display: block;
     }
+    .gif-box::after {
+      content: "";
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.18), transparent 42%, rgba(0,0,0,0.72));
+      pointer-events: none;
+    }
+    .tile-kicker {
+      position: absolute;
+      top: 10px; left: 10px;
+      z-index: 1;
+      color: rgba(255,255,255,0.66);
+      font-size: 9px;
+    }
     .gif-label {
       position: absolute; bottom: 0; left: 0; right: 0;
-      padding: 6px 10px;
-      background: rgba(0,0,0,0.6);
+      z-index: 1;
+      padding: 9px 11px;
+      background: linear-gradient(180deg, transparent, rgba(0,0,0,0.64));
       font-family: monospace; font-size: 10px;
-      letter-spacing: 0.15em; color: #00e87b;
+      letter-spacing: 0.14em; color: var(--green);
       text-transform: uppercase;
+    }
+
+    @media (max-width: 860px) {
+      .overlay {
+        left: 5%; top: 9%;
+        width: 90%; height: 82%;
+      }
+      .email-card { width: min(376px, 100%); }
+      #main-overlay { padding: 26px 22px; gap: 22px; }
+      .main-title { font-size: 39px; }
+      .main-sub { font-size: 15px; }
+      .gif-row { grid-template-columns: 1fr; max-height: 58vh; overflow: auto; padding-right: 4px; }
+      .gif-box { aspect-ratio: 16/9; min-height: 126px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+      }
     }
   </style>
 </head>
 <body>
   <video id="v" autoplay muted playsinline></video>
-  <div id="status">connecting...</div>
+  <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
 
   <!-- landing: email input -->
   <div id="email-overlay" class="overlay">
     <div class="email-card">
-      <input id="email-input" class="card-input" type="email"
-        placeholder="Enter your email" autocomplete="email">
-      <button class="card-btn" onclick="enter()">Access Stream</button>
+      <div class="window-row">
+        <div class="modal-mark" aria-label="Katechon">
+          <span class="mark-glyph">K</span>
+          <span class="mark-line" aria-hidden="true"></span>
+        </div>
+        <div class="window-id">live access</div>
+      </div>
+      <div class="email-kicker">Katechon gateway</div>
+      <div class="email-title">Enter the live system</div>
+      <div class="email-copy">A 24hr interactive stream running across remote desktops, agents, and live panels.</div>
+      <div class="form-grid">
+        <input id="email-input" class="card-input" type="email"
+          placeholder="name@company.com" autocomplete="email">
+        <button class="card-btn" onclick="enter()"><span>Access Stream</span></button>
+      </div>
     </div>
   </div>
 
   <!-- after email: title + gif thumbnails -->
   <div id="main-overlay" class="overlay hidden">
-    <div class="main-title">Katechon Technology</div>
-    <div class="main-sub">24hr interactive livestream</div>
+    <div class="main-head">
+      <div>
+        <div class="main-kicker"><span class="status-dot"></span>Katechon live</div>
+        <div class="main-title">Katechon Technology</div>
+        <div class="main-sub">24hr interactive livestream</div>
+      </div>
+    </div>
+    <div class="main-divider"></div>
     <div class="gif-row">
       <div class="gif-box" onclick="switchWs('spectre')">
+        <div class="tile-kicker">01 / OSINT</div>
         <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
         <div class="gif-label">OSINT / SPECTRE</div>
       </div>
       <div class="gif-box" onclick="switchWs('minecraft')">
+        <div class="tile-kicker">02 / WORLD</div>
         <img src="gifs/minecraft.gif" alt="Minecraft" onerror="this.style.display='none'">
         <div class="gif-label">Minecraft AI</div>
       </div>
       <div class="gif-box" onclick="switchWs('news')">
+        <div class="tile-kicker">03 / FEED</div>
         <video src="videos/news.mp4" aria-label="News" autoplay muted loop playsinline preload="metadata"></video>
         <div class="gif-label">AI News Feed</div>
       </div>
@@ -205,11 +413,139 @@
   </button>
 
   <script>
+    const animeApi = window.anime || {};
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const canMotion = !reduceMotion && typeof animeApi.animate === 'function';
+    const canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
+    const staggerMotion = (value, options) =>
+      typeof animeApi.stagger === 'function' ? animeApi.stagger(value, options) : 0;
+    const animateMotion = (target, params) => {
+      if (!canMotion) return null;
+      return animeApi.animate(target, params);
+    };
+
+    function revealMainOverlay() {
+      const main = document.getElementById('main-overlay');
+      main.classList.remove('hidden');
+      main.style.opacity = '';
+      main.style.transform = '';
+
+      if (!canMotion) return;
+
+      animateMotion(main, {
+        opacity: [0, 1],
+        y: [10, 0],
+        duration: 420,
+        ease: 'out(3)',
+      });
+      animateMotion(Array.from(document.querySelectorAll('.main-kicker, .main-title, .main-sub, .main-divider')), {
+        opacity: [0, 1],
+        y: [8, 0],
+        delay: staggerMotion(45),
+        duration: 520,
+        ease: 'out(3)',
+      });
+      animateMotion('.gif-box', {
+        opacity: [0, 1],
+        y: [16, 0],
+        scale: [0.985, 1],
+        delay: staggerMotion(80),
+        duration: 620,
+        ease: 'out(3)',
+      });
+    }
+
+    function hideMainOverlay() {
+      const main = document.getElementById('main-overlay');
+      if (main.classList.contains('hidden')) return;
+
+      if (!canMotion) {
+        main.classList.add('hidden');
+        return;
+      }
+
+      animateMotion(main, {
+        opacity: [1, 0],
+        y: [0, 8],
+        duration: 260,
+        ease: 'inOut(2)',
+        onComplete: () => {
+          main.classList.add('hidden');
+          main.style.opacity = '';
+          main.style.transform = '';
+        },
+      });
+    }
+
+    function runIntroMotion() {
+      if (!canMotion) return;
+
+      animateMotion('.status-dot', {
+        opacity: [0.45, 1],
+        scale: [0.86, 1],
+        alternate: true,
+        loop: true,
+        duration: 1400,
+        ease: 'inOut(2)',
+      });
+
+      if (!canTimeline) return;
+
+      const intro = animeApi.createTimeline({ defaults: { ease: 'out(3)' } });
+      intro
+        .add('.email-card', {
+          opacity: [0, 1],
+          y: [10, 0],
+          scale: [0.985, 1],
+          duration: 640,
+        }, 0)
+        .add('.modal-mark', {
+          opacity: [0, 1],
+          y: [3, 0],
+          duration: 420,
+        }, 90)
+        .add('.mark-line', {
+          opacity: [0, 1],
+          scaleX: [0, 1],
+          duration: 620,
+        }, 120)
+        .add(Array.from(document.querySelectorAll('.email-kicker, .email-title, .email-copy, .form-grid')), {
+          opacity: [0, 1],
+          y: [6, 0],
+          delay: staggerMotion(45),
+          duration: 500,
+        }, 170);
+    }
+
+    function wireMotionInteractions() {
+      if (!canMotion) return;
+
+      document.querySelectorAll('.gif-box').forEach(tile => {
+        tile.addEventListener('mouseenter', () => {
+          animateMotion(tile, { y: -4, scale: 1.012, duration: 260, ease: 'out(3)' });
+        });
+        tile.addEventListener('mouseleave', () => {
+          animateMotion(tile, { y: 0, scale: 1, duration: 320, ease: 'out(3)' });
+        });
+      });
+
+      const input = document.getElementById('email-input');
+      input.addEventListener('focus', () => {
+        animateMotion(input, { scale: [1, 1.01], duration: 260, ease: 'out(3)' });
+      });
+      input.addEventListener('blur', () => {
+        animateMotion(input, { scale: 1, duration: 260, ease: 'out(3)' });
+      });
+    }
+
+    runIntroMotion();
+    wireMotionInteractions();
+
     // Reset stream to landing state on every page load
     fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
 
     const v   = document.getElementById('v');
-    const st  = document.getElementById('status');
+    const st  = document.getElementById('status-text');
     const src = '/stream.m3u8';
 
     if (Hls.isSupported()) {
@@ -218,7 +554,7 @@
       hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         v.play().catch(() => {});
-        st.textContent = '● LIVE — katechon-desktop';
+        st.textContent = 'LIVE - katechon-desktop';
       });
       hls.on(Hls.Events.ERROR, (_, d) => {
         if (d.fatal) { st.textContent = 'reconnecting...'; setTimeout(() => hls.loadSource(src), 2000); }
@@ -232,6 +568,11 @@
       const email = document.getElementById('email-input').value.trim();
       if (!email || !email.includes('@')) {
         document.getElementById('email-input').style.borderColor = '#ff4444';
+        animateMotion('#email-input', {
+          x: [0, -5, 5, -3, 3, 0],
+          duration: 330,
+          ease: 'out(3)',
+        });
         return;
       }
       fetch('/api/register', {
@@ -239,13 +580,35 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      document.getElementById('email-overlay').classList.add('hidden');
-      document.getElementById('main-overlay').classList.remove('hidden');
+      const emailOverlay = document.getElementById('email-overlay');
+      if (!canMotion) {
+        emailOverlay.classList.add('hidden');
+        revealMainOverlay();
+        return;
+      }
+
+      animateMotion('.card-btn', {
+        scale: [1, 0.985, 1],
+        duration: 360,
+        ease: 'out(3)',
+      });
+      animateMotion(emailOverlay, {
+        opacity: [1, 0],
+        y: [0, -8],
+        duration: 300,
+        ease: 'inOut(2)',
+        onComplete: () => {
+          emailOverlay.classList.add('hidden');
+          emailOverlay.style.opacity = '';
+          emailOverlay.style.transform = '';
+          revealMainOverlay();
+        },
+      });
     }
 
     function switchWs(workspace) {
       const req = fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
-      document.getElementById('main-overlay').classList.add('hidden');
+      hideMainOverlay();
       return req;
     }
 
@@ -264,7 +627,7 @@
 
     function goHome() {
       const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
-      document.getElementById('main-overlay').classList.remove('hidden');
+      revealMainOverlay();
       return req;
     }
 
@@ -358,7 +721,7 @@
         return;
       }
       if (command.workspace === 'landing' || command.action === 'go_home') {
-        document.getElementById('main-overlay').classList.remove('hidden');
+        revealMainOverlay();
         showToast('→ main panel', '#00e87b');
         return;
       }
