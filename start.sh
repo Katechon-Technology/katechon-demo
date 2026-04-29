@@ -29,7 +29,7 @@ ssh "${REMOTE}" "
     -e ANGLE_BACKEND=swiftshader \
     -v ${REMOTE_ENTRYPOINT}:/${REMOTE_ENTRYPOINT##*/}:ro \
     ${CONTAINER_IMAGE} \
-    ${REMOTE_ENTRYPOINT}
+    /${REMOTE_ENTRYPOINT##*/}
 "
 
 # ── 3. Wait for HLS manifest ───────────────────────────────────────

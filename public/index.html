@@ -243,8 +243,9 @@
     }
 
     function switchWs(workspace) {
-      fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
+      const req = fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
       document.getElementById('main-overlay').classList.add('hidden');
+      return req;
     }
 
     document.getElementById('email-input').addEventListener('keydown', e => {
@@ -257,15 +258,13 @@
     let mediaRecorder  = null;
     let audioChunks    = [];
     let toastTimer     = null;
-
-    const COMMANDS = [
-      { re: /\b(osint|spectre|intel|dashboard)\b/i, action: () => switchWs('spectre') },
-      { re: /\b(home|back|menu|close)\b/i,          action: () => goHome() },
-    ];
+    let replyAudioCtx  = null;
+    let replySource    = null;
 
     function goHome() {
-      fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
+      const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
       document.getElementById('main-overlay').classList.remove('hidden');
+      return req;
     }
 
     function showToast(text, color) {
@@ -276,15 +275,103 @@
       toastTimer = setTimeout(() => transcriptEl.classList.remove('visible'), 3000);
     }
 
-    function handleCommand(text) {
-      showToast(`"${text}"`, '#e8e8ec');
-      for (const { re, action } of COMMANDS) {
-        if (re.test(text)) {
-          action();
-          setTimeout(() => showToast(`→ ${text}`, '#00e87b'), 100);
-          return;
-        }
+    function wait(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function readableDelay(text) {
+      return Math.max(900, Math.min(3600, (text.length / 14) * 1000));
+    }
+
+    function getReplyAudioContext() {
+      if (!replyAudioCtx) replyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return replyAudioCtx;
+    }
+
+    async function unlockAgentAudio() {
+      const ctx = getReplyAudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      source.start(0);
+    }
+
+    async function playBase64Audio(base64) {
+      const ctx = getReplyAudioContext();
+      if (ctx.state === 'suspended') await ctx.resume();
+      if (replySource) {
+        try { replySource.stop(); } catch (_) {}
+        replySource = null;
       }
+
+      const raw = atob(base64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(ctx.destination);
+      replySource = source;
+
+      await new Promise(resolve => {
+        const timeout = setTimeout(resolve, Math.ceil(audioBuffer.duration * 1000) + 600);
+        source.onended = () => {
+          clearTimeout(timeout);
+          if (replySource === source) replySource = null;
+          resolve();
+        };
+        source.start(0);
+      });
+    }
+
+    async function playAgentReply(command) {
+      const speech = command.speech || command.reply || '';
+      if (speech) showToast(`Kat: ${speech}`, '#00e87b');
+      console.log('agent audio:', {
+        id: command.id,
+        muted: command.muted,
+        audioBytes: command.audio ? Math.floor((command.audio.length * 3) / 4) : 0,
+        remote: command.remote,
+      });
+      if (!command.audio || command.muted) {
+        await wait(readableDelay(speech));
+        return;
+      }
+      await playBase64Audio(command.audio);
+    }
+
+    async function executeCommand(command) {
+      if (command.workspace === 'spectre' || command.action === 'open_spectre') {
+        document.getElementById('main-overlay').classList.add('hidden');
+        showToast('→ SPECTRE OSINT', '#00e87b');
+        return;
+      }
+      if (command.workspace === 'landing' || command.action === 'go_home') {
+        document.getElementById('main-overlay').classList.remove('hidden');
+        showToast('→ main panel', '#00e87b');
+        return;
+      }
+      showToast(command.speech || command.reply || 'command not recognized', '#6b6b78');
+    }
+
+    async function handleCommand(text) {
+      showToast(`"${text}"`, '#e8e8ec');
+      const r = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: text }),
+      });
+      const command = await r.json();
+      console.log('command response:', command);
+      if (!r.ok) throw new Error(command.error || `command failed (${r.status})`);
+      await executeCommand(command);
+      playAgentReply(command).catch(err => {
+        console.warn('agent voice failed:', err);
+        const speech = command.speech || command.reply;
+        if (speech) showToast(`Kat: ${speech}`, '#00e87b');
+      });
     }
 
     function setListening(on) {
@@ -315,10 +402,12 @@
           });
           const data = await r.json();
           console.log('transcribe response:', data);
+          if (!r.ok) throw new Error(data.error || `transcribe failed (${r.status})`);
           const text = data.text;
-          if (text) handleCommand(text);
+          if (text) await handleCommand(text);
           else showToast('no speech detected', '#6b6b78');
         } catch(e) {
+          console.error('transcription error:', e);
           showToast('transcription error', '#ff4444');
         }
       };
@@ -330,10 +419,18 @@
       if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
     }
 
-    micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording().catch(() => showToast('mic access denied', '#ff4444')); });
+    micBtn.addEventListener('mousedown',  (e) => {
+      e.preventDefault();
+      unlockAgentAudio().catch(() => {});
+      startRecording().catch(() => showToast('mic access denied', '#ff4444'));
+    });
     micBtn.addEventListener('mouseup',    () => stopRecording());
     micBtn.addEventListener('mouseleave', () => stopRecording());
-    micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording().catch(() => {}); });
+    micBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      unlockAgentAudio().catch(() => {});
+      startRecording().catch(() => showToast('mic access denied', '#ff4444'));
+    });
     micBtn.addEventListener('touchend',   () => stopRecording());
   </script>
 </body>

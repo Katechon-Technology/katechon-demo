@@ -50,6 +50,47 @@ XVFB2_PID=$!
 wait_display "$DISPLAY_DESK"
 wait_display "$DISPLAY_AVT"
 sed -i 's/background: transparent/background: #00ff00/g' /var/www/avatar/avatar-pet.html
+python3 - <<'PYEOF'
+from pathlib import Path
+
+path = Path('/var/www/avatar/avatar-pet.html')
+html = path.read_text()
+marker = 'KATECHON_REMOTE_VOICE_BRIDGE'
+needle = "switchModel(INITIAL_MODEL).catch(err => console.error('[avatar] switchModel failed:', err));"
+bridge = r"""
+
+// KATECHON_REMOTE_VOICE_BRIDGE: poll the local HLS control server for Kat speech.
+let katechonVoiceSeq = 0;
+let katechonVoicePolling = false;
+
+async function pollKatechonVoice() {
+  if (katechonVoicePolling) return;
+  katechonVoicePolling = true;
+  try {
+    const resp = await fetch(`http://localhost:3000/avatar/next?since=${katechonVoiceSeq}`, { cache: 'no-store' });
+    if (resp.ok) {
+      const payload = await resp.json();
+      if (Number(payload.seq) > katechonVoiceSeq) katechonVoiceSeq = Number(payload.seq);
+      if (payload.audio) {
+        playPayload({ id: payload.id, audio: payload.audio, text: payload.text || '' });
+      }
+    }
+  } catch (e) {
+    // HLS control server starts after the avatar page; keep polling quietly.
+  } finally {
+    katechonVoicePolling = false;
+  }
+}
+
+setInterval(pollKatechonVoice, 80);
+"""
+
+if marker not in html:
+    if needle not in html:
+        raise SystemExit('avatar-pet.html patch anchor not found')
+    html = html.replace(needle, needle + bridge)
+    path.write_text(html)
+PYEOF
 
 # ── 2. Write background.html + wallpaper to avatar server dir ─────
 log "Preparing background.html..."
@@ -110,8 +151,13 @@ cat > /var/www/avatar/background.html << 'BGEOF'
     letter-spacing: 0.15em; margin-left: 8px; font-family: monospace;
   }
   #ws-iframe {
-    flex: 1; border: none; display: none;
-    opacity: 0; transition: opacity 0.5s ease;
+    flex: 1; border: none; display: block; visibility: hidden;
+    opacity: 0; transition: opacity 120ms ease;
+    background: #050607;
+  }
+  #ws-iframe.active {
+    visibility: visible;
+    opacity: 1;
   }
 </style>
 </head>
@@ -135,6 +181,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
     let cur = null;
     const iframe = document.getElementById('ws-iframe');
     const titleEl = document.getElementById('frame-title');
+    iframe.src = WORKSPACES.spectre.url;
 
     setInterval(async () => {
       try {
@@ -144,18 +191,15 @@ cat > /var/www/avatar/background.html << 'BGEOF'
         cur = workspace;
         const ws = WORKSPACES[workspace];
         if (ws) {
-          iframe.style.opacity = '0';
-          iframe.style.display = 'block';
-          iframe.src = ws.url;
-          iframe.onload = () => { iframe.style.opacity = '1'; };
+          if (iframe.src !== ws.url) iframe.src = ws.url;
+          iframe.classList.add('active');
           titleEl.textContent = ws.title;
         } else {
-          iframe.style.opacity = '0';
-          setTimeout(() => { iframe.style.display = 'none'; iframe.src = ''; }, 500);
+          iframe.classList.remove('active');
           titleEl.textContent = '// KATECHON — INTELLIGENCE PLATFORM';
         }
       } catch(e) {}
-    }, 250);
+    }, 80);
   </script>
 </body>
 </html>
@@ -212,13 +256,53 @@ log "Waiting 14s for Chromium renders..."
 sleep 14
 
 # ── 6. HLS + state API server on :3000 ────────────────────────────
-log "Starting HLS+state server on :3000..."
+log "Starting HLS+state/control server on :3000..."
 cat > /tmp/hls_server.py << 'PYEOF'
 import os, sys, json
+from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, '')
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 _state = {"workspace": "landing"}
+_voice_seq = 0
+_voice_queue = []
+
+def _json(handler, status, obj):
+    body = json.dumps(obj).encode()
+    handler.send_response(status)
+    handler.send_header('Content-Type', 'application/json')
+    handler.send_header('Content-Length', str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+def _read_json(handler):
+    length = int(handler.headers.get('Content-Length', 0))
+    if length <= 0:
+        return {}
+    return json.loads(handler.rfile.read(length))
+
+def _queue_voice(data):
+    global _voice_seq, _voice_queue
+    audio = data.get('audio') or ''
+    if not audio:
+        return None
+    _voice_seq += 1
+    payload = {
+        "seq": _voice_seq,
+        "id": data.get('id') or f"voice-{_voice_seq}",
+        "text": data.get('text') or data.get('reply') or "",
+        "audio": audio,
+    }
+    _voice_queue.append(payload)
+    _voice_queue = _voice_queue[-20:]
+    return payload
+
+def _workspace_for_action(action):
+    if action == "open_spectre":
+        return "spectre"
+    if action == "go_home":
+        return "landing"
+    return None
 
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -230,26 +314,34 @@ class Handler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200); self.end_headers()
     def do_GET(self):
-        if self.path == '/state':
-            body = json.dumps(_state).encode()
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Content-Length', str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+        parsed = urlparse(self.path)
+        if parsed.path == '/state':
+            _json(self, 200, _state)
+        elif parsed.path == '/avatar/next':
+            qs = parse_qs(parsed.query)
+            since = int((qs.get('since') or ['0'])[0] or 0)
+            payload = next((item for item in _voice_queue if int(item.get('seq', 0)) > since), None)
+            _json(self, 200, payload or {"seq": _voice_seq})
         else:
             super().do_GET()
     def do_POST(self):
         if self.path == '/switch':
-            length = int(self.headers.get('Content-Length', 0))
-            data = json.loads(self.rfile.read(length))
+            data = _read_json(self)
             _state['workspace'] = data.get('workspace', 'landing')
-            resp = b'{"ok":true}'
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/json')
-            self.send_header('Content-Length', str(len(resp)))
-            self.end_headers()
-            self.wfile.write(resp)
+            _json(self, 200, {"ok": True, "workspace": _state["workspace"]})
+        elif self.path == '/command':
+            data = _read_json(self)
+            workspace = data.get('workspace') or _workspace_for_action(data.get('action'))
+            if workspace:
+                _state['workspace'] = workspace
+            queued = _queue_voice(data)
+            _json(self, 200, {"ok": True, "workspace": _state["workspace"], "voiceSeq": queued and queued["seq"]})
+        elif self.path == '/speak':
+            data = _read_json(self)
+            queued = _queue_voice(data)
+            _json(self, 200, {"ok": True, "voiceSeq": queued and queued["seq"]})
+        else:
+            _json(self, 404, {"error": "not found"})
 
 os.chdir('/tmp/hls')
 HTTPServer(('', 3000), Handler).serve_forever()
