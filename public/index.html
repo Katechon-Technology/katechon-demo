@@ -44,96 +44,91 @@
       );
     }
 
-    /* ── EMAIL MODAL ── */
-    #modal {
-      position: fixed; inset: 0; z-index: 1000;
+    /* ── EMAIL OVERLAY (over stream on landing) ── */
+    #email-overlay {
+      position: absolute; inset: 0; z-index: 20;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.85);
-      backdrop-filter: blur(12px);
+      pointer-events: none;
     }
-    #modal.hidden { display: none; }
+    #email-overlay.hidden { display: none; }
 
-    .modal-card {
-      background: var(--surface);
+    .email-card {
+      pointer-events: all;
+      background: rgba(13,13,15,0.82);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 48px;
-      width: 480px;
+      border-radius: 8px;
+      padding: 40px 44px;
+      width: 420px;
       text-align: center;
       position: relative;
+      backdrop-filter: blur(8px);
     }
-    .modal-card::before {
+    .email-card::before {
       content: "";
       position: absolute; top: 0; left: 50%; transform: translateX(-50%);
       width: 60%; height: 1px;
       background: linear-gradient(90deg, transparent, var(--accent), transparent);
     }
-
-    .modal-logo {
+    .email-card-label {
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 10px;
       letter-spacing: 0.3em;
       color: var(--accent);
-      margin-bottom: 32px;
+      margin-bottom: 24px;
       text-transform: uppercase;
     }
-
-    .modal-title {
-      font-size: 28px;
+    .email-card-title {
+      font-size: 22px;
       font-weight: 700;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       line-height: 1.2;
     }
-
-    .modal-sub {
-      font-size: 14px;
+    .email-card-sub {
+      font-size: 12px;
       color: var(--text-dim);
       font-family: var(--mono);
-      margin-bottom: 36px;
+      margin-bottom: 28px;
       line-height: 1.6;
     }
-
-    .modal-input {
+    .email-input {
       width: 100%;
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 18px;
+      border-radius: 6px;
+      padding: 12px 16px;
       font-family: var(--mono);
-      font-size: 14px;
+      font-size: 13px;
       color: var(--text);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       outline: none;
       transition: border-color 0.2s;
     }
-    .modal-input:focus { border-color: var(--accent); }
-    .modal-input::placeholder { color: var(--text-dim); }
-
-    .modal-btn {
+    .email-input:focus { border-color: var(--accent); }
+    .email-input::placeholder { color: var(--text-dim); }
+    .email-btn {
       width: 100%;
       background: var(--accent);
       color: #000;
       border: none;
-      border-radius: 8px;
-      padding: 14px;
+      border-radius: 6px;
+      padding: 12px;
       font-family: var(--mono);
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.15em;
       text-transform: uppercase;
       cursor: pointer;
       transition: opacity 0.2s, transform 0.1s;
     }
-    .modal-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .modal-btn:active { transform: translateY(0); }
+    .email-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .email-btn:active { transform: translateY(0); }
 
     /* ── MAIN APP ── */
     #app {
-      display: none;
+      display: flex;
       flex-direction: column;
       height: 100%;
     }
-    #app.visible { display: flex; }
 
     /* ── HEADER ── */
     header {
@@ -377,21 +372,6 @@
 </head>
 <body>
 
-  <!-- ── EMAIL MODAL ── -->
-  <div id="modal">
-    <div class="modal-card">
-      <div class="modal-logo">Katechon Technology</div>
-      <div class="modal-title">Intelligence Platform</div>
-      <div class="modal-sub">
-        Real-time threat analysis.<br>
-        Autonomous AI intelligence agents.
-      </div>
-      <input id="email-input" class="modal-input" type="email"
-        placeholder="Enter your email to access the stream" autocomplete="email">
-      <button class="modal-btn" onclick="enterPlatform()">Access Stream</button>
-    </div>
-  </div>
-
   <!-- ── MAIN APP ── -->
   <div id="app">
 
@@ -413,8 +393,26 @@
       <!-- Workspace area -->
       <div id="workspace-area">
 
+        <!-- LANDING: vtuber desktop stream + email card -->
+        <div id="landing-view" class="workspace-view active">
+          <video id="landing-video" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;"></video>
+          <div id="email-overlay">
+            <div class="email-card">
+              <div class="email-card-label">Katechon Technology</div>
+              <div class="email-card-title">Intelligence Platform</div>
+              <div class="email-card-sub">
+                Real-time threat analysis.<br>
+                Autonomous AI intelligence agents.
+              </div>
+              <input id="email-input" class="email-input" type="email"
+                placeholder="Enter your email to access the stream" autocomplete="email">
+              <button class="email-btn" onclick="enterPlatform()">Access Stream</button>
+            </div>
+          </div>
+        </div>
+
         <!-- SPECTRE / OSINT -->
-        <div id="spectre-view" class="workspace-view active">
+        <div id="spectre-view" class="workspace-view">
           <iframe src="http://localhost:9092/" allow="autoplay"></iframe>
         </div>
 
@@ -499,8 +497,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      document.getElementById("modal").classList.add("hidden");
-      document.getElementById("app").classList.add("visible");
+      document.getElementById("email-overlay").classList.add("hidden");
+      switchWorkspace("spectre");
       initApp();
     }
 
@@ -509,13 +507,17 @@
     });
 
     // ── APP INIT ──────────────────────────────────────────────────
-    let currentWorkspace = "spectre";
+    // Start the landing stream immediately on page load
+    initHls("landing-video", "http://localhost:9095/stream.m3u8");
+
+    let currentWorkspace = "landing";
     let mcHlsInstance = null;
     let streamHlsInstance = null;
     let mcStreamUrl = null;
     let mcSessionId = null;
 
     const WORKSPACES = {
+      landing:  { badge: "// KATECHON — INTELLIGENCE PLATFORM",     btnId: null },
       spectre:  { badge: "// OSINT SPECTRE — GLOBAL INTELLIGENCE",  btnId: "btn-spectre" },
       news:     { badge: "// AI NEWS FEED — AUTONOMOUS DOOMSCROLL", btnId: "btn-news" },
       minecraft:{ badge: "// MINECRAFT — AI AGENT GAMEPLAY",        btnId: "btn-minecraft" },
@@ -541,7 +543,7 @@
 
       // Update nav buttons
       document.querySelectorAll(".ws-btn").forEach(b => b.classList.remove("active"));
-      document.getElementById(WORKSPACES[ws].btnId).classList.add("active");
+      if (WORKSPACES[ws].btnId) document.getElementById(WORKSPACES[ws].btnId).classList.add("active");
 
       // Update badge
       document.getElementById("ws-badge").textContent = WORKSPACES[ws].badge;
@@ -549,7 +551,9 @@
       // Show / hide views
       document.querySelectorAll(".workspace-view").forEach(v => v.classList.remove("active"));
 
-      if (ws === "spectre") {
+      if (ws === "landing") {
+        document.getElementById("landing-view").classList.add("active");
+      } else if (ws === "spectre") {
         document.getElementById("spectre-view").classList.add("active");
       } else if (ws === "news") {
         document.getElementById("news-view").classList.add("active");
