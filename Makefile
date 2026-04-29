@@ -15,7 +15,7 @@ RSYNC_EXCLUDES := \
 	--exclude recordings \
 	--exclude 'public/debug-audio.*'
 
-.PHONY: deploy remote-env remote-install remote-start compositor-start status logs youtube-start youtube-stop record-start record-stop
+.PHONY: deploy remote-env remote-install remote-start compositor-start status logs youtube-start youtube-redact-log youtube-stop record-start record-stop
 
 deploy:
 	rsync -az --delete $(RSYNC_EXCLUDES) ./ $(REMOTE):$(REMOTE_DIR)/
@@ -35,6 +35,10 @@ compositor-start:
 
 youtube-start:
 	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); set -a; . ./.env; set +a; mkdir -p logs run; if [ -f run/youtube.pid ]; then old=$$(cat run/youtube.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old"; sleep 1; fi; fi; base=$${YOUTUBE_RTMP_URL:-rtmp://a.rtmp.youtube.com/live2}; key=$${YOUTUBE_STREAM_KEY:-}; if [ -n "$$key" ]; then case "$$base" in *"$$key"*) out="$$base" ;; *) out="$${base%/}/$$key" ;; esac; else out="$$base"; fi; nohup ffmpeg -hide_banner -loglevel info -re -fflags +genpts -i http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 128k -ar 44100 -f flv "$$out" > logs/youtube.log 2>&1 & echo $$! > run/youtube.pid; sleep 3; kill -0 "$$(cat run/youtube.pid)"'
+	$(MAKE) youtube-redact-log
+
+youtube-redact-log:
+	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); [ -f logs/youtube.log ] || exit 0; key=$$(awk -F= '\''/^YOUTUBE_STREAM_KEY=/{sub(/^[^=]*=/,""); print; exit}'\'' .env); base=$$(awk -F= '\''/^YOUTUBE_RTMP_URL=/{sub(/^[^=]*=/,""); print; exit}'\'' .env); if [ -n "$$key" ]; then KEY="$$key" perl -0pi -e '\''s/\Q$$ENV{KEY}\E/[redacted]/g'\'' logs/youtube.log; fi; if [ -n "$$base" ]; then BASE="$$base" perl -0pi -e '\''s/\Q$$ENV{BASE}\E/rtmp:\/\/[redacted]/g'\'' logs/youtube.log; fi'
 
 youtube-stop:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR); [ -f run/youtube.pid ] && kill "$$(cat run/youtube.pid)" 2>/dev/null || true'
