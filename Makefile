@@ -29,7 +29,7 @@ remote-install:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR) && npm ci --omit=dev --no-audit --no-fund'
 
 remote-start:
-	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); mkdir -p logs run; if [ -f run/server.pid ]; then old=$$(cat run/server.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old"; sleep 1; fi; fi; nohup npm start > logs/server.log 2>&1 & echo $$! > run/server.pid; sleep 1; kill -0 "$$(cat run/server.pid)"'
+	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); mkdir -p logs run; if [ -f run/server.pid ]; then old=$$(cat run/server.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old" 2>/dev/null || true; sleep 1; fi; fi; nohup npm start > logs/server.log 2>&1 & echo $$! > run/server.pid; sleep 1; kill -0 "$$(cat run/server.pid)"'
 
 compositor-start:
 	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
