@@ -153,15 +153,15 @@
     <div class="main-title">Katechon Technology</div>
     <div class="main-sub">24hr interactive livestream</div>
     <div class="gif-row">
-      <div class="gif-box">
+      <div class="gif-box" onclick="switchWs('spectre')">
         <img src="gifs/spectre.gif" alt="SPECTRE" onerror="this.style.display='none'">
         <div class="gif-label">OSINT / SPECTRE</div>
       </div>
-      <div class="gif-box">
+      <div class="gif-box" onclick="switchWs('minecraft')">
         <img src="gifs/minecraft.gif" alt="Minecraft" onerror="this.style.display='none'">
         <div class="gif-label">Minecraft AI</div>
       </div>
-      <div class="gif-box">
+      <div class="gif-box" onclick="switchWs('news')">
         <img src="gifs/news.gif" alt="News" onerror="this.style.display='none'">
         <div class="gif-label">AI News Feed</div>
       </div>
@@ -213,6 +213,10 @@
       });
       document.getElementById('email-overlay').classList.add('hidden');
       document.getElementById('main-overlay').classList.remove('hidden');
+    }
+
+    function switchWs(workspace) {
+      fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
     }
 
     document.getElementById('email-input').addEventListener('keydown', e => {

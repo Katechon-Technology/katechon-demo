@@ -23,6 +23,7 @@ ssh "${REMOTE}" "
   docker rm -f ${CONTAINER} 2>/dev/null || true
   docker run -d --name ${CONTAINER} \
     --network psychic_train_net \
+    --add-host=host.docker.internal:host-gateway \
     -p ${HOST_HLS_PORT}:3000 \
     --shm-size=2g \
     -e ANGLE_BACKEND=swiftshader \

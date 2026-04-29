@@ -32,6 +32,13 @@ app.post("/api/switch/:workspace", async (req, res) => {
   const { workspace } = req.params;
   state.currentWorkspace = workspace;
 
+  // Tell the container's background.html to switch workspace
+  fetch("http://localhost:3100/switch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workspace }),
+  }).catch(() => {});
+
   const sessionId = state.sessions[workspace];
   if (sessionId && workspace !== "spectre") {
     try {
