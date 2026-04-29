@@ -18,41 +18,33 @@
       pointer-events: none;
     }
 
+    /* ── SHARED OVERLAY BASE ──
+       Content-frame in stream: left=60px top=80px w=1100px h=880px @ 1920×1080
+       As % of viewport: left=3.1% top=7.4% width=57.3% height=81.5%
+       Title bar inside frame is 32px tall (~3% of height), so content starts at ~10.4% top
+    */
+    .overlay {
+      position: fixed;
+      left: 3.1%; top: 10.4%;
+      width: 57.3%; height: 78.5%;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .overlay.hidden { display: none; }
+
     /* ── EMAIL OVERLAY ── */
     #email-overlay {
-      position: fixed; inset: 0; z-index: 10;
       display: flex; align-items: center; justify-content: center;
     }
-    #email-overlay.hidden { display: none; }
 
     .email-card {
+      pointer-events: all;
       background: rgba(13,13,15,0.82);
       border: 1px solid rgba(255,255,255,0.07);
       border-radius: 8px;
-      padding: 40px 44px;
-      width: 400px;
-      text-align: center;
-      position: relative;
+      padding: 24px 28px;
+      width: 320px;
       backdrop-filter: blur(10px);
-    }
-    .email-card::before {
-      content: "";
-      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-      width: 60%; height: 1px;
-      background: linear-gradient(90deg, transparent, #00e87b, transparent);
-    }
-    .card-label {
-      font-family: monospace; font-size: 10px;
-      letter-spacing: 0.3em; color: #00e87b;
-      margin-bottom: 20px; text-transform: uppercase;
-    }
-    .card-title {
-      font-family: monospace; font-size: 20px; font-weight: 700;
-      color: #e8e8ec; margin-bottom: 8px;
-    }
-    .card-sub {
-      font-family: monospace; font-size: 11px;
-      color: #6b6b78; margin-bottom: 28px; line-height: 1.7;
     }
     .card-input {
       width: 100%; background: #0d0d0f;
@@ -72,23 +64,84 @@
       cursor: pointer; transition: opacity 0.2s;
     }
     .card-btn:hover { opacity: 0.85; }
+
+    /* ── MAIN OVERLAY (after email) ── */
+    #main-overlay {
+      padding: 36px 40px;
+      display: flex; flex-direction: column; gap: 32px;
+    }
+
+    .main-title {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 4.2vw; font-weight: 700;
+      color: #fff; line-height: 1.1;
+    }
+    .main-sub {
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 1.4vw; color: rgba(255,255,255,0.7);
+      margin-top: -20px;
+    }
+
+    .gif-row {
+      display: flex; gap: 20px;
+      pointer-events: all;
+    }
+    .gif-box {
+      flex: 1; aspect-ratio: 4/3;
+      border-radius: 6px; overflow: hidden;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      transition: border-color 0.2s, transform 0.15s;
+      position: relative;
+    }
+    .gif-box:hover {
+      border-color: #00e87b;
+      transform: translateY(-2px);
+    }
+    .gif-box img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .gif-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 6px 10px;
+      background: rgba(0,0,0,0.6);
+      font-family: monospace; font-size: 10px;
+      letter-spacing: 0.15em; color: #00e87b;
+      text-transform: uppercase;
+    }
   </style>
 </head>
 <body>
   <video id="v" autoplay muted playsinline></video>
   <div id="status">connecting...</div>
 
-  <div id="email-overlay">
+  <!-- landing: email input -->
+  <div id="email-overlay" class="overlay">
     <div class="email-card">
-      <div class="card-label">Katechon Technology</div>
-      <div class="card-title">Intelligence Platform</div>
-      <div class="card-sub">
-        Real-time threat analysis.<br>
-        Autonomous AI intelligence agents.
-      </div>
       <input id="email-input" class="card-input" type="email"
-        placeholder="Enter your email to access the stream" autocomplete="email">
+        placeholder="Enter your email" autocomplete="email">
       <button class="card-btn" onclick="enter()">Access Stream</button>
+    </div>
+  </div>
+
+  <!-- after email: title + gif thumbnails -->
+  <div id="main-overlay" class="overlay hidden">
+    <div class="main-title">Katechon Technology</div>
+    <div class="main-sub">24hr interactive livestream</div>
+    <div class="gif-row">
+      <div class="gif-box">
+        <img src="gifs/spectre.gif" alt="SPECTRE" onerror="this.style.display='none'">
+        <div class="gif-label">OSINT / SPECTRE</div>
+      </div>
+      <div class="gif-box">
+        <img src="gifs/minecraft.gif" alt="Minecraft" onerror="this.style.display='none'">
+        <div class="gif-label">Minecraft AI</div>
+      </div>
+      <div class="gif-box">
+        <img src="gifs/news.gif" alt="News" onerror="this.style.display='none'">
+        <div class="gif-label">AI News Feed</div>
+      </div>
     </div>
   </div>
 
@@ -125,6 +178,7 @@
         body: JSON.stringify({ email }),
       });
       document.getElementById('email-overlay').classList.add('hidden');
+      document.getElementById('main-overlay').classList.remove('hidden');
     }
 
     document.getElementById('email-input').addEventListener('keydown', e => {
