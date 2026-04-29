@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Katechon Desktop Stream</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    video { width: 100%; height: 100%; object-fit: contain; display: block; }
+    #status {
+      position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); color: #00e87b;
+      font-family: monospace; font-size: 12px; padding: 6px 14px;
+      border-radius: 4px; letter-spacing: 0.1em;
+    }
+  </style>
+</head>
+<body>
+  <video id="v" autoplay muted playsinline></video>
+  <div id="status">connecting...</div>
+  <script>
+    const v = document.getElementById('v');
+    const st = document.getElementById('status');
+    const src = 'http://localhost:9095/stream.m3u8';
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
+      hls.loadSource(src);
+      hls.attachMedia(v);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        v.play().catch(() => {});
+        st.textContent = '● LIVE — katechon-desktop';
+      });
+      hls.on(Hls.Events.ERROR, (_, d) => {
+        if (d.fatal) {
+          st.textContent = 'reconnecting...';
+          setTimeout(() => hls.loadSource(src), 2000);
+        }
+      });
+    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
+      v.src = src;
+      v.addEventListener('loadedmetadata', () => v.play().catch(() => {}));
+    }
+  </script>
+</body>
+</html>

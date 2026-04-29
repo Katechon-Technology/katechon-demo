@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KATECHON — Intelligence Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0f;
+      --surface: #141418;
+      --surface2: #1c1c22;
+      --border: rgba(255,255,255,0.07);
+      --accent: #00e87b;
+      --accent-blue: #4d9eff;
+      --accent-red: #ff4444;
+      --text: #e8e8ec;
+      --text-dim: #6b6b78;
+      --mono: "IBM Plex Mono", monospace;
+      --sans: "Inter", system-ui, sans-serif;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow: hidden;
+    }
+
+    /* ── SCANLINE OVERLAY ── */
+    body::after {
+      content: "";
+      position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent, transparent 2px,
+        rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px
+      );
+    }
+
+    /* ── EMAIL MODAL ── */
+    #modal {
+      position: fixed; inset: 0; z-index: 1000;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(12px);
+    }
+    #modal.hidden { display: none; }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 48px;
+      width: 480px;
+      text-align: center;
+      position: relative;
+    }
+    .modal-card::before {
+      content: "";
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    .modal-logo {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      color: var(--accent);
+      margin-bottom: 32px;
+      text-transform: uppercase;
+    }
+
+    .modal-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+
+    .modal-sub {
+      font-size: 14px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    .modal-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-input::placeholder { color: var(--text-dim); }
+
+    .modal-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .modal-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .modal-btn:active { transform: translateY(0); }
+
+    /* ── MAIN APP ── */
+    #app {
+      display: none;
+      flex-direction: column;
+      height: 100%;
+    }
+    #app.visible { display: flex; }
+
+    /* ── HEADER ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      height: 48px;
+    }
+
+    .header-left {
+      display: flex; align-items: center; gap: 20px;
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.25em;
+      color: var(--accent);
+    }
+
+    .header-status {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .header-right {
+      display: flex; align-items: center; gap: 12px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .header-time { letter-spacing: 0.05em; }
+
+    /* ── CONTENT GRID ── */
+    .content-grid {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      gap: 0;
+    }
+
+    /* ── WORKSPACE AREA ── */
+    #workspace-area {
+      flex: 1;
+      position: relative;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .workspace-view {
+      position: absolute; inset: 0;
+      display: none;
+    }
+    .workspace-view.active { display: block; }
+
+    .workspace-view iframe,
+    .workspace-view video {
+      width: 100%; height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Stream view (HLS / vtuber-overlay) */
+    #stream-view video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    /* Loading state */
+    #loading-view {
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px;
+    }
+    .loading-spinner {
+      width: 40px; height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.1em;
+    }
+
+    /* Workspace label */
+    .workspace-badge {
+      position: absolute; top: 14px; left: 14px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: var(--accent);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* ── AVATAR PANEL ── */
+    #avatar-panel {
+      width: 340px;
+      min-width: 340px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #avatar-frame-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #avatar-frame {
+      width: 100%; height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* Gradient fade at bottom of avatar */
+    #avatar-frame-wrap::after {
+      content: "";
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 80px;
+      background: linear-gradient(transparent, var(--surface));
+      pointer-events: none;
+    }
+
+    /* ── MIC / VOICE BUTTON ── */
+    #voice-section {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+
+    #mic-btn {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      background: var(--surface2);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      position: relative;
+    }
+    #mic-btn:hover { border-color: var(--accent); background: rgba(0,232,123,0.08); }
+    #mic-btn.listening {
+      border-color: var(--accent-red);
+      background: rgba(255,68,68,0.1);
+      animation: ring 1s ease-in-out infinite;
+    }
+    @keyframes ring {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(255,68,68,0); }
+    }
+
+    #mic-btn svg { pointer-events: none; }
+
+    #mic-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* Transcript bubble */
+    #transcript {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text);
+      text-align: center;
+      min-height: 32px;
+      padding: 0 8px;
+      line-height: 1.5;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #transcript.visible { opacity: 1; }
+
+    /* ── WORKSPACE NAV ── */
+    #workspace-nav {
+      display: flex;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .ws-btn {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .ws-btn:last-child { border-right: none; }
+    .ws-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .ws-btn.active {
+      color: var(--accent);
+      background: rgba(0,232,123,0.06);
+      border-bottom: 2px solid var(--accent);
+    }
+    .ws-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: currentColor;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── EMAIL MODAL ── -->
+  <div id="modal">
+    <div class="modal-card">
+      <div class="modal-logo">Katechon Technology</div>
+      <div class="modal-title">Intelligence Platform</div>
+      <div class="modal-sub">
+        Real-time threat analysis.<br>
+        Autonomous AI intelligence agents.
+      </div>
+      <input id="email-input" class="modal-input" type="email"
+        placeholder="Enter your email to access the stream" autocomplete="email">
+      <button class="modal-btn" onclick="enterPlatform()">Access Stream</button>
+    </div>
+  </div>
+
+  <!-- ── MAIN APP ── -->
+  <div id="app">
+
+    <header>
+      <div class="header-left">
+        <div class="logo">KATECHON</div>
+        <div class="header-status">
+          <div class="status-dot"></div>
+          <span id="stream-status">STREAM LIVE</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="header-time" id="clock"></span>
+      </div>
+    </header>
+
+    <div class="content-grid">
+
+      <!-- Workspace area -->
+      <div id="workspace-area">
+
+        <!-- SPECTRE / OSINT -->
+        <div id="spectre-view" class="workspace-view active">
+          <iframe src="http://localhost:9092/" allow="autoplay"></iframe>
+        </div>
+
+        <!-- AI News / Playwright-browser stream -->
+        <div id="news-view" class="workspace-view">
+          <video id="news-video" autoplay muted playsinline></video>
+        </div>
+
+        <!-- Minecraft HLS stream -->
+        <div id="minecraft-view" class="workspace-view">
+          <video id="mc-video" autoplay muted playsinline></video>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading-view" class="workspace-view">
+          <div class="loading-spinner"></div>
+          <div class="loading-text" id="loading-msg">ESTABLISHING CONNECTION...</div>
+        </div>
+
+        <div class="workspace-badge" id="ws-badge">// OSINT SPECTRE — GLOBAL INTELLIGENCE</div>
+      </div>
+
+      <!-- Avatar panel -->
+      <div id="avatar-panel">
+        <div id="avatar-frame-wrap">
+          <iframe id="avatar-frame"
+            src="http://localhost:9091/embed.html"
+            allow="autoplay; microphone; camera">
+          </iframe>
+        </div>
+
+        <div id="voice-section">
+          <button id="mic-btn" onclick="toggleMic()" title="Hold to speak">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </button>
+          <div id="mic-label">HOLD TO SPEAK</div>
+          <div id="transcript"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Workspace nav -->
+    <nav id="workspace-nav">
+      <button class="ws-btn active" id="btn-spectre" onclick="switchWorkspace('spectre')">
+        <span class="ws-dot"></span> OSINT / SPECTRE
+      </button>
+      <button class="ws-btn" id="btn-news" onclick="switchWorkspace('news')">
+        <span class="ws-dot"></span> AI NEWS FEED
+      </button>
+      <button class="ws-btn" id="btn-minecraft" onclick="switchWorkspace('minecraft')">
+        <span class="ws-dot"></span> MINECRAFT
+      </button>
+    </nav>
+
+  </div>
+
+  <script>
+    // ── CLOCK ──────────────────────────────────────────────────────
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock").textContent =
+        now.toISOString().replace("T", " ").substring(0, 19) + " UTC";
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // ── EMAIL GATE ────────────────────────────────────────────────
+    function enterPlatform() {
+      const email = document.getElementById("email-input").value.trim();
+      if (!email || !email.includes("@")) {
+        document.getElementById("email-input").style.borderColor = "var(--accent-red)";
+        return;
+      }
+      fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      document.getElementById("modal").classList.add("hidden");
+      document.getElementById("app").classList.add("visible");
+      initApp();
+    }
+
+    document.getElementById("email-input").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") enterPlatform();
+    });
+
+    // ── APP INIT ──────────────────────────────────────────────────
+    let currentWorkspace = "spectre";
+    let mcHlsInstance = null;
+    let streamHlsInstance = null;
+    let mcStreamUrl = null;
+    let mcSessionId = null;
+
+    const WORKSPACES = {
+      spectre:  { badge: "// OSINT SPECTRE — GLOBAL INTELLIGENCE",  btnId: "btn-spectre" },
+      news:     { badge: "// AI NEWS FEED — AUTONOMOUS DOOMSCROLL", btnId: "btn-news" },
+      minecraft:{ badge: "// MINECRAFT — AI AGENT GAMEPLAY",        btnId: "btn-minecraft" },
+    };
+
+    let newsHlsInstance = null;
+
+    function initApp() {
+      // Start the AI news stream in background
+      initHls("news-video", "http://localhost:9094/stream.m3u8", (hls) => {
+        newsHlsInstance = hls;
+        document.getElementById("btn-news").style.color = "var(--accent)";
+      });
+
+      // Check if minecraft session already exists and poll it
+      pollMinecraft();
+    }
+
+    // ── WORKSPACE SWITCHING ───────────────────────────────────────
+    function switchWorkspace(ws) {
+      if (ws === currentWorkspace) return;
+      currentWorkspace = ws;
+
+      // Update nav buttons
+      document.querySelectorAll(".ws-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById(WORKSPACES[ws].btnId).classList.add("active");
+
+      // Update badge
+      document.getElementById("ws-badge").textContent = WORKSPACES[ws].badge;
+
+      // Show / hide views
+      document.querySelectorAll(".workspace-view").forEach(v => v.classList.remove("active"));
+
+      if (ws === "spectre") {
+        document.getElementById("spectre-view").classList.add("active");
+      } else if (ws === "news") {
+        document.getElementById("news-view").classList.add("active");
+      } else if (ws === "minecraft") {
+        if (mcStreamUrl) {
+          document.getElementById("minecraft-view").classList.add("active");
+          if (!mcHlsInstance) {
+            initHls("mc-video", mcStreamUrl, (hls) => { mcHlsInstance = hls; });
+          }
+        } else {
+          showLoading("LAUNCHING MINECRAFT SESSION...");
+          startMinecraft();
+        }
+      }
+
+      // Notify server to update broker livestream
+      fetch(`/api/switch/${ws}`, { method: "POST" }).catch(() => {});
+    }
+
+    // ── MINECRAFT SESSION MANAGEMENT ─────────────────────────────
+    function showLoading(msg) {
+      document.getElementById("loading-msg").textContent = msg || "ESTABLISHING CONNECTION...";
+      document.querySelectorAll(".workspace-view").forEach(v => v.classList.remove("active"));
+      document.getElementById("loading-view").classList.add("active");
+    }
+
+    async function startMinecraft() {
+      try {
+        const r = await fetch("/api/sessions/start/minecraft", { method: "POST" });
+        const session = await r.json();
+        mcSessionId = session.id;
+        pollSession(session.id);
+      } catch (e) {
+        showLoading("SESSION ERROR — RETRYING...");
+        setTimeout(startMinecraft, 3000);
+      }
+    }
+
+    async function pollMinecraft() {
+      // Check if there's already an active minecraft session from server state
+      const r = await fetch("/api/state").catch(() => null);
+      if (!r) return;
+      const state = await r.json();
+      if (state.sessions.minecraft) {
+        mcSessionId = state.sessions.minecraft;
+        pollSession(mcSessionId);
+      }
+    }
+
+    function pollSession(sessionId) {
+      const interval = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/sessions/${sessionId}`);
+          const session = await r.json();
+
+          if (session.status === "running" && session.stream_url) {
+            clearInterval(interval);
+            // Tunnel the stream locally: we'll use port 9093
+            // stream_url is like https://minecraft0.stream.claudetorio.ai/stream.m3u8
+            // Map to local tunnel
+            mcStreamUrl = "http://localhost:9093/stream.m3u8";
+            document.getElementById("btn-minecraft").style.color = "var(--accent)";
+
+            // If we're currently on minecraft-loading, switch to minecraft view
+            if (currentWorkspace === "minecraft") {
+              document.querySelectorAll(".workspace-view").forEach(v => v.classList.remove("active"));
+              document.getElementById("minecraft-view").classList.add("active");
+              initHls("mc-video", mcStreamUrl, (hls) => { mcHlsInstance = hls; });
+            }
+          } else if (session.status === "completed" || session.status === "failed") {
+            clearInterval(interval);
+          }
+        } catch (e) {/* ignore */}
+      }, 4000);
+    }
+
+    // ── HLS PLAYER ───────────────────────────────────────────────
+    function initHls(videoId, src, onReady) {
+      const video = document.getElementById(videoId);
+      if (!video) return;
+      if (Hls.isSupported()) {
+        const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 20, lowLatencyMode: true });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {});
+          if (onReady) onReady(hls);
+        });
+        hls.on(Hls.Events.ERROR, (_, d) => {
+          if (d.fatal) setTimeout(() => hls.loadSource(src), 3000);
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+        video.addEventListener("loadedmetadata", () => video.play().catch(() => {}));
+        if (onReady) onReady(null);
+      }
+    }
+
+    // ── VOICE / MIC ───────────────────────────────────────────────
+    let recognition = null;
+    let micActive = false;
+
+    const WORKSPACE_PATTERNS = [
+      { re: /\b(osint|spectre|intel|dashboard|map|threat)\b/i,  ws: "spectre" },
+      { re: /\b(news|feed|doomscroll|browse|article|media)\b/i, ws: "news" },
+      { re: /\b(minecraft|mine|craft|game|play)\b/i,            ws: "minecraft" },
+    ];
+
+    function initSpeech() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return null;
+      const r = new SR();
+      r.continuous = false;
+      r.interimResults = true;
+      r.lang = "en-US";
+
+      r.onresult = (e) => {
+        const transcript = Array.from(e.results)
+          .map(r => r[0].transcript).join("").trim();
+        showTranscript(transcript);
+
+        if (e.results[e.results.length - 1].isFinal) {
+          handleVoiceCommand(transcript);
+        }
+      };
+
+      r.onend = () => {
+        micActive = false;
+        document.getElementById("mic-btn").classList.remove("listening");
+        document.getElementById("mic-label").textContent = "HOLD TO SPEAK";
+      };
+
+      r.onerror = () => {
+        micActive = false;
+        document.getElementById("mic-btn").classList.remove("listening");
+      };
+
+      return r;
+    }
+
+    function toggleMic() {
+      if (!recognition) recognition = initSpeech();
+      if (!recognition) {
+        showTranscript("Speech recognition not available in this browser.");
+        return;
+      }
+      if (micActive) {
+        recognition.stop();
+      } else {
+        micActive = true;
+        document.getElementById("mic-btn").classList.add("listening");
+        document.getElementById("mic-label").textContent = "LISTENING...";
+        recognition.start();
+      }
+    }
+
+    function showTranscript(text) {
+      const el = document.getElementById("transcript");
+      el.textContent = text ? `"${text}"` : "";
+      el.classList.toggle("visible", !!text);
+    }
+
+    function handleVoiceCommand(text) {
+      for (const { re, ws } of WORKSPACE_PATTERNS) {
+        if (re.test(text)) {
+          switchWorkspace(ws);
+          showTranscript(`→ switching to ${ws.toUpperCase()}`);
+          setTimeout(() => showTranscript(""), 2000);
+          return;
+        }
+      }
+      // Non-command: just display
+      setTimeout(() => showTranscript(""), 4000);
+    }
+  </script>
+</body>
+</html>
