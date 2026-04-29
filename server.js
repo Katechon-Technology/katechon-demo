@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const fetch = require("node-fetch");
-const FormData = require("form-data");
 const path = require("path");
 
 const app = express();
@@ -108,15 +107,20 @@ app.put("/api/sessions/:kind/:id", (req, res) => {
 // POST /api/transcribe — receives audio blob, returns transcript via Groq Whisper
 app.post("/api/transcribe", express.raw({ type: "*/*", limit: "10mb" }), async (req, res) => {
   try {
+    const ct = (req.headers["content-type"] || "audio/webm").split(";")[0].trim();
+    const ext = ct.includes("ogg") ? "ogg" : ct.includes("mp4") ? "mp4" : "webm";
+    console.log(`transcribe: ${req.body.length} bytes, type=${ct}`);
+    const blob = new Blob([req.body], { type: ct });
     const form = new FormData();
-    form.append("file", req.body, { filename: "audio.webm", contentType: req.headers["content-type"] });
+    form.append("file", blob, `audio.${ext}`);
     form.append("model", "whisper-large-v3-turbo");
     const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
       method: "POST",
-      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, ...form.getHeaders() },
+      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` },
       body: form,
     });
     const data = await r.json();
+    console.log("groq response:", JSON.stringify(data));
     res.json({ text: data.text || "" });
   } catch (err) {
     console.error("transcribe error:", err.message);

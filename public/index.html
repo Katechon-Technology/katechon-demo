@@ -292,23 +292,30 @@
       micBtn.querySelector('span').textContent = on ? 'listening' : 'hold';
     }
 
+    const MIME = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4']
+      .find(m => MediaRecorder.isTypeSupported(m)) || '';
+
     async function startRecording() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunks = [];
-      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder = new MediaRecorder(stream, MIME ? { mimeType: MIME } : {});
       mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         setListening(false);
         showToast('transcribing…', '#6b6b78');
         const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+        console.log('audio blob:', blob.size, 'bytes, type:', blob.type);
+        if (blob.size < 1000) { showToast('too short — hold longer', '#6b6b78'); return; }
         try {
           const r = await fetch('/api/transcribe', {
             method: 'POST',
-            headers: { 'Content-Type': mediaRecorder.mimeType },
+            headers: { 'Content-Type': blob.type },
             body: blob,
           });
-          const { text } = await r.json();
+          const data = await r.json();
+          console.log('transcribe response:', data);
+          const text = data.text;
           if (text) handleCommand(text);
           else showToast('no speech detected', '#6b6b78');
         } catch(e) {
