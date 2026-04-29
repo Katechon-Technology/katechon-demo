@@ -111,6 +111,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
   }
   #ws-iframe {
     flex: 1; border: none; display: none;
+    opacity: 0; transition: opacity 0.5s ease;
   }
 </style>
 </head>
@@ -129,7 +130,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
   </div>
   <script>
     const WORKSPACES = {
-      spectre: { url: 'http://host.docker.internal:3010', title: '// OSINT — SPECTRE INTELLIGENCE' },
+      spectre: { url: 'http://host.docker.internal:3010/?kiosk=1', title: '// OSINT — SPECTRE INTELLIGENCE' },
     };
     let cur = null;
     const iframe = document.getElementById('ws-iframe');
@@ -143,16 +144,18 @@ cat > /var/www/avatar/background.html << 'BGEOF'
         cur = workspace;
         const ws = WORKSPACES[workspace];
         if (ws) {
-          iframe.src = ws.url;
+          iframe.style.opacity = '0';
           iframe.style.display = 'block';
+          iframe.src = ws.url;
+          iframe.onload = () => { iframe.style.opacity = '1'; };
           titleEl.textContent = ws.title;
         } else {
-          iframe.src = '';
-          iframe.style.display = 'none';
+          iframe.style.opacity = '0';
+          setTimeout(() => { iframe.style.display = 'none'; iframe.src = ''; }, 500);
           titleEl.textContent = '// KATECHON — INTELLIGENCE PLATFORM';
         }
       } catch(e) {}
-    }, 1000);
+    }, 250);
   </script>
 </body>
 </html>

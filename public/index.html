@@ -180,6 +180,9 @@
   </button>
 
   <script>
+    // Reset stream to landing state on every page load
+    fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
+
     const v   = document.getElementById('v');
     const st  = document.getElementById('status');
     const src = 'http://localhost:9095/stream.m3u8';
@@ -217,6 +220,7 @@
 
     function switchWs(workspace) {
       fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
+      document.getElementById('main-overlay').classList.add('hidden');
     }
 
     document.getElementById('email-input').addEventListener('keydown', e => {
