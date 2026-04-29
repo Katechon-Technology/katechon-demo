@@ -33,7 +33,7 @@ app.post("/api/switch/:workspace", async (req, res) => {
   state.currentWorkspace = workspace;
 
   // Tell the container's background.html to switch workspace
-  fetch("http://localhost:3100/switch", {
+  fetch("http://localhost:9095/switch", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ workspace }),
