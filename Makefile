@@ -3,6 +3,7 @@ REMOTE_DIR ?= /opt/katechon/katechon-demo
 CONTAINER ?= katechon-desktop
 IMAGE ?= katechon-stream-client:latest
 HOST_HLS_PORT ?= 3100
+ENABLE_HLS_AUDIO ?= 1
 
 .SILENT:
 
@@ -15,7 +16,7 @@ RSYNC_EXCLUDES := \
 	--exclude recordings \
 	--exclude 'public/debug-audio.*'
 
-.PHONY: deploy remote-env remote-install remote-start compositor-start status logs youtube-start youtube-redact-log youtube-stop record-start record-stop
+.PHONY: deploy remote-env remote-install remote-start compositor-start wait-hls stream-audio-restart status logs youtube-start youtube-redact-log youtube-stop record-start record-stop
 
 deploy:
 	rsync -az --delete $(RSYNC_EXCLUDES) ./ $(REMOTE):$(REMOTE_DIR)/
@@ -31,20 +32,29 @@ remote-start:
 	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); mkdir -p logs run; if [ -f run/server.pid ]; then old=$$(cat run/server.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old"; sleep 1; fi; fi; nohup npm start > logs/server.log 2>&1 & echo $$! > run/server.pid; sleep 1; kill -0 "$$(cat run/server.pid)"'
 
 compositor-start:
-	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
+	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
+
+wait-hls:
+	ssh $(REMOTE) 'set -eu; for i in $$(seq 1 60); do if curl -fsS http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 >/dev/null; then echo "hls ready"; exit 0; fi; sleep 1; done; docker logs --tail 120 $(CONTAINER); exit 1'
+
+stream-audio-restart:
+	$(MAKE) youtube-stop record-stop
+	$(MAKE) compositor-start ENABLE_HLS_AUDIO=1
+	$(MAKE) wait-hls
+	$(MAKE) youtube-start
+	$(MAKE) record-start
 
 youtube-start:
-	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); set -a; . ./.env; set +a; mkdir -p logs run; if [ -f run/youtube.pid ]; then old=$$(cat run/youtube.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old"; sleep 1; fi; fi; base=$${YOUTUBE_RTMP_URL:-rtmp://a.rtmp.youtube.com/live2}; key=$${YOUTUBE_STREAM_KEY:-}; if [ -n "$$key" ]; then case "$$base" in *"$$key"*) out="$$base" ;; *) out="$${base%/}/$$key" ;; esac; else out="$$base"; fi; nohup ffmpeg -hide_banner -loglevel info -re -fflags +genpts -i http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 128k -ar 44100 -f flv "$$out" > logs/youtube.log 2>&1 & echo $$! > run/youtube.pid; sleep 3; kill -0 "$$(cat run/youtube.pid)"'
-	$(MAKE) youtube-redact-log
+	ssh $(REMOTE) 'cd $(REMOTE_DIR) && HLS_URL=http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 bash scripts/remote-youtube-start.sh'
 
 youtube-redact-log:
-	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); [ -f logs/youtube.log ] || exit 0; key=$$(awk -F= '\''/^YOUTUBE_STREAM_KEY=/{sub(/^[^=]*=/,""); print; exit}'\'' .env); base=$$(awk -F= '\''/^YOUTUBE_RTMP_URL=/{sub(/^[^=]*=/,""); print; exit}'\'' .env); if [ -n "$$key" ]; then KEY="$$key" perl -0pi -e '\''s/\Q$$ENV{KEY}\E/[redacted]/g'\'' logs/youtube.log; fi; if [ -n "$$base" ]; then BASE="$$base" perl -0pi -e '\''s/\Q$$ENV{BASE}\E/rtmp:\/\/[redacted]/g'\'' logs/youtube.log; fi'
+	ssh $(REMOTE) 'cd $(REMOTE_DIR) && bash scripts/remote-redact-youtube-log.sh'
 
 youtube-stop:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR); [ -f run/youtube.pid ] && kill "$$(cat run/youtube.pid)" 2>/dev/null || true'
 
 record-start:
-	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); mkdir -p logs run recordings; if [ -f run/record.pid ]; then old=$$(cat run/record.pid || true); if [ -n "$$old" ] && kill -0 "$$old" 2>/dev/null; then kill "$$old"; sleep 1; fi; fi; stamp=$$(date -u +%Y%m%dT%H%M%SZ); out="$(REMOTE_DIR)/recordings/katechon-demo-$$stamp.mkv"; nohup ffmpeg -hide_banner -loglevel info -re -fflags +genpts -i http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 128k -ar 44100 "$$out" > logs/record.log 2>&1 & echo $$! > run/record.pid; printf "%s\n" "$$out" > run/record.path; sleep 3; kill -0 "$$(cat run/record.pid)"; cat run/record.path'
+	ssh $(REMOTE) 'cd $(REMOTE_DIR) && HLS_URL=http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 bash scripts/remote-record-start.sh'
 
 record-stop:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR); [ -f run/record.pid ] && kill "$$(cat run/record.pid)" 2>/dev/null || true'

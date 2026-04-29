@@ -1,32 +1,38 @@
 # katechon-demo
 
-Local web frontend for the Katechon 24hr interactive livestream. It connects to a remote Docker container that composites the vtuber avatar + workspace stream via HLS, and exposes a push-to-talk voice interface powered by Groq Whisper + ElevenLabs.
+Remote-first demo runtime for the Katechon 24hr interactive livestream. The remote server runs the public UI/API, the compositor container, the YouTube RTMP push, and server-side recording; developer machines sync code to the server for fast iteration.
 
 ## Architecture
 
 ```
-Browser (localhost:4040)
+Developer machine
     │
-    │  HLS video (port 9095)
-    │  REST API (push-to-talk, workspace switching)
+    │ rsync / git push
     ▼
-server.js  ──── SSH tunnels ────▶  claudetorio-stream-server (remote)
-                                       │
-                                       ├── Docker: katechon-desktop
-                                       │     entrypoint-hls.sh
-                                       │     Xvfb + Chromium (x2)
-                                       │     FFmpeg → HLS
-                                       │     Python state/control server :3000
-                                       │
-                                       ├── Open-LLM-VTuber avatar  :12393
-                                       ├── SPECTRE Flask dashboard  :3010
-                                       └── Minecraft HLS stream     :3003
+claudetorio-stream-server:/opt/katechon/katechon-demo
+    │
+    ├── Node UI/API :4040
+    │     ├── public landing/control UI
+    │     ├── push-to-talk API
+    │     └── same-origin HLS proxy: /stream.m3u8 + /seg*.ts
+    │
+    ├── Docker: katechon-desktop :3100 -> :3000
+    │     ├── entrypoint-hls.sh
+    │     ├── Xvfb + Chromium desktop/avatar displays
+    │     ├── Python state/control server
+    │     └── FFmpeg -> HLS
+    │
+    ├── YouTube RTMP FFmpeg push
+    └── server-side recording
 ```
+
+The current public demo URL is `http://176.57.184.142:4040/`.
 
 ### Code that runs on the server
 
 **`entrypoint-hls.sh`** — runs inside the `katechon-desktop` Docker container on the remote host. It:
 - Starts two Xvfb virtual displays (desktop + avatar)
+- Optionally starts PulseAudio and muxes Kat/avatar audio into HLS when `ENABLE_HLS_AUDIO=1`
 - Patches `avatar-pet.html` at runtime to add the voice-polling bridge
 - Launches two headless Chromium instances (background scene + avatar overlay)
 - Runs a Python HTTP server (`hls_server.py`) on `:3000` that serves:
@@ -37,6 +43,8 @@ server.js  ──── SSH tunnels ────▶  claudetorio-stream-server (
   - `POST /speak` — queue a TTS payload for the avatar
   - `GET /stream.m3u8` — HLS manifest (served from `/tmp/hls/`)
 - Composites the two displays with FFmpeg → HLS segments
+
+**`Makefile`** — primary remote sprint/operator surface. It deploys code to `/opt/katechon/katechon-demo`, starts the remote UI/API, restarts the compositor, starts/stops YouTube, and starts/stops recording.
 
 **`start.sh`** — orchestration script run locally. It uploads `entrypoint-hls.sh` to the remote host, (re)starts the Docker container, waits for HLS to be ready, opens SSH tunnels, then starts the local Express server.
 
@@ -103,6 +111,43 @@ This will:
 ### 5. Open the demo
 
 Navigate to `http://localhost:4040` and enter your email to access the stream.
+
+## Remote Demo Operations
+
+The remote host is the canonical runtime for the live demo:
+
+```bash
+make deploy
+make status
+```
+
+Useful operator commands:
+
+| Command | Purpose |
+|---|---|
+| `make deploy` | Sync repo to `/opt/katechon/katechon-demo`, rebuild remote `.env`, install deps, restart remote Node |
+| `make remote-start` | Restart only the remote Node UI/API |
+| `make compositor-start` | Cold-restart `katechon-desktop`; defaults to `ENABLE_HLS_AUDIO=1` |
+| `make stream-audio-restart` | Stop YouTube/recording, restart compositor with audio, wait for HLS, then restart YouTube and recording |
+| `make youtube-start` / `make youtube-stop` | Start/stop the remote YouTube RTMP push |
+| `make record-start` / `make record-stop` | Start/stop server-side recording under `recordings/` |
+| `make logs` | Tail Node, compositor, YouTube, and recording logs |
+| `make status` | Check Node, HLS, container, YouTube, and recording process health |
+
+YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, which is generated from existing remote secrets and is not committed. The saved YouTube log is redacted after startup, but the running FFmpeg process arguments still contain the RTMP destination, so avoid sharing raw remote `ps` output while the stream is live.
+
+### Audio Streaming
+
+The compositor supports two modes:
+
+| Mode | How | Notes |
+|---|---|---|
+| Video-only | `make compositor-start ENABLE_HLS_AUDIO=0` | Stable fallback if PulseAudio causes issues |
+| Video + Kat audio | `make stream-audio-restart` | Starts PulseAudio in the container, captures `kat_sink.monitor`, and muxes AAC into HLS |
+
+After switching audio modes, restart the YouTube and recording FFmpeg processes so they ingest the new HLS stream cleanly. `make stream-audio-restart` does this in one command. The YouTube and recording scripts use `ffprobe` to detect whether the HLS feed has an audio track; if it does, they forward that audio, and if it does not, they fall back to generated silent AAC so YouTube ingest stays valid.
+
+For local tunnel-based development, keep `HLS_CONTROL_URL=http://localhost:9095`. On the remote host, `.env` uses `HLS_CONTROL_URL=http://127.0.0.1:3100`, and the browser always loads same-origin `/stream.m3u8`.
 
 ## Local-only dev (no remote server)
 
