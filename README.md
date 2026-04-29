@@ -121,6 +121,19 @@ make deploy
 make status
 ```
 
+### GitHub Auto Deploy
+
+Pushes to `main` run `.github/workflows/deploy.yml`, which validates the app and then runs `make deploy` over SSH. Configure these repository secrets before relying on the workflow:
+
+| Secret | Purpose |
+|---|---|
+| `DEPLOY_HOST` | Remote server host or IP |
+| `DEPLOY_USER` | SSH user for the remote server |
+| `DEPLOY_SSH_KEY` | Private deploy key with access to the remote server |
+| `DEPLOY_PORT` | Optional SSH port, defaults to `22` |
+| `DEPLOY_KNOWN_HOSTS` | Optional pinned known_hosts entry; workflow uses `ssh-keyscan` if absent |
+| `DEPLOY_REMOTE_DIR` | Optional remote path, defaults to `/opt/katechon/katechon-demo` |
+
 Useful operator commands:
 
 | Command | Purpose |
