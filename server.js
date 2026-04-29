@@ -12,7 +12,6 @@ function loadEnvKeyFromFile(file, key) {
 
 const katechonAppEnv = path.join(__dirname, "..", "katechon-app", ".env.local");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_API_KEY");
-loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_VOICE_ID");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_MODEL_ID");
 loadEnvKeyFromFile(katechonAppEnv, "ANTHROPIC_API_KEY");
 
@@ -27,10 +26,16 @@ app.use(express.static(path.join(__dirname, "public")));
 const BROKER_URL = "https://api.claudetorio.ai";
 const BROKER_KEY = "tjkwns%gow214";
 const HLS_CONTROL_URL = process.env.HLS_CONTROL_URL || "http://localhost:9095";
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "pFZP5JQG7iQjIQuC4Bku";
+const VOICES = {
+  app: "pFZP5JQG7iQjIQuC4Bku",
+  pitch: "jqcCZkN6Knx8BJ5TBdYR",
+};
+const VOICE_SOURCE = process.env.KAT_VOICE_SOURCE || "pitch";
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOURCE] || VOICES.pitch;
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 
 const PANELS = [
   {
@@ -312,16 +317,18 @@ async function postStreamControl(pathname, payload) {
 }
 
 async function dispatchRemoteCommand(command) {
-  const workspace = workspaceForAction(command.action);
+  const workspace = command.workspace || workspaceForAction(command.action);
   if (workspace) state.currentWorkspace = workspace;
 
   try {
     return {
       ok: true,
-      data: await postStreamControl("/command", {
+      data: await postStreamControl("/agent", {
         id: command.id,
         action: command.action,
-        reply: command.reply,
+        transcript: command.transcript || "",
+        speech: command.speech || command.reply || "",
+        reply: command.speech || command.reply || "",
         workspace,
       }),
     };
@@ -352,6 +359,7 @@ async function dispatchRemoteSpeech(payload) {
 }
 
 async function runKatAgent(transcript) {
+  const startedAt = Date.now();
   const id = `kat-${Date.now()}`;
   let decision;
   try {
@@ -364,28 +372,37 @@ async function runKatAgent(transcript) {
   const workspace = decision.workspace || workspaceForAction(decision.action);
   if (workspace) state.currentWorkspace = workspace;
 
-  const commandRemote = await dispatchRemoteCommand({
+  const routeMs = Date.now() - startedAt;
+  const commandStartedAt = Date.now();
+  const commandRemotePromise = dispatchRemoteCommand({
     id,
+    transcript,
     action: decision.action,
-    reply: decision.speech,
+    speech: decision.speech,
     workspace,
-  });
+  }).then((result) => ({ ...result, elapsedMs: Date.now() - commandStartedAt }));
 
   let audio = "";
+  const ttsStartedAt = Date.now();
+  let ttsMs = 0;
   try {
     audio = await synthesizeSpeech(decision.speech);
   } catch (err) {
     console.warn("kat speech TTS failed:", err.message);
+  } finally {
+    ttsMs = Date.now() - ttsStartedAt;
   }
 
+  const speechStartedAt = Date.now();
   const speechRemote = audio
     ? await dispatchRemoteSpeech({
         id,
         text: decision.speech,
         audio,
         muted: false,
-      })
+      }).then((result) => ({ ...result, elapsedMs: Date.now() - speechStartedAt }))
     : { ok: false, error: "no audio" };
+  const commandRemote = await commandRemotePromise;
 
   return {
     id,
@@ -399,6 +416,12 @@ async function runKatAgent(transcript) {
     remote: {
       command: commandRemote,
       speech: speechRemote,
+    },
+    streamAudio: STREAM_AUDIO_ENABLED,
+    timings: {
+      routeMs,
+      ttsMs,
+      totalMs: Date.now() - startedAt,
     },
   };
 }
@@ -450,7 +473,7 @@ app.post("/api/speak", async (req, res) => {
     };
     const remote = audio ? await dispatchRemoteSpeech(payload) : { ok: false, error: "no audio" };
 
-    res.json({ ...payload, remote });
+    res.json({ ...payload, remote, streamAudio: STREAM_AUDIO_ENABLED });
   } catch (err) {
     console.error("speech error:", err.message);
     res.status(500).json({ error: err.message });
@@ -517,6 +540,7 @@ app.post("/api/register", (req, res) => {
 const PORT = process.env.PORT || 4040;
 app.listen(PORT, () => {
   console.log(`katechon-demo running at http://localhost:${PORT}`);
+  console.log(`Kat voice: ${VOICE_SOURCE} (${ELEVENLABS_VOICE_ID}), model=${ELEVENLABS_MODEL_ID}`);
   console.log("tunnels needed:");
   console.log("  HLS (vtuber):  ssh -fN -L 9090:172.20.0.2:3000 claudetorio-stream-server");
   console.log("  Avatar:        ssh -fN -L 9091:172.20.0.2:12393 claudetorio-stream-server");

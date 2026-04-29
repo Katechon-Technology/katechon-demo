@@ -289,6 +289,9 @@
     }
 
     async function unlockAgentAudio() {
+      v.muted = false;
+      v.volume = 1;
+      v.play().catch(() => {});
       const ctx = getReplyAudioContext();
       if (ctx.state === 'suspended') await ctx.resume();
       const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
@@ -334,7 +337,12 @@
         muted: command.muted,
         audioBytes: command.audio ? Math.floor((command.audio.length * 3) / 4) : 0,
         remote: command.remote,
+        timings: command.timings,
       });
+      if (command.streamAudio && command.remote?.speech?.ok) {
+        await wait(readableDelay(speech));
+        return;
+      }
       if (!command.audio || command.muted) {
         await wait(readableDelay(speech));
         return;

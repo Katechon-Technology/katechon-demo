@@ -13,11 +13,15 @@ DISPLAY_AVT=":2"
 W=1920; H=1080
 AVT_W=640; AVT_H=1080
 OVERLAY_X=1280; OVERLAY_Y=0
+ENABLE_HLS_AUDIO="${ENABLE_HLS_AUDIO:-0}"
 
 export XDG_RUNTIME_DIR=/tmp/xdg-runtime
 mkdir -p "$XDG_RUNTIME_DIR" /tmp/.X11-unix /tmp/hls
 chmod 700 "$XDG_RUNTIME_DIR"
 chmod 1777 /tmp/.X11-unix
+if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
+    export PULSE_SERVER="unix:${XDG_RUNTIME_DIR}/pulse/native"
+fi
 
 XVFB1_PID="" XVFB2_PID="" CHROME1_PID="" CHROME2_PID="" AVTSRV_PID="" FFMPEG_PID="" HLS_SRV_PID=""
 
@@ -49,30 +53,73 @@ Xvfb "$DISPLAY_AVT"  -screen 0 "${AVT_W}x${AVT_H}x24" +extension GLX -ac &
 XVFB2_PID=$!
 wait_display "$DISPLAY_DESK"
 wait_display "$DISPLAY_AVT"
+
+# ── 1b. Optional virtual audio sink for HLS speech muxing ─────────
+if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
+    log "Starting PulseAudio virtual speaker..."
+    pulseaudio --kill >/dev/null 2>&1 || true
+    rm -rf "${XDG_RUNTIME_DIR}/pulse"
+    pulseaudio --daemonize=yes --exit-idle-time=-1 --log-target=file:/tmp/pulseaudio.log --log-level=warning
+    e=0
+    until pactl info >/dev/null 2>&1; do
+        [ "$e" -ge 15 ] && fail "PulseAudio timeout"
+        sleep 1; e=$((e+1))
+    done
+    pactl load-module module-null-sink sink_name=kat_sink sink_properties=device.description=KatSink >/dev/null 2>&1 || true
+    pactl set-default-sink kat_sink >/dev/null 2>&1 || true
+    pactl set-sink-volume kat_sink 100% >/dev/null 2>&1 || true
+    log "PulseAudio ready (${e}s)"
+else
+    log "HLS audio mux disabled; using smooth video-only stream."
+fi
+
 sed -i 's/background: transparent/background: #00ff00/g' /var/www/avatar/avatar-pet.html
 python3 - <<'PYEOF'
 from pathlib import Path
 
 path = Path('/var/www/avatar/avatar-pet.html')
 html = path.read_text()
-marker = 'KATECHON_REMOTE_VOICE_BRIDGE'
+old_marker = '// KATECHON_REMOTE_VOICE_BRIDGE'
+old_start = html.find(old_marker)
+if old_start != -1:
+    old_end = html.find('setInterval(pollKatechonVoice, 80);', old_start)
+    if old_end != -1:
+        old_end = html.find('\n', old_end)
+        if old_end != -1:
+            html = html[:old_start] + html[old_end + 1:]
+
+marker = 'KATECHON_REMOTE_VOICE_BRIDGE_V2'
 needle = "switchModel(INITIAL_MODEL).catch(err => console.error('[avatar] switchModel failed:', err));"
 bridge = r"""
 
-// KATECHON_REMOTE_VOICE_BRIDGE: poll the local HLS control server for Kat speech.
+// KATECHON_REMOTE_VOICE_BRIDGE_V2: poll the local HLS control server for Kat speech.
 let katechonVoiceSeq = 0;
 let katechonVoicePolling = false;
+
+function reportKatechonAvatar(event, data = {}) {
+  try {
+    fetch('http://127.0.0.1:3000/avatar/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event, ...data, at: Date.now() }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (e) {}
+  try { console.log('[katechon-avatar]', event, data); } catch (e) {}
+}
 
 async function pollKatechonVoice() {
   if (katechonVoicePolling) return;
   katechonVoicePolling = true;
   try {
-    const resp = await fetch(`http://localhost:3000/avatar/next?since=${katechonVoiceSeq}`, { cache: 'no-store' });
+    const resp = await fetch(`http://127.0.0.1:3000/avatar/next?since=${katechonVoiceSeq}`, { cache: 'no-store' });
     if (resp.ok) {
       const payload = await resp.json();
       if (Number(payload.seq) > katechonVoiceSeq) katechonVoiceSeq = Number(payload.seq);
       if (payload.audio) {
-        playPayload({ id: payload.id, audio: payload.audio, text: payload.text || '' });
+        const queuedAgeMs = payload.queuedAt ? Math.max(0, Date.now() - Number(payload.queuedAt)) : null;
+        reportKatechonAvatar('voice-payload', { id: payload.id, seq: payload.seq, audioChars: payload.audio.length, queuedAgeMs });
+        playPayload({ id: payload.id, audio: payload.audio, text: payload.text || '', queuedAt: payload.queuedAt || 0 });
       }
     }
   } catch (e) {
@@ -82,12 +129,42 @@ async function pollKatechonVoice() {
   }
 }
 
+reportKatechonAvatar('bridge-ready');
 setInterval(pollKatechonVoice, 80);
 """
 
 if marker not in html:
     if needle not in html:
         raise SystemExit('avatar-pet.html patch anchor not found')
+    if "let lipSyncUntil = 0;" not in html:
+        html = html.replace(
+            "let currentSource = null, currentMouth = 0, playbackSeq = 0;",
+            "let currentSource = null, currentMouth = 0, playbackSeq = 0;\nlet lipSyncUntil = 0;",
+        )
+    html = html.replace(
+        "  if (!analyser || !currentSource) return 0;",
+        "  if (!currentSource) return 0;",
+    )
+    if "const measured = Math.min(1, Math.sqrt(sum / analyserData.length) * RMS_GAIN);" not in html:
+        html = html.replace(
+            "  return Math.min(1, Math.sqrt(sum / analyserData.length) * RMS_GAIN);",
+            "  const measured = Math.min(1, Math.sqrt(sum / analyserData.length) * RMS_GAIN);\n"
+            "  if (measured > 0.015) return measured;\n"
+            "  if (performance.now() < lipSyncUntil) return 0.14 + 0.24 * Math.abs(Math.sin(performance.now() / 85));\n"
+            "  return 0;",
+        )
+    if "reportKatechonAvatar('audio-started'" not in html:
+        html = html.replace(
+            "    source.start(0, offsetSeconds);",
+            "    source.start(0, offsetSeconds);\n"
+            "    lipSyncUntil = performance.now() + Math.max(600, (audioBuffer.duration - offsetSeconds) * 1000);\n"
+            "    if (typeof reportKatechonAvatar === 'function') reportKatechonAvatar('audio-started', { id, durationMs: Math.round(audioBuffer.duration * 1000), offsetMs: Math.round(offsetSeconds * 1000), queuedAgeMs: payload.queuedAt ? Math.max(0, Date.now() - Number(payload.queuedAt)) : null, state: audioCtx.state });",
+        )
+    if "reportKatechonAvatar('audio-error'" not in html:
+        html = html.replace(
+            "  } catch (err) { console.error('[avatar] audio decode error:', err); }",
+            "  } catch (err) { console.error('[avatar] audio decode error:', err); if (typeof reportKatechonAvatar === 'function') reportKatechonAvatar('audio-error', { id, message: String(err && err.message || err) }); }",
+        )
     html = html.replace(needle, needle + bridge)
     path.write_text(html)
 PYEOF
@@ -185,7 +262,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
 
     setInterval(async () => {
       try {
-        const r = await fetch('http://localhost:3000/state', { cache: 'no-store' });
+        const r = await fetch('http://127.0.0.1:3000/state', { cache: 'no-store' });
         const { workspace } = await r.json();
         if (workspace === cur) return;
         cur = workspace;
@@ -258,7 +335,7 @@ sleep 14
 # ── 6. HLS + state API server on :3000 ────────────────────────────
 log "Starting HLS+state/control server on :3000..."
 cat > /tmp/hls_server.py << 'PYEOF'
-import os, sys, json
+import os, sys, json, time
 from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, '')
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -266,6 +343,8 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 _state = {"workspace": "landing"}
 _voice_seq = 0
 _voice_queue = []
+_avatar_events = []
+_last_agent = None
 
 def _json(handler, status, obj):
     body = json.dumps(obj).encode()
@@ -292,10 +371,16 @@ def _queue_voice(data):
         "id": data.get('id') or f"voice-{_voice_seq}",
         "text": data.get('text') or data.get('reply') or "",
         "audio": audio,
+        "queuedAt": int(time.time() * 1000),
     }
     _voice_queue.append(payload)
     _voice_queue = _voice_queue[-20:]
     return payload
+
+def _record_avatar_event(data):
+    global _avatar_events
+    _avatar_events.append(data)
+    _avatar_events = _avatar_events[-80:]
 
 def _workspace_for_action(action):
     if action == "open_spectre":
@@ -309,6 +394,8 @@ class Handler(SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Private-Network', 'true')
         self.send_header('Cache-Control', 'no-cache')
         super().end_headers()
     def do_OPTIONS(self):
@@ -322,9 +409,19 @@ class Handler(SimpleHTTPRequestHandler):
             since = int((qs.get('since') or ['0'])[0] or 0)
             payload = next((item for item in _voice_queue if int(item.get('seq', 0)) > since), None)
             _json(self, 200, payload or {"seq": _voice_seq})
+        elif parsed.path == '/avatar/debug':
+            _json(self, 200, {
+                "workspace": _state.get("workspace"),
+                "voiceSeq": _voice_seq,
+                "queueDepth": len(_voice_queue),
+                "lastVoice": _voice_queue[-1] if _voice_queue else None,
+                "lastAgent": _last_agent,
+                "events": _avatar_events[-20:],
+            })
         else:
             super().do_GET()
     def do_POST(self):
+        global _last_agent
         if self.path == '/switch':
             data = _read_json(self)
             _state['workspace'] = data.get('workspace', 'landing')
@@ -334,12 +431,36 @@ class Handler(SimpleHTTPRequestHandler):
             workspace = data.get('workspace') or _workspace_for_action(data.get('action'))
             if workspace:
                 _state['workspace'] = workspace
+            _last_agent = {
+                "id": data.get("id"),
+                "action": data.get("action"),
+                "workspace": workspace,
+                "reply": data.get("reply") or data.get("text") or "",
+            }
+            queued = _queue_voice(data)
+            _json(self, 200, {"ok": True, "workspace": _state["workspace"], "voiceSeq": queued and queued["seq"]})
+        elif self.path == '/agent':
+            data = _read_json(self)
+            workspace = data.get('workspace') or _workspace_for_action(data.get('action'))
+            if workspace:
+                _state['workspace'] = workspace
+            _last_agent = {
+                "id": data.get("id"),
+                "action": data.get("action"),
+                "workspace": workspace,
+                "reply": data.get("speech") or data.get("reply") or data.get("text") or "",
+                "transcript": data.get("transcript") or "",
+            }
             queued = _queue_voice(data)
             _json(self, 200, {"ok": True, "workspace": _state["workspace"], "voiceSeq": queued and queued["seq"]})
         elif self.path == '/speak':
             data = _read_json(self)
             queued = _queue_voice(data)
             _json(self, 200, {"ok": True, "voiceSeq": queued and queued["seq"]})
+        elif self.path == '/avatar/event':
+            data = _read_json(self)
+            _record_avatar_event(data)
+            _json(self, 200, {"ok": True})
         else:
             _json(self, 404, {"error": "not found"})
 
@@ -352,18 +473,37 @@ log "HLS+state server started (PID $HLS_SRV_PID)"
 
 # ── 7. FFmpeg: composite → HLS ────────────────────────────────────
 log "Starting FFmpeg → HLS..."
-ffmpeg -loglevel warning \
-    -thread_queue_size 512 \
-    -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
-    -thread_queue_size 512 \
-    -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
-    -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}" \
-    -c:v libx264 -preset ultrafast -tune zerolatency \
-    -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
-    -f hls -hls_time 2 -hls_list_size 5 \
-    -hls_flags delete_segments+append_list \
-    -hls_segment_filename /tmp/hls/seg%05d.ts \
-    /tmp/hls/stream.m3u8 &
+if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
+    ffmpeg -loglevel warning \
+        -thread_queue_size 512 \
+        -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+        -thread_queue_size 512 \
+        -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
+        -thread_queue_size 512 \
+        -f pulse -i kat_sink.monitor \
+        -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}[vout]" \
+        -map "[vout]" -map 2:a \
+        -c:v libx264 -preset ultrafast -tune zerolatency \
+        -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+        -c:a aac -b:a 128k -ac 2 -ar 44100 \
+        -f hls -hls_time 2 -hls_list_size 5 \
+        -hls_flags delete_segments+append_list \
+        -hls_segment_filename /tmp/hls/seg%05d.ts \
+        /tmp/hls/stream.m3u8 &
+else
+    ffmpeg -loglevel warning \
+        -thread_queue_size 512 \
+        -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+        -thread_queue_size 512 \
+        -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
+        -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}" \
+        -c:v libx264 -preset ultrafast -tune zerolatency \
+        -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+        -f hls -hls_time 2 -hls_list_size 5 \
+        -hls_flags delete_segments+append_list \
+        -hls_segment_filename /tmp/hls/seg%05d.ts \
+        /tmp/hls/stream.m3u8 &
+fi
 FFMPEG_PID=$!
 
 log "Waiting for HLS manifest..."

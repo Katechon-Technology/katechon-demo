@@ -69,8 +69,11 @@ Edit `.env` and fill in:
 |---|---|---|
 | `GROQ_API_KEY` | Yes | Push-to-talk transcription via Groq Whisper |
 | `ELEVENLABS_API_KEY` | Yes | Kat's TTS voice |
-| `ELEVENLABS_VOICE_ID` | No | Defaults to `pFZP5JQG7iQjIQuC4Bku` |
+| `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
+| `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
+| `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
+| `STREAM_AUDIO_ENABLED` | No | Set with `ENABLE_HLS_AUDIO=1` so the browser waits for streamed audio instead of playing local fallback |
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
 
 ### 3. Configure SSH
