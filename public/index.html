@@ -252,14 +252,15 @@
     });
 
     // ── VOICE / PUSH-TO-TALK ──────────────────────────────────────────────────
-    const micBtn     = document.getElementById('speech-btn');
+    const micBtn       = document.getElementById('speech-btn');
     const transcriptEl = document.getElementById('transcript');
-    let recognition  = null;
-    let toastTimer   = null;
+    let mediaRecorder  = null;
+    let audioChunks    = [];
+    let toastTimer     = null;
 
     const COMMANDS = [
-      { re: /\b(osint|spectre|intel|dashboard|open)\b/i, action: () => switchWs('spectre') },
-      { re: /\b(home|back|menu|close)\b/i,               action: () => goHome() },
+      { re: /\b(osint|spectre|intel|dashboard)\b/i, action: () => switchWs('spectre') },
+      { re: /\b(home|back|menu|close)\b/i,          action: () => goHome() },
     ];
 
     function goHome() {
@@ -280,26 +281,10 @@
       for (const { re, action } of COMMANDS) {
         if (re.test(text)) {
           action();
-          showToast(`→ ${text}`, '#00e87b');
+          setTimeout(() => showToast(`→ ${text}`, '#00e87b'), 100);
           return;
         }
       }
-    }
-
-    function initRecognition() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { showToast('Speech not supported in this browser'); return null; }
-      const r = new SR();
-      r.continuous = false;
-      r.interimResults = false;
-      r.lang = 'en-US';
-      r.onresult = (e) => {
-        const text = e.results[0][0].transcript;
-        handleCommand(text);
-      };
-      r.onerror = () => setListening(false);
-      r.onend   = () => setListening(false);
-      return r;
     }
 
     function setListening(on) {
@@ -307,18 +292,42 @@
       micBtn.querySelector('span').textContent = on ? 'listening' : 'hold';
     }
 
-    micBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      if (!recognition) recognition = initRecognition();
-      if (!recognition) return;
+    async function startRecording() {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setListening(false);
+        showToast('transcribing…', '#6b6b78');
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+        try {
+          const r = await fetch('/api/transcribe', {
+            method: 'POST',
+            headers: { 'Content-Type': mediaRecorder.mimeType },
+            body: blob,
+          });
+          const { text } = await r.json();
+          if (text) handleCommand(text);
+          else showToast('no speech detected', '#6b6b78');
+        } catch(e) {
+          showToast('transcription error', '#ff4444');
+        }
+      };
+      mediaRecorder.start();
       setListening(true);
-      try { recognition.start(); } catch(e) {}
-    });
+    }
 
-    micBtn.addEventListener('mouseup',    () => { try { recognition?.stop(); } catch(e) {} });
-    micBtn.addEventListener('mouseleave', () => { try { recognition?.stop(); } catch(e) {} });
-    micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); micBtn.dispatchEvent(new Event('mousedown')); });
-    micBtn.addEventListener('touchend',   ()  => micBtn.dispatchEvent(new Event('mouseup')));
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    }
+
+    micBtn.addEventListener('mousedown',  (e) => { e.preventDefault(); startRecording().catch(() => showToast('mic access denied', '#ff4444')); });
+    micBtn.addEventListener('mouseup',    () => stopRecording());
+    micBtn.addEventListener('mouseleave', () => stopRecording());
+    micBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startRecording().catch(() => {}); });
+    micBtn.addEventListener('touchend',   () => stopRecording());
   </script>
 </body>
 </html>

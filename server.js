@@ -1,5 +1,7 @@
+require("dotenv").config();
 const express = require("express");
 const fetch = require("node-fetch");
+const FormData = require("form-data");
 const path = require("path");
 
 const app = express();
@@ -101,6 +103,25 @@ app.put("/api/sessions/:kind/:id", (req, res) => {
   state.sessions[req.params.kind] = req.params.id;
   console.log("registered session:", req.params.kind, req.params.id);
   res.json({ ok: true });
+});
+
+// POST /api/transcribe — receives audio blob, returns transcript via Groq Whisper
+app.post("/api/transcribe", express.raw({ type: "*/*", limit: "10mb" }), async (req, res) => {
+  try {
+    const form = new FormData();
+    form.append("file", req.body, { filename: "audio.webm", contentType: req.headers["content-type"] });
+    form.append("model", "whisper-large-v3-turbo");
+    const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, ...form.getHeaders() },
+      body: form,
+    });
+    const data = await r.json();
+    res.json({ text: data.text || "" });
+  } catch (err) {
+    console.error("transcribe error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/register — email gate (just records & returns ok)
