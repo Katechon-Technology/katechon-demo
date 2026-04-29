@@ -37,6 +37,22 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-2025100
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 
+async function proxyHls(req, res) {
+  try {
+    const upstream = await fetch(`${HLS_CONTROL_URL}${req.path}`, { timeout: 3000 });
+    if (!upstream.ok) {
+      return res.status(upstream.status).send(await upstream.text());
+    }
+
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.send(await upstream.buffer());
+  } catch (err) {
+    res.status(502).send(`HLS proxy failed: ${err.message}`);
+  }
+}
+
 const PANELS = [
   {
     id: "landing",
@@ -63,6 +79,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+app.get("/stream.m3u8", proxyHls);
+app.get(/^\/seg\d+\.ts$/, proxyHls);
+
 // GET current state
 app.get("/api/state", (req, res) => {
   res.json({ workspace: state.currentWorkspace, sessions: state.sessions });
@@ -74,7 +93,7 @@ app.post("/api/switch/:workspace", async (req, res) => {
   state.currentWorkspace = workspace;
 
   // Tell the container's background.html to switch workspace
-  fetch("http://localhost:9095/switch", {
+  fetch(`${HLS_CONTROL_URL}/switch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ workspace }),
@@ -541,10 +560,5 @@ const PORT = process.env.PORT || 4040;
 app.listen(PORT, () => {
   console.log(`katechon-demo running at http://localhost:${PORT}`);
   console.log(`Kat voice: ${VOICE_SOURCE} (${ELEVENLABS_VOICE_ID}), model=${ELEVENLABS_MODEL_ID}`);
-  console.log("tunnels needed:");
-  console.log("  HLS (vtuber):  ssh -fN -L 9090:172.20.0.2:3000 claudetorio-stream-server");
-  console.log("  Avatar:        ssh -fN -L 9091:172.20.0.2:12393 claudetorio-stream-server");
-  console.log("  Avatar WS:     ssh -fN -L 12393:172.20.0.2:12393 claudetorio-stream-server");
-  console.log("  SPECTRE:       ssh -fN -L 9092:localhost:3004 claudetorio-stream-server");
-  console.log("  Minecraft HLS: ssh -fN -L 9093:localhost:3003 claudetorio-stream-server");
+  console.log(`HLS control: ${HLS_CONTROL_URL}`);
 });

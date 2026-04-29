@@ -209,7 +209,7 @@
 
     const v   = document.getElementById('v');
     const st  = document.getElementById('status');
-    const src = 'http://localhost:9095/stream.m3u8';
+    const src = '/stream.m3u8';
 
     if (Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
