@@ -42,6 +42,23 @@
       pointer-events: none;
     }
 
+    #landing-frame-cache {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+    }
+    body.home-transition #landing-frame-cache.has-frame {
+      opacity: 1;
+      transition-duration: 40ms;
+    }
+
     #v {
       position: fixed;
       inset: 0;
@@ -56,7 +73,7 @@
     #v.stream-ready { opacity: 1; }
     body.home-transition #v {
       opacity: 0;
-      transition-duration: 80ms;
+      transition-duration: 40ms;
     }
 
     #browser-avatar-wrap {
@@ -892,6 +909,7 @@
 </head>
 <body>
   <div id="desktop-fallback" aria-hidden="true"></div>
+  <img id="landing-frame-cache" alt="" aria-hidden="true">
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
@@ -1372,11 +1390,21 @@
       setTileLayoutMode(next.id);
     }
 
-    function revealMainOverlay() {
+    function revealMainOverlay(immediate = false) {
       const main = document.getElementById('main-overlay');
       main.classList.remove('hidden');
       main.style.opacity = '';
       main.style.transform = '';
+
+      if (immediate) {
+        main.style.opacity = '1';
+        main.style.transform = 'none';
+        document.querySelectorAll('.gif-box, .main-kicker, .main-title, .main-sub, .main-divider').forEach(el => {
+          el.style.opacity = '1';
+          el.style.transform = 'none';
+        });
+        return;
+      }
 
       if (!canMotion) return;
 
@@ -1509,6 +1537,7 @@
     const v   = document.getElementById('v');
     const st  = document.getElementById('status-text');
     const src = '/stream.m3u8';
+    const landingFrameCache = document.getElementById('landing-frame-cache');
     const dashboardOverlay = document.getElementById('dashboard-overlay');
     const dashboardFrame = document.getElementById('dashboard-frame');
     const dashboardTitle = document.getElementById('dashboard-title');
@@ -1647,6 +1676,9 @@
     let avatarReadyResolver = null;
     let avatarPlacement = loadAvatarPlacement();
     let homeTransitionTimer = null;
+    let landingCaptureTimer = null;
+    let landingSwitchRunId = 0;
+    let currentDashboardId = null;
 
     if (Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
@@ -1656,14 +1688,48 @@
         v.play().catch(() => {});
         st.textContent = 'LIVE - katechon-desktop';
       });
-      v.addEventListener('loadeddata', () => v.classList.add('stream-ready'));
+      v.addEventListener('loadeddata', handleStreamLoadedData);
       hls.on(Hls.Events.ERROR, (_, d) => {
         if (d.fatal) { v.classList.remove('stream-ready'); st.textContent = 'reconnecting...'; setTimeout(() => hls.loadSource(src), 2000); }
       });
     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src = src;
       v.addEventListener('loadedmetadata', () => v.play().catch(() => {}));
-      v.addEventListener('loadeddata', () => v.classList.add('stream-ready'));
+      v.addEventListener('loadeddata', handleStreamLoadedData);
+    }
+
+    function handleStreamLoadedData() {
+      v.classList.add('stream-ready');
+      scheduleLandingFrameCapture(500);
+    }
+
+    function scheduleLandingFrameCapture(delay = 120) {
+      if (landingCaptureTimer) clearTimeout(landingCaptureTimer);
+      landingCaptureTimer = setTimeout(() => {
+        landingCaptureTimer = null;
+        captureLandingFrame();
+      }, delay);
+    }
+
+    function captureLandingFrame() {
+      if (currentDashboardId || document.body.classList.contains('home-transition')) return false;
+      if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !v.videoWidth || !v.videoHeight) return false;
+
+      try {
+        const maxWidth = 1600;
+        const scale = Math.min(1, maxWidth / v.videoWidth);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(v.videoWidth * scale));
+        canvas.height = Math.max(1, Math.round(v.videoHeight * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+        landingFrameCache.src = canvas.toDataURL('image/jpeg', 0.86);
+        landingFrameCache.classList.add('has-frame');
+        return true;
+      } catch (err) {
+        console.warn('landing frame capture unavailable:', err);
+        return false;
+      }
     }
 
     function loadAvatarPlacement() {
@@ -1895,6 +1961,9 @@
         hideMainOverlay();
         return fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
       }
+      landingSwitchRunId++;
+      if (!currentDashboardId) captureLandingFrame();
+      currentDashboardId = workspace;
       clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url();
@@ -1983,12 +2052,21 @@
     let replySource    = null;
 
     function goHome() {
+      const runId = ++landingSwitchRunId;
       stopDashboardNarration();
       unloadDashboardFrame();
       dashboardOverlay.classList.add('hidden');
+      currentDashboardId = null;
       maskStaleDesktopFrame();
       const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
-      revealMainOverlay();
+      revealMainOverlay(true);
+      req.finally(() => {
+        setTimeout(() => {
+          if (runId !== landingSwitchRunId) return;
+          clearHomeTransitionMask();
+          scheduleLandingFrameCapture(1600);
+        }, 900);
+      });
       return req;
     }
 
