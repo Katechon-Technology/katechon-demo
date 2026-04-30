@@ -172,6 +172,7 @@
       border: 0;
       display: block;
       background: #050607;
+      transition: opacity 120ms ease;
     }
 
     #avatar-tools {
@@ -454,6 +455,61 @@
       margin-top: 12px;
       line-height: 1.35;
     }
+    .layout-control-row {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    #layout-toggle {
+      min-width: 172px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 6px;
+      background: rgba(5,8,10,0.48);
+      color: rgba(242,244,247,0.74);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      padding: 8px 10px;
+      text-transform: uppercase;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+    }
+    #layout-toggle:hover,
+    #layout-toggle:focus-visible {
+      border-color: rgba(0,232,123,0.54);
+      background: rgba(0,232,123,0.08);
+      color: rgba(242,244,247,0.9);
+      outline: none;
+    }
+    #layout-toggle strong {
+      color: var(--green);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }
+    .layout-dots {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .layout-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(242,244,247,0.22);
+      transition: transform 150ms ease, background 150ms ease, box-shadow 150ms ease;
+    }
+    #main-overlay[data-layout="showcase"] .layout-dot:nth-child(1),
+    #main-overlay[data-layout="rows"] .layout-dot:nth-child(2),
+    #main-overlay[data-layout="spotlight"] .layout-dot:nth-child(3) {
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(0,232,123,0.58);
+      transform: scale(1.35);
+    }
     .main-divider {
       height: 1px;
       background: linear-gradient(90deg, rgba(125,232,255,0.45), rgba(255,255,255,0.08), transparent);
@@ -495,16 +551,25 @@
     .gif-row-dashboard .gif-box {
       aspect-ratio: 4/3;
       min-height: 0;
-      border-color: rgba(0,232,123,0.28);
-      background: rgba(0,232,123,0.06);
+      border-color: rgba(0,232,123,0.40);
+      background: rgba(0,232,123,0.08);
       box-shadow: 0 10px 28px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(125,232,255,0.06);
     }
     .gif-row-dashboard .gif-box video {
-      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      opacity: 1;
+      object-fit: cover;
+      filter: brightness(1.24) contrast(1.08) saturate(1.08);
+    }
+    .gif-row-dashboard .gif-box video:not([src]),
+    .gif-row-dashboard .gif-box video[src=""] {
+      opacity: 0;
     }
     .gif-row-dashboard .tile-preview {
-      z-index: 1;
-      opacity: 0.96;
+      z-index: 0;
+      opacity: 1;
       background:
         radial-gradient(circle at 28% 18%, rgba(125,232,255,0.24), transparent 30%),
         radial-gradient(circle at 78% 78%, rgba(0,232,123,0.22), transparent 32%),
@@ -526,6 +591,147 @@
     .gif-row-dashboard .tile-kicker,
     .gif-row-dashboard .gif-label {
       z-index: 2;
+      text-shadow: 0 0 14px rgba(0,0,0,0.82), 0 0 12px rgba(0,232,123,0.22);
+    }
+    #main-overlay[data-layout="showcase"] .gif-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      max-height: 62vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 6px 18px 0;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0,232,123,0.46) transparent;
+    }
+    #main-overlay[data-layout="showcase"] .gif-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: auto;
+    }
+    #main-overlay[data-layout="showcase"] .gif-row {
+      display: grid;
+      gap: 16px;
+      padding-bottom: 0;
+      align-items: stretch;
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-primary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-primary .gif-box {
+      height: clamp(172px, 22vh, 232px);
+      min-height: 0;
+      min-width: 0;
+      aspect-ratio: auto;
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-dashboard {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-dashboard .gif-box {
+      height: clamp(132px, 17vh, 190px);
+      min-height: 0;
+      aspect-ratio: auto;
+    }
+    #main-overlay[data-layout="rows"] .gif-groups {
+      gap: 18px;
+      max-height: 61vh;
+      overflow-y: auto;
+      padding-right: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0,232,123,0.46) transparent;
+    }
+    #main-overlay[data-layout="rows"] .gif-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: auto;
+    }
+    #main-overlay[data-layout="rows"] .gif-row {
+      display: flex;
+      gap: 14px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0 4px 12px 0;
+      scroll-snap-type: x proximity;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(125,232,255,0.36) transparent;
+      align-items: stretch;
+    }
+    #main-overlay[data-layout="rows"] .gif-row-primary {
+      min-height: clamp(154px, 22vh, 230px);
+    }
+    #main-overlay[data-layout="rows"] .gif-row-dashboard {
+      min-height: clamp(122px, 17vh, 172px);
+    }
+    #main-overlay[data-layout="rows"] .gif-row-primary .gif-box {
+      flex: 0 0 clamp(280px, 36vw, 420px);
+      height: clamp(154px, 22vh, 230px);
+      aspect-ratio: auto;
+    }
+    #main-overlay[data-layout="rows"] .gif-row-dashboard .gif-box {
+      flex: 0 0 clamp(210px, 23vw, 286px);
+      height: clamp(122px, 17vh, 172px);
+      aspect-ratio: auto;
+    }
+    #main-overlay[data-layout="rows"] .gif-box {
+      scroll-snap-align: start;
+    }
+    #main-overlay[data-layout="spotlight"] .gif-groups {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 62vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 8px 22px 0;
+      scroll-snap-type: y proximity;
+      scroll-padding: 18px 0 28px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0,232,123,0.48) transparent;
+    }
+    #main-overlay[data-layout="spotlight"] .gif-group,
+    #main-overlay[data-layout="spotlight"] .gif-row {
+      display: contents;
+    }
+    #main-overlay[data-layout="spotlight"] .dashboard-group-label {
+      display: none;
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box {
+      width: 100%;
+      flex: 0 0 auto;
+      height: clamp(104px, 12vh, 138px);
+      min-height: 0;
+      aspect-ratio: auto;
+      opacity: 0.58;
+      transform-origin: center;
+      scroll-snap-align: center;
+      transform: scale(0.985);
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus {
+      height: clamp(310px, 42vh, 460px);
+      opacity: 1;
+      transform: scale(1);
+      border-color: rgba(0,232,123,0.72);
+      box-shadow: 0 18px 56px rgba(0,0,0,0.44), 0 0 0 1px rgba(0,232,123,0.20);
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box.spotlight-side {
+      height: clamp(150px, 18vh, 216px);
+      opacity: 0.86;
+      transform: scale(0.996);
+      border-color: rgba(125,232,255,0.32);
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box.spotlight-tail {
+      opacity: 0.66;
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box video,
+    #main-overlay[data-layout="spotlight"] .gif-box img {
+      filter: brightness(calc(0.72 + var(--spotlight-glow, 0) * 0.34)) contrast(1.06) saturate(1.05);
+    }
+    #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus video,
+    #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus img {
+      filter: brightness(1.08) contrast(1.12) saturate(1.08);
     }
     .gif-box {
       aspect-ratio: 4/3;
@@ -533,8 +739,9 @@
       cursor: pointer;
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.06);
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color 0.2s, box-shadow 0.2s, opacity 0.22s ease, transform 0.22s ease, height 0.28s ease;
       position: relative;
+      min-width: 0;
       box-shadow: 0 12px 35px rgba(0,0,0,0.24);
     }
     .gif-box:hover {
@@ -640,11 +847,38 @@
       #main-overlay { padding: 26px 22px; gap: 22px; }
       .main-title { font-size: 39px; }
       .main-sub { font-size: 15px; }
+      .layout-control-row { margin-top: 14px; }
+      #layout-toggle { width: 100%; min-width: 0; }
       .gif-row,
       .gif-row-primary,
       .gif-row-dashboard { grid-template-columns: 1fr; max-height: none; overflow: visible; padding-right: 4px; }
       .gif-groups { max-height: 58vh; overflow: auto; padding-right: 4px; }
       .gif-box { aspect-ratio: 16/9; min-height: 126px; }
+      #main-overlay[data-layout="showcase"] .gif-groups { max-height: 58vh; }
+      #main-overlay[data-layout="showcase"] .gif-row-primary,
+      #main-overlay[data-layout="showcase"] .gif-row-dashboard { grid-template-columns: 1fr; }
+      #main-overlay[data-layout="showcase"] .gif-row-dashboard .gif-box {
+        height: auto;
+        min-height: 126px;
+        aspect-ratio: 16 / 9;
+      }
+      #main-overlay[data-layout="rows"] .gif-row { overflow-x: auto; }
+      #main-overlay[data-layout="rows"] .gif-row .gif-box { flex-basis: min(78vw, 330px); }
+      #main-overlay[data-layout="spotlight"] .gif-groups {
+        max-height: 58vh;
+      }
+      #main-overlay[data-layout="spotlight"] .gif-group,
+      #main-overlay[data-layout="spotlight"] .gif-row { display: contents; }
+      #main-overlay[data-layout="spotlight"] .gif-box,
+      #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus,
+      #main-overlay[data-layout="spotlight"] .gif-box.spotlight-tail {
+        height: auto;
+        min-height: 140px;
+        aspect-ratio: 16/9;
+      }
+      #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus {
+        min-height: 260px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -686,12 +920,23 @@
   </div>
 
   <!-- after email: title + gif thumbnails -->
-  <div id="main-overlay" class="overlay hidden">
+  <div id="main-overlay" class="overlay hidden" data-layout="showcase">
     <div class="main-head">
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon live</div>
         <div class="main-title">Katechon Technology</div>
         <div class="main-sub">24hr interactive livestream</div>
+        <div class="layout-control-row">
+          <button id="layout-toggle" type="button" title="Change video layout">
+            <span>Layout</span>
+            <strong id="layout-label">Showcase</strong>
+            <span class="layout-dots" aria-hidden="true">
+              <span class="layout-dot"></span>
+              <span class="layout-dot"></span>
+              <span class="layout-dot"></span>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
     <div class="main-divider"></div>
@@ -787,6 +1032,110 @@
       </div>
         </div>
       </div>
+      <div class="gif-group">
+        <div class="dashboard-group-label">Intelligence feeds</div>
+        <div class="gif-row gif-row-dashboard">
+      <div class="gif-box" onclick="switchWs('biotech')">
+        <div class="tile-kicker">10 / BIO</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">biotech</div>
+          </div>
+        </div>
+        <video src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Biotech / CRISPR</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('space')">
+        <div class="tile-kicker">11 / SPACE</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">space</div>
+          </div>
+        </div>
+        <video src="videos/space.mp4" aria-label="Space" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Deep Space</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('iran')">
+        <div class="tile-kicker">12 / IRAN</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">iran tracker</div>
+          </div>
+        </div>
+        <video src="videos/iran.mp4" aria-label="Iran" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Iran Signal</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('meme-coin')">
+        <div class="tile-kicker">13 / DEGEN</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">meme coin</div>
+          </div>
+        </div>
+        <video src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Meme Coin Temple</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('quantum')">
+        <div class="tile-kicker">14 / QUANT</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">quantum</div>
+          </div>
+        </div>
+        <video src="videos/quantum.mp4" aria-label="Quantum" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Quantum States</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('deep-sea')">
+        <div class="tile-kicker">15 / ABYSS</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">deep sea</div>
+          </div>
+        </div>
+        <video src="videos/deep-sea.mp4" aria-label="Deep Sea" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Abyssal Monitor</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('power-grid')">
+        <div class="tile-kicker">16 / GRID</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">power grid</div>
+          </div>
+        </div>
+        <video src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Power Grid</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('viral')">
+        <div class="tile-kicker">17 / VIRAL</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">viral</div>
+          </div>
+        </div>
+        <video src="videos/viral.mp4" aria-label="Viral" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Viral Spread</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('dark-forest')">
+        <div class="tile-kicker">18 / VOID</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">dark forest</div>
+          </div>
+        </div>
+        <video src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Dark Forest</div>
+      </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -869,6 +1218,159 @@
       if (!canMotion) return null;
       return animeApi.animate(target, params);
     };
+    const LAYOUT_STORAGE_KEY = 'katechon.dashboardTileLayout.v1';
+    const LAYOUT_MODES = [
+      { id: 'showcase', label: 'Showcase' },
+      { id: 'rows', label: 'Rows' },
+      { id: 'spotlight', label: 'Spotlight' },
+    ];
+    let tileLayout = null;
+    let currentLayoutMode = 'showcase';
+    let spotlightIndex = 0;
+    let spotlightScrollRaf = 0;
+
+    function layoutRoot() {
+      return document.querySelector('.gif-groups');
+    }
+
+    function layoutTiles() {
+      return Array.from(document.querySelectorAll('.gif-groups .gif-box'));
+    }
+
+    function initTileLayout() {
+      if (tileLayout !== null) return tileLayout;
+      tileLayout = false;
+      if (typeof animeApi.createLayout !== 'function') return tileLayout;
+      try {
+        tileLayout = animeApi.createLayout(layoutRoot(), {
+          children: '.gif-box',
+          duration: 720,
+          ease: 'out(4)',
+        });
+      } catch (err) {
+        console.warn('layout animation unavailable:', err);
+        tileLayout = false;
+      }
+      return tileLayout;
+    }
+
+    function animateTileLayout(mutator, options = {}) {
+      const layout = initTileLayout();
+      const duration = options.duration ?? 640;
+      if (layout && typeof layout.update === 'function') {
+        try {
+          return layout.update(() => mutator(), {
+            duration,
+            delay: staggerMotion(28, { from: 'center' }),
+            ease: 'out(4)',
+          });
+        } catch (err) {
+          console.warn('layout update failed:', err);
+        }
+      }
+
+      mutator();
+      if (canMotion) {
+        animateMotion('.gif-groups .gif-box', {
+          opacity: [0.52, 1],
+          y: [10, 0],
+          scale: [0.982, 1],
+          delay: staggerMotion(24, { from: 'center' }),
+          duration: Math.min(duration, 520),
+          ease: 'out(3)',
+        });
+      }
+      return null;
+    }
+
+    function applySpotlightClasses(index = spotlightIndex) {
+      const tiles = layoutTiles();
+      if (!tiles.length) return;
+      spotlightIndex = Math.max(0, Math.min(index, tiles.length - 1));
+      tiles.forEach((tile, idx) => {
+        const distance = Math.abs(idx - spotlightIndex);
+        tile.classList.toggle('spotlight-focus', idx === spotlightIndex);
+        tile.classList.toggle('spotlight-side', distance > 0 && distance <= 2);
+        tile.classList.toggle('spotlight-tail', distance > 2);
+        tile.style.setProperty('--spotlight-glow', String(Math.max(0, 1 - distance * 0.34)));
+      });
+    }
+
+    function clearSpotlightClasses() {
+      layoutTiles().forEach(tile => {
+        tile.classList.remove('spotlight-focus', 'spotlight-side', 'spotlight-tail');
+        tile.style.removeProperty('--spotlight-glow');
+      });
+    }
+
+    function syncLayoutLabel() {
+      const mode = LAYOUT_MODES.find(candidate => candidate.id === currentLayoutMode) || LAYOUT_MODES[0];
+      const label = document.getElementById('layout-label');
+      if (label) label.textContent = mode.label;
+      const button = document.getElementById('layout-toggle');
+      if (button) button.setAttribute('aria-label', `Video layout: ${mode.label}`);
+    }
+
+    function updateSpotlightFromScroll() {
+      spotlightScrollRaf = 0;
+      if (currentLayoutMode !== 'spotlight') return;
+      const root = layoutRoot();
+      const tiles = layoutTiles();
+      if (!root || tiles.length < 2) return;
+      const rootRect = root.getBoundingClientRect();
+      const targetY = rootRect.top + rootRect.height * 0.42;
+      let nextIndex = spotlightIndex;
+      let nearestDistance = Infinity;
+      tiles.forEach((tile, index) => {
+        const rect = tile.getBoundingClientRect();
+        const centerY = rect.top + rect.height * 0.5;
+        const distance = Math.abs(centerY - targetY);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nextIndex = index;
+        }
+      });
+      if (nextIndex !== spotlightIndex) {
+        applySpotlightClasses(nextIndex);
+      }
+    }
+
+    function onTileLayoutScroll() {
+      if (currentLayoutMode !== 'spotlight' || spotlightScrollRaf) return;
+      spotlightScrollRaf = requestAnimationFrame(updateSpotlightFromScroll);
+    }
+
+    function setTileLayoutMode(mode, animate = true) {
+      const nextMode = LAYOUT_MODES.some(candidate => candidate.id === mode) ? mode : 'showcase';
+      const main = document.getElementById('main-overlay');
+      const root = layoutRoot();
+      if (!main || !root) return;
+      const crossesSpotlight = currentLayoutMode === 'spotlight' || nextMode === 'spotlight';
+
+      const mutate = () => {
+        currentLayoutMode = nextMode;
+        main.dataset.layout = nextMode;
+        syncLayoutLabel();
+        root.scrollLeft = 0;
+        if (nextMode === 'spotlight') {
+          root.scrollTop = 0;
+          applySpotlightClasses(0);
+        } else {
+          root.scrollTop = 0;
+          clearSpotlightClasses();
+        }
+      };
+
+      if (animate && !crossesSpotlight) animateTileLayout(mutate);
+      else mutate();
+      try { localStorage.setItem(LAYOUT_STORAGE_KEY, nextMode); } catch (_) {}
+    }
+
+    function cycleTileLayoutMode() {
+      const index = LAYOUT_MODES.findIndex(mode => mode.id === currentLayoutMode);
+      const next = LAYOUT_MODES[(index + 1) % LAYOUT_MODES.length];
+      setTileLayoutMode(next.id);
+    }
 
     function revealMainOverlay() {
       const main = document.getElementById('main-overlay');
@@ -901,12 +1403,14 @@
       });
     }
 
-    function hideMainOverlay() {
+    function hideMainOverlay(immediate = false) {
       const main = document.getElementById('main-overlay');
       if (main.classList.contains('hidden')) return;
 
-      if (!canMotion) {
+      if (immediate || !canMotion) {
         main.classList.add('hidden');
+        main.style.opacity = '';
+        main.style.transform = '';
         return;
       }
 
@@ -989,7 +1493,14 @@
 
     if (new URLSearchParams(window.location.search).get('demo') === '1') {
       document.getElementById('email-overlay').classList.add('hidden');
-      revealMainOverlay();
+      const main = document.getElementById('main-overlay');
+      main.classList.remove('hidden');
+      main.style.opacity = '1';
+      main.style.transform = 'none';
+      document.querySelectorAll('.gif-box, .main-kicker, .main-title, .main-sub, .main-divider').forEach(el => {
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+      });
     }
 
     // Reset stream to landing state on every page load
@@ -1064,6 +1575,60 @@
         url: () => '/dashboards/arena/',
         narration: true,
       },
+      biotech: {
+        label: 'Biotech',
+        title: '// BIO — CRISPR & PROTEIN',
+        url: () => '/dashboards/biotech/',
+        narration: true,
+      },
+      space: {
+        label: 'Deep Space',
+        title: '// SPACE — DEEP FIELD',
+        url: () => '/dashboards/space/',
+        narration: true,
+      },
+      iran: {
+        label: 'Iran Signal',
+        title: '// IRAN — SIGNAL TRACKER',
+        url: () => '/dashboards/iran/',
+        narration: true,
+      },
+      'meme-coin': {
+        label: 'Meme Coin',
+        title: '// DEGEN — MEME COIN TEMPLE',
+        url: () => '/dashboards/meme-coin/',
+        narration: true,
+      },
+      quantum: {
+        label: 'Quantum States',
+        title: '// QUANT — QUANTUM COMPUTING',
+        url: () => '/dashboards/quantum/',
+        narration: true,
+      },
+      'deep-sea': {
+        label: 'Abyssal Monitor',
+        title: '// ABYSS — DEEP SEA',
+        url: () => '/dashboards/deep-sea/',
+        narration: true,
+      },
+      'power-grid': {
+        label: 'Power Grid',
+        title: '// GRID — POWER INFRASTRUCTURE',
+        url: () => '/dashboards/power-grid/',
+        narration: true,
+      },
+      viral: {
+        label: 'Viral Spread',
+        title: '// VIRAL — TRANSMISSION MODEL',
+        url: () => '/dashboards/viral/',
+        narration: true,
+      },
+      'dark-forest': {
+        label: 'Dark Forest',
+        title: '// VOID — DARK FOREST',
+        url: () => '/dashboards/dark-forest/',
+        narration: true,
+      },
     };
     const avatarAudioWaiters = new Map();
     const narration = {
@@ -1072,6 +1637,12 @@
       active: false,
       timer: null,
     };
+    let dashboardFrameLoadToken = 0;
+    let dashboardFrameRevealTimer = null;
+    dashboardFrame.addEventListener('load', () => {
+      const src = dashboardFrame.getAttribute('src') || '';
+      if (src && src !== 'about:blank') revealDashboardFrame(dashboardFrameLoadToken);
+    });
     let avatarReady = false;
     let avatarReadyResolver = null;
     let avatarPlacement = loadAvatarPlacement();
@@ -1254,9 +1825,37 @@
     }
 
     function unloadDashboardFrame() {
+      dashboardFrameLoadToken++;
+      if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
+      dashboardFrameRevealTimer = null;
       if (!dashboardFrame.getAttribute('src')) return;
       dashboardFrame.src = 'about:blank';
       dashboardFrame.removeAttribute('src');
+      dashboardFrame.style.opacity = '';
+    }
+
+    function revealDashboardFrame(token) {
+      if (token !== dashboardFrameLoadToken) return;
+      if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
+      dashboardFrameRevealTimer = null;
+      dashboardFrame.style.opacity = '';
+    }
+
+    function loadDashboardFrame(url) {
+      if (dashboardFrame.getAttribute('src') === url) {
+        dashboardFrame.style.opacity = '';
+        return;
+      }
+
+      const token = ++dashboardFrameLoadToken;
+      if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
+      dashboardFrame.style.opacity = '0';
+      dashboardFrame.src = 'about:blank';
+      requestAnimationFrame(() => {
+        if (token !== dashboardFrameLoadToken) return;
+        dashboardFrame.src = url;
+        dashboardFrameRevealTimer = setTimeout(() => revealDashboardFrame(token), 900);
+      });
     }
 
     async function runDashboardNarration(dashboardId, runId) {
@@ -1304,9 +1903,9 @@
       });
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
       dashboardFrame.title = dashboard.label;
-      if (dashboardFrame.getAttribute('src') !== url) dashboardFrame.src = url;
       dashboardOverlay.classList.remove('hidden');
-      hideMainOverlay();
+      hideMainOverlay(true);
+      loadDashboardFrame(url);
       startDashboardNarration(workspace);
       showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
@@ -1356,6 +1955,14 @@
 
     function switchWs(workspace) {
       return openDashboard(workspace);
+    }
+
+    layoutRoot()?.addEventListener('scroll', onTileLayoutScroll, { passive: true });
+    document.getElementById('layout-toggle')?.addEventListener('click', cycleTileLayoutMode);
+    try {
+      setTileLayoutMode(localStorage.getItem(LAYOUT_STORAGE_KEY) || 'showcase', false);
+    } catch (_) {
+      setTileLayoutMode('showcase', false);
     }
 
     document.getElementById('email-input').addEventListener('keydown', e => {

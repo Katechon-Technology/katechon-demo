@@ -16,6 +16,7 @@ RSYNC_EXCLUDES := \
 	--exclude logs \
 	--exclude run \
 	--exclude recordings \
+	--exclude generate-videos.js \
 	--exclude 'public/debug-audio.*'
 
 .PHONY: deploy remote-env remote-install remote-start compositor-start wait-hls stream-audio-restart status logs youtube-start youtube-redact-log youtube-stop record-start record-stop

@@ -106,6 +106,78 @@ const EXTERNAL_DASHBOARDS = {
     launch: "# Set ARENA_DASHBOARD_URL in .env to point at your arena app",
     notes: ["Configure ARENA_DASHBOARD_URL env var", "Expected local port 8520"],
   },
+  biotech: {
+    label: "Biotech",
+    headline: "CRISPR, protein folding, and nanoscale biology intelligence",
+    sourceUrl: "https://github.com/katechon/biotech",
+    upstreams: [process.env.BIOTECH_DASHBOARD_URL, process.env.BIOTECH_URL, "http://127.0.0.1:8521"],
+    launch: "# Set BIOTECH_DASHBOARD_URL in .env",
+    notes: ["Configure BIOTECH_DASHBOARD_URL env var", "Expected local port 8521"],
+  },
+  space: {
+    label: "Deep Space",
+    headline: "Pulsar timing, exoplanet transit, and deep field signal intelligence",
+    sourceUrl: "https://github.com/katechon/space",
+    upstreams: [process.env.SPACE_DASHBOARD_URL, process.env.SPACE_URL, "http://127.0.0.1:8522"],
+    launch: "# Set SPACE_DASHBOARD_URL in .env",
+    notes: ["Configure SPACE_DASHBOARD_URL env var", "Expected local port 8522"],
+  },
+  iran: {
+    label: "Iran Signal",
+    headline: "Geopolitical signal tracker — infrastructure nodes, orbital coverage, regional intelligence",
+    sourceUrl: "https://github.com/katechon/iran",
+    upstreams: [process.env.IRAN_DASHBOARD_URL, process.env.IRAN_URL, "http://127.0.0.1:8523"],
+    launch: "# Set IRAN_DASHBOARD_URL in .env",
+    notes: ["Configure IRAN_DASHBOARD_URL env var", "Expected local port 8523"],
+  },
+  "meme-coin": {
+    label: "Meme Coin",
+    headline: "Degen crypto terminal — meme coin price action, social sentiment, cult market dynamics",
+    sourceUrl: "https://github.com/katechon/meme-coin",
+    upstreams: [process.env.MEME_COIN_DASHBOARD_URL, process.env.MEME_COIN_URL, "http://127.0.0.1:8524"],
+    launch: "# Set MEME_COIN_DASHBOARD_URL in .env",
+    notes: ["Configure MEME_COIN_DASHBOARD_URL env var", "Expected local port 8524"],
+  },
+  quantum: {
+    label: "Quantum States",
+    headline: "Qubit coherence windows, entanglement fidelity, and error correction benchmarks",
+    sourceUrl: "https://github.com/katechon/quantum",
+    upstreams: [process.env.QUANTUM_DASHBOARD_URL, process.env.QUANTUM_URL, "http://127.0.0.1:8525"],
+    launch: "# Set QUANTUM_DASHBOARD_URL in .env",
+    notes: ["Configure QUANTUM_DASHBOARD_URL env var", "Expected local port 8525"],
+  },
+  "deep-sea": {
+    label: "Abyssal Monitor",
+    headline: "Hydrothermal vent activity, pressure anomalies, and abyssal sensor network",
+    sourceUrl: "https://github.com/katechon/deep-sea",
+    upstreams: [process.env.DEEP_SEA_DASHBOARD_URL, process.env.DEEP_SEA_URL, "http://127.0.0.1:8526"],
+    launch: "# Set DEEP_SEA_DASHBOARD_URL in .env",
+    notes: ["Configure DEEP_SEA_DASHBOARD_URL env var", "Expected local port 8526"],
+  },
+  "power-grid": {
+    label: "Power Grid",
+    headline: "Continental load balancing, cascade fault detection, and transmission corridor stress",
+    sourceUrl: "https://github.com/katechon/power-grid",
+    upstreams: [process.env.POWER_GRID_DASHBOARD_URL, process.env.POWER_GRID_URL, "http://127.0.0.1:8527"],
+    launch: "# Set POWER_GRID_DASHBOARD_URL in .env",
+    notes: ["Configure POWER_GRID_DASHBOARD_URL env var", "Expected local port 8527"],
+  },
+  viral: {
+    label: "Viral Spread",
+    headline: "R0 estimates, contact network graphs, and outbreak trajectory projections",
+    sourceUrl: "https://github.com/katechon/viral",
+    upstreams: [process.env.VIRAL_DASHBOARD_URL, process.env.VIRAL_URL, "http://127.0.0.1:8528"],
+    launch: "# Set VIRAL_DASHBOARD_URL in .env",
+    notes: ["Configure VIRAL_DASHBOARD_URL env var", "Expected local port 8528"],
+  },
+  "dark-forest": {
+    label: "Dark Forest",
+    headline: "Anomalous stellar dimming events and unexplained astronomical signal patterns",
+    sourceUrl: "https://github.com/katechon/dark-forest",
+    upstreams: [process.env.DARK_FOREST_DASHBOARD_URL, process.env.DARK_FOREST_URL, "http://127.0.0.1:8529"],
+    launch: "# Set DARK_FOREST_DASHBOARD_URL in .env",
+    notes: ["Configure DARK_FOREST_DASHBOARD_URL env var", "Expected local port 8529"],
+  },
 };
 
 for (const dashboard of Object.values(EXTERNAL_DASHBOARDS)) {
@@ -176,6 +248,51 @@ const PANELS = [
     id: "arena",
     label: "AI Arena",
     description: "Live AI agent vs AI agent battle arena — competing models running head-to-head tasks in real time.",
+  },
+  {
+    id: "biotech",
+    label: "Biotech",
+    description: "CRISPR, protein folding, and nanoscale biology intelligence dashboard.",
+  },
+  {
+    id: "space",
+    label: "Deep Space",
+    description: "Deep field observatory — pulsar timing, exoplanet transit, and signal intelligence from the edge of the galaxy.",
+  },
+  {
+    id: "iran",
+    label: "Iran Signal",
+    description: "Geopolitical signal tracker for Iran — infrastructure nodes, orbital coverage, and regional intelligence.",
+  },
+  {
+    id: "meme-coin",
+    label: "Meme Coin",
+    description: "Degen crypto terminal — meme coin price action, social sentiment, and cult market dynamics.",
+  },
+  {
+    id: "quantum",
+    label: "Quantum States",
+    description: "Quantum computing monitor — qubit coherence, entanglement maps, and decoherence event tracking.",
+  },
+  {
+    id: "deep-sea",
+    label: "Abyssal Monitor",
+    description: "Deep sea sensor network — hydrothermal activity, abyssal pressure readings, and bioluminescent event logs.",
+  },
+  {
+    id: "power-grid",
+    label: "Power Grid",
+    description: "Continental power grid monitor — load balancing flows, cascade fault detection, and infrastructure risk.",
+  },
+  {
+    id: "viral",
+    label: "Viral Spread",
+    description: "Epidemiological transmission model — R0 curves, contact network graphs, and outbreak trajectory.",
+  },
+  {
+    id: "dark-forest",
+    label: "Dark Forest",
+    description: "Fermi paradox signal monitor — anomalous stellar event tracking and unexplained astronomical dimming.",
   },
 ];
 
@@ -283,6 +400,114 @@ const DASHBOARD_NARRATION = {
       "The arena measures what matters: speed, accuracy, and whether the reasoning actually holds.",
       "Left side is building an argument. Right side is running numbers. Let's see which approach closes first.",
       "This is not a benchmark — it's live. The model that adapts to the prompt variation wins the round.",
+    ],
+  },
+  biotech: {
+    label: "Biotech intelligence dashboard",
+    voice:
+      "You are Kat narrating a biotech intelligence feed covering CRISPR, protein folding, drug pipelines, and nanoscale " +
+      "biology. Stay precise, analytical, and avoid making medical claims.",
+    fallback: [
+      "The biotech feed is live. I'm reading the pipeline signals like a structure map, not a press release.",
+      "CRISPR edit efficiency and off-target rates are the two numbers that actually matter here.",
+      "Protein folding predictions have changed how we think about target identification. This panel is where that lands.",
+      "The gap between a discovery and a viable candidate is where most of the signal gets lost.",
+    ],
+  },
+  space: {
+    label: "Deep space observatory dashboard",
+    voice:
+      "You are Kat narrating a deep space intelligence feed: pulsar timing, exoplanet transits, and long-baseline signal " +
+      "analysis. Keep it vast and precise — you are observing, not speculating.",
+    fallback: [
+      "The observatory is listening. Pulsar timing is the most stable clock we have — anything that disrupts it is worth noting.",
+      "Exoplanet transit data is clean when the noise floor is right. I'm watching for the dips.",
+      "Deep field surveys change calibration every cycle. The baseline drift is the first thing I check.",
+      "At this distance, signal lag is measured in years. Everything I'm reading already happened.",
+    ],
+  },
+  iran: {
+    label: "Iran geopolitical signal tracker",
+    voice:
+      "You are Kat narrating an Iran signal tracker covering infrastructure activity, orbital coverage windows, regional " +
+      "threat indicators, and geopolitical pressure points. Be analytical and measured, not alarmist.",
+    fallback: [
+      "The signal layer is active. I'm reading infrastructure node activity as a pressure indicator, not a prediction.",
+      "Orbital coverage gaps are the most operationally relevant variable on this board.",
+      "Refinery activity and port throughput are the two most legible signals for economic pressure in this region.",
+      "The map reads differently depending on which direction the pressure gradient is moving.",
+    ],
+  },
+  "meme-coin": {
+    label: "Meme coin degen terminal",
+    voice:
+      "You are Kat narrating a meme coin degen terminal. Be dry, darkly funny, and treat it with the same analytical " +
+      "seriousness as any other market. No financial advice, no endorsement.",
+    fallback: [
+      "The altar is active. Social volume is the only leading indicator here — everything else is confirmation bias.",
+      "Liquidity on meme coins thins out faster than the narrative. I watch the exit timing, not the entry.",
+      "The cult formation pattern is consistent: memetic spike, whale accumulation, retail peak, silence.",
+      "This market runs on collective hallucination. The chart is real. The fundamentals are not.",
+    ],
+  },
+  quantum: {
+    label: "Quantum computing monitor",
+    voice:
+      "You are Kat narrating a quantum computing intelligence feed — qubit coherence windows, entanglement fidelity, " +
+      "and error correction benchmarks. Be technically precise without inventing current results.",
+    fallback: [
+      "Coherence time is the limiting variable. Everything else in quantum computing flows from how long the state holds.",
+      "Entanglement fidelity above ninety-nine percent is where the interesting work starts. Below that is engineering.",
+      "Error correction overhead is the real cost of near-term quantum. The logical qubit count is what I track.",
+      "Decoherence events on this board are not failures — they are the measurement.",
+    ],
+  },
+  "deep-sea": {
+    label: "Abyssal deep sea monitor",
+    voice:
+      "You are Kat narrating a deep sea sensor network — hydrothermal vent activity, pressure anomalies, abyssal current " +
+      "shifts, and bioluminescent event logs from the ocean floor. Be slow, precise, and vast.",
+    fallback: [
+      "Vent activity is up along the eastern transect. Thermal plume height is the leading indicator I track first.",
+      "The abyssal plain is not static. Current shifts at this depth take months to propagate — I am watching a slow signal.",
+      "Pressure anomalies near the mid-ocean ridge are worth flagging. The geometry of the seafloor changes here.",
+      "Bioluminescent event logs are the strangest data on this board. Something down here responds to the pressure shifts.",
+    ],
+  },
+  "power-grid": {
+    label: "Continental power grid monitor",
+    voice:
+      "You are Kat narrating a continental power grid monitor — load balancing, cascade fault risk, transmission " +
+      "corridor stress, and infrastructure vulnerability. Be infrastructural, precise, and calm.",
+    fallback: [
+      "Grid frequency deviation is the first signal I check. Anything outside fifty hertz tolerance deserves attention.",
+      "Cascade faults propagate faster than operators can manually respond. The automated isolation is what holds the system.",
+      "Load balancing across interconnects is mostly invisible until it fails. I'm watching the invisible part.",
+      "High transmission corridor stress usually precedes either a controlled shed or an uncontrolled one.",
+    ],
+  },
+  viral: {
+    label: "Viral transmission model dashboard",
+    voice:
+      "You are Kat narrating an epidemiological transmission model — R0 estimates, contact network structure, and outbreak " +
+      "trajectory projections. Be analytical and avoid alarmism.",
+    fallback: [
+      "R0 above one is the only threshold that matters in the early phase. I watch the doubling time, not the absolute count.",
+      "Contact network density is the structural variable that determines whether containment is even theoretically possible.",
+      "This model runs forward projections under three scenarios. The middle scenario is usually the least useful.",
+      "The lag between exposure and detection is where most early outbreak intelligence gets lost.",
+    ],
+  },
+  "dark-forest": {
+    label: "Dark Forest anomalous stellar event monitor",
+    voice:
+      "You are Kat narrating the Dark Forest monitor — a long-baseline watch for anomalous stellar dimming, statistical " +
+      "irregularities in star catalogs, and signals that do not fit known natural models. Be measured, quiet, and exact.",
+    fallback: [
+      "Three stars dimmed in sequence last cycle. The probability of that being thermal noise is low enough to log.",
+      "I do not speculate on cause. I track statistical deviation from expected stellar behavior and note when it clusters.",
+      "The Fermi observation runs on absence, not presence. What should be here and is not — that is the signal.",
+      "Long-baseline watches take patience. The anomaly window is narrow and the data arrives slowly.",
     ],
   },
 };
@@ -711,7 +936,7 @@ async function proxyExternalDashboard(req, res) {
   }
 }
 
-app.all(/^\/dashboards\/(?:world-monitor|glance|crypto-trading|polyrec|dashboard123|arena)(?:\/.*)?$/, proxyExternalDashboard);
+app.all(/^\/dashboards\/(?:world-monitor|glance|crypto-trading|polyrec|dashboard123|arena|biotech|space|iran|meme-coin|quantum|deep-sea|power-grid|viral|dark-forest)(?:\/.*)?$/, proxyExternalDashboard);
 
 function proxyExternalDashboardUpgrade(req, socket, head) {
   const id = externalDashboardId(req.url);
