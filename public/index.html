@@ -54,6 +54,10 @@
       transition: opacity 200ms ease;
     }
     #v.stream-ready { opacity: 1; }
+    body.home-transition #v {
+      opacity: 0;
+      transition-duration: 80ms;
+    }
 
     #browser-avatar-wrap {
       position: fixed;
@@ -134,6 +138,32 @@
       letter-spacing: 0.15em;
       margin-left: 8px;
       text-transform: uppercase;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #dashboard-back {
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      background: rgba(255,255,255,0.035);
+      color: rgba(242,244,247,0.58);
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      padding: 5px 9px;
+      text-transform: uppercase;
+      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+    }
+    #dashboard-back:hover,
+    #dashboard-back:focus-visible {
+      border-color: rgba(0,232,123,0.52);
+      background: rgba(0,232,123,0.08);
+      color: rgba(242,244,247,0.86);
+      outline: none;
     }
     #dashboard-frame {
       width: 100%;
@@ -394,10 +424,15 @@
     #main-overlay {
       padding: 32px 38px;
       display: flex; flex-direction: column; gap: 28px;
+      overflow: auto;
+      pointer-events: all;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0,232,123,0.42) transparent;
     }
 
     .main-head {
       max-width: 680px;
+      flex-shrink: 0;
     }
     .main-kicker {
       display: inline-flex; align-items: center; gap: 9px;
@@ -429,6 +464,68 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 18px;
       pointer-events: all;
+      align-content: start;
+      padding-bottom: 10px;
+    }
+    .gif-groups {
+      display: grid;
+      gap: 13px;
+      min-height: 0;
+    }
+    .gif-group {
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+    }
+    .dashboard-group-label {
+      font-family: monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: rgba(242,244,247,0.42);
+      font-size: 9px;
+    }
+    .gif-row-primary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .gif-row-dashboard {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      padding-bottom: 0;
+    }
+    .gif-row-dashboard .gif-box {
+      aspect-ratio: 4/3;
+      min-height: 0;
+      border-color: rgba(0,232,123,0.28);
+      background: rgba(0,232,123,0.06);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(125,232,255,0.06);
+    }
+    .gif-row-dashboard .gif-box video {
+      display: none;
+    }
+    .gif-row-dashboard .tile-preview {
+      z-index: 1;
+      opacity: 0.96;
+      background:
+        radial-gradient(circle at 28% 18%, rgba(125,232,255,0.24), transparent 30%),
+        radial-gradient(circle at 78% 78%, rgba(0,232,123,0.22), transparent 32%),
+        linear-gradient(135deg, rgba(11,18,20,0.98), rgba(3,10,7,0.98));
+    }
+    .gif-row-dashboard .tile-preview-inner {
+      border-color: rgba(0,232,123,0.34);
+      background-color: rgba(0,0,0,0.34);
+    }
+    .gif-row-dashboard .tile-lines span {
+      border-color: rgba(0,232,123,0.42);
+      background: linear-gradient(180deg, rgba(0,232,123,0.70), rgba(125,232,255,0.18));
+    }
+    .gif-row-dashboard .tile-preview-title {
+      color: rgba(0,232,123,0.88);
+      font-weight: 700;
+      text-shadow: 0 0 14px rgba(0,232,123,0.34);
+    }
+    .gif-row-dashboard .tile-kicker,
+    .gif-row-dashboard .gif-label {
+      z-index: 2;
     }
     .gif-box {
       aspect-ratio: 4/3;
@@ -447,26 +544,86 @@
     .gif-box img,
     .gif-box video {
       width: 100%; height: 100%; object-fit: cover; display: block;
-      position: static;
-      opacity: 1;
-      z-index: auto;
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background: #050607;
+    }
+    .gif-box video:not([src]),
+    .gif-box video[src=""] {
+      opacity: 0;
+    }
+    .tile-preview {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        radial-gradient(circle at 28% 18%, rgba(125,232,255,0.14), transparent 30%),
+        radial-gradient(circle at 78% 78%, rgba(0,232,123,0.11), transparent 32%),
+        linear-gradient(135deg, rgba(11,15,19,0.98), rgba(4,6,8,0.98));
+    }
+    .tile-preview-inner {
+      width: 100%;
+      height: 100%;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 5px;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: 14px;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-color: rgba(0,0,0,0.24);
+    }
+    .tile-lines {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+      align-items: end;
+      min-height: 0;
+    }
+    .tile-lines span {
+      display: block;
+      min-height: 20%;
+      border: 1px solid rgba(0,232,123,0.22);
+      background: linear-gradient(180deg, rgba(0,232,123,0.42), rgba(125,232,255,0.08));
+    }
+    .tile-lines span:nth-child(1) { height: 42%; }
+    .tile-lines span:nth-child(2) { height: 72%; }
+    .tile-lines span:nth-child(3) { height: 55%; }
+    .tile-lines span:nth-child(4) { height: 88%; }
+    .tile-lines span:nth-child(5) { height: 64%; }
+    .tile-lines span:nth-child(6) { height: 38%; }
+    .tile-lines span:nth-child(7) { height: 78%; }
+    .tile-preview-title {
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: rgba(242,244,247,0.68);
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
     }
     .gif-box::after {
       content: "";
       position: absolute; inset: 0;
+      z-index: 2;
       background: linear-gradient(180deg, rgba(0,0,0,0.18), transparent 42%, rgba(0,0,0,0.72));
       pointer-events: none;
     }
     .tile-kicker {
       position: absolute;
       top: 10px; left: 10px;
-      z-index: 1;
+      z-index: 3;
       color: rgba(255,255,255,0.66);
       font-size: 9px;
     }
     .gif-label {
       position: absolute; bottom: 0; left: 0; right: 0;
-      z-index: 1;
+      z-index: 3;
       padding: 9px 11px;
       background: linear-gradient(180deg, transparent, rgba(0,0,0,0.64));
       font-family: monospace; font-size: 10px;
@@ -483,7 +640,10 @@
       #main-overlay { padding: 26px 22px; gap: 22px; }
       .main-title { font-size: 39px; }
       .main-sub { font-size: 15px; }
-      .gif-row { grid-template-columns: 1fr; max-height: 58vh; overflow: auto; padding-right: 4px; }
+      .gif-row,
+      .gif-row-primary,
+      .gif-row-dashboard { grid-template-columns: 1fr; max-height: none; overflow: visible; padding-right: 4px; }
+      .gif-groups { max-height: 58vh; overflow: auto; padding-right: 4px; }
       .gif-box { aspect-ratio: 16/9; min-height: 126px; }
     }
 
@@ -535,7 +695,10 @@
       </div>
     </div>
     <div class="main-divider"></div>
-    <div class="gif-row">
+    <div class="gif-groups">
+      <div class="gif-group">
+        <div class="dashboard-group-label">Core demos</div>
+        <div class="gif-row gif-row-primary">
       <div class="gif-box" onclick="switchWs('spectre')">
         <div class="tile-kicker">01 / OSINT</div>
         <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
@@ -551,6 +714,79 @@
         <video src="videos/news.mp4" aria-label="News" autoplay muted loop playsinline preload="metadata"></video>
         <div class="gif-label">AI News Feed</div>
       </div>
+        </div>
+      </div>
+      <div class="gif-group">
+        <div class="dashboard-group-label">Generated dashboard prototypes</div>
+        <div class="gif-row gif-row-dashboard">
+      <div class="gif-box" onclick="switchWs('world-monitor')">
+        <div class="tile-kicker">04 / GEO</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">world monitor</div>
+          </div>
+        </div>
+        <video src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">World Monitor</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('glance')">
+        <div class="tile-kicker">05 / NEWS</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">glance</div>
+          </div>
+        </div>
+        <video src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Glance / Feeds</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('crypto-trading')">
+        <div class="tile-kicker">06 / CRYPTO</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">crypto trading</div>
+          </div>
+        </div>
+        <video src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Crypto Trading</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('polyrec')">
+        <div class="tile-kicker">07 / PRED</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">polyrec</div>
+          </div>
+        </div>
+        <video src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Polyrec / Polymarket</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('dashboard123')">
+        <div class="tile-kicker">08 / MARKETS</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">dashboard123</div>
+          </div>
+        </div>
+        <video src="videos/dashboard123.mp4" aria-label="Dashboard123" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">Dashboard123</div>
+      </div>
+      <div class="gif-box" onclick="switchWs('arena')">
+        <div class="tile-kicker">09 / ARENA</div>
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">ai arena</div>
+          </div>
+        </div>
+        <video src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+        <div class="gif-label">AI vs AI Arena</div>
+      </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -560,6 +796,7 @@
       <span class="frame-dot"></span>
       <span class="frame-dot"></span>
       <span id="dashboard-title">// KATECHON — INTELLIGENCE PLATFORM</span>
+      <button id="dashboard-back" type="button">Back</button>
     </div>
     <iframe id="dashboard-frame" title="Live dashboard"></iframe>
   </div>
@@ -750,6 +987,11 @@
     runIntroMotion();
     wireMotionInteractions();
 
+    if (new URLSearchParams(window.location.search).get('demo') === '1') {
+      document.getElementById('email-overlay').classList.add('hidden');
+      revealMainOverlay();
+    }
+
     // Reset stream to landing state on every page load
     fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
 
@@ -780,6 +1022,48 @@
         url: () => '/dashboards/spectre/?kiosk=1',
         narration: true,
       },
+      news: {
+        label: 'Generative News',
+        title: '// NEWS — GENERATIVE BROADCAST',
+        url: () => '/dashboards/news/',
+        narration: true,
+      },
+      'world-monitor': {
+        label: 'World Monitor',
+        title: '// GEO — WORLD MONITOR',
+        url: () => '/dashboards/world-monitor/',
+        narration: true,
+      },
+      glance: {
+        label: 'Glance',
+        title: '// FEEDS — GLANCE',
+        url: () => '/dashboards/glance/',
+        narration: true,
+      },
+      'crypto-trading': {
+        label: 'Crypto Trading',
+        title: '// CRYPTO — TRADING DASHBOARD',
+        url: () => '/dashboards/crypto-trading/',
+        narration: true,
+      },
+      polyrec: {
+        label: 'Polyrec',
+        title: '// PREDICTION MARKETS — POLYREC',
+        url: () => '/dashboards/polyrec/',
+        narration: true,
+      },
+      dashboard123: {
+        label: 'Dashboard123',
+        title: '// MARKETS — DASHBOARD123',
+        url: () => '/dashboards/dashboard123/',
+        narration: true,
+      },
+      arena: {
+        label: 'AI Arena',
+        title: '// ARENA — AI vs AI',
+        url: () => '/dashboards/arena/',
+        narration: true,
+      },
     };
     const avatarAudioWaiters = new Map();
     const narration = {
@@ -791,6 +1075,7 @@
     let avatarReady = false;
     let avatarReadyResolver = null;
     let avatarPlacement = loadAvatarPlacement();
+    let homeTransitionTimer = null;
 
     if (Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
@@ -956,6 +1241,24 @@
       stopBrowserAvatarAudio();
     }
 
+    function clearHomeTransitionMask() {
+      if (homeTransitionTimer) clearTimeout(homeTransitionTimer);
+      homeTransitionTimer = null;
+      document.body.classList.remove('home-transition');
+    }
+
+    function maskStaleDesktopFrame(duration = 3600) {
+      clearHomeTransitionMask();
+      document.body.classList.add('home-transition');
+      homeTransitionTimer = setTimeout(clearHomeTransitionMask, duration);
+    }
+
+    function unloadDashboardFrame() {
+      if (!dashboardFrame.getAttribute('src')) return;
+      dashboardFrame.src = 'about:blank';
+      dashboardFrame.removeAttribute('src');
+    }
+
     async function runDashboardNarration(dashboardId, runId) {
       if (!narration.active || narration.runId !== runId) return;
       try {
@@ -988,10 +1291,12 @@
       const dashboard = DASHBOARDS[workspace];
       if (!dashboard) {
         stopDashboardNarration();
+        unloadDashboardFrame();
         dashboardOverlay.classList.add('hidden');
         hideMainOverlay();
         return fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
       }
+      clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url();
       fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(err => {
@@ -1056,6 +1361,10 @@
     document.getElementById('email-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') enter();
     });
+    document.getElementById('dashboard-back').addEventListener('click', () => {
+      goHome();
+      showToast('-> main panel', '#00e87b');
+    });
 
     // ── VOICE / PUSH-TO-TALK ──────────────────────────────────────────────────
     const micBtn       = document.getElementById('speech-btn');
@@ -1068,7 +1377,9 @@
 
     function goHome() {
       stopDashboardNarration();
+      unloadDashboardFrame();
       dashboardOverlay.classList.add('hidden');
+      maskStaleDesktopFrame();
       const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
       revealMainOverlay();
       return req;
@@ -1158,6 +1469,10 @@
     }
 
     async function executeCommand(command) {
+      if (command.workspace && DASHBOARDS[command.workspace]) {
+        await openDashboard(command.workspace);
+        return;
+      }
       if (command.workspace === 'spectre' || command.action === 'open_spectre') {
         await openDashboard('spectre');
         return;

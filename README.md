@@ -157,6 +157,26 @@ The remote compositor defaults to `REMOTE_AVATAR_ENABLED=0` and `ENABLE_HLS_AUDI
 
 SPECTRE is embedded through the same-origin `/dashboards/spectre/` proxy so viewers do not need direct browser access to port `3010`. The proxy tries `SPECTRE_DASHBOARD_URL`, `SPECTRE_URL`, `http://127.0.0.1:3010`, then the local tunnel `http://127.0.0.1:9092`.
 
+### Prototype Dashboards
+
+The landing grid has five concept dashboard slots inspired by external open-source dashboards. By default, each iframe renders the local `public/prototype-dashboard.html` experience so the demo is reliable: distinct dashboard visuals, tabs, feed-item clicks, live data pulsing, and a `Generate Line` control that previews dashboard-specific Kat narration through `GET /api/narration/:dashboard?mute=1`.
+
+| Dashboard | Iframe route | Narration lens |
+|---|---|---|
+| World Monitor | `/dashboards/world-monitor/` | Risk correlation |
+| Glance | `/dashboards/glance/` | Source triage |
+| Crypto Trading | `/dashboards/crypto-trading/` | Risk discipline |
+| Polyrec | `/dashboards/polyrec/` | Spread and clock |
+| Dashboard123 | `/dashboards/dashboard123/` | Macro context |
+
+Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode the optional upstream env vars are `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL`. Polyrec is terminal-first, so it still needs a web terminal wrapper before it behaves like the other dashboards.
+
+This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
+
+```bash
+docker run --rm -p 8080:8080 -v "$PWD/glance-config:/app/config" glanceapp/glance:latest -config /app/config/glance.yml
+```
+
 ### Legacy Audio Streaming
 
 The compositor supports two modes:
@@ -202,7 +222,9 @@ All endpoints are served by `server.js` on port 4040.
 | `POST` | `/api/transcribe` | Transcribe audio blob → text (Groq Whisper) |
 | `POST` | `/api/command` | Parse transcript → action, route to remote control server |
 | `POST` | `/api/speak` | Synthesize TTS (ElevenLabs) + forward to avatar |
+| `GET`  | `/api/narration/:dashboard` | Generate one Kat narration payload for a dashboard iframe |
 | `POST` | `/api/sessions/start/:kind` | Spawn a new broker session |
 | `GET`  | `/api/sessions/:id` | Poll session status + stream URL |
 | `PUT`  | `/api/sessions/:kind/:id` | Register an existing session ID |
 | `GET`  | `/dashboards/spectre/*` | Same-origin proxy for the SPECTRE dashboard iframe |
+| `GET`  | `/dashboards/:external/*` | Generated prototype dashboard iframe by default; external proxy when `EXTERNAL_DASHBOARD_UPSTREAMS=1` |

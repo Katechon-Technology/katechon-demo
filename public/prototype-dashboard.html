@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Katechon Dashboard</title>
+  <style>
+    :root {
+      --bg: #050608;
+      --panel: rgba(9, 12, 15, 0.82);
+      --panel-strong: rgba(9, 12, 15, 0.94);
+      --line: rgba(255,255,255,0.11);
+      --line-hot: rgba(0,232,123,0.54);
+      --text: #f2f4f7;
+      --muted: rgba(242,244,247,0.62);
+      --soft: rgba(242,244,247,0.38);
+      --green: #00e87b;
+      --cyan: #7de8ff;
+      --amber: #ffbf5f;
+      --red: #ff6b5f;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      background: var(--bg);
+    }
+    body {
+      min-height: 100vh;
+      color: var(--text);
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(125,232,255,0.13), transparent 25%),
+        radial-gradient(circle at 80% 16%, rgba(0,232,123,0.10), transparent 24%),
+        linear-gradient(135deg, #050608 0%, #101419 56%, #040506 100%);
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover,
+    button.active {
+      border-color: var(--line-hot);
+      background: rgba(0,232,123,0.10);
+    }
+
+    .app {
+      height: 100vh;
+      min-height: 560px;
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .topbar,
+    .module {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 16px 50px rgba(0,0,0,0.28);
+      backdrop-filter: blur(10px);
+    }
+
+    .topbar {
+      min-height: 86px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .kicker,
+    .metric-label,
+    .section-label,
+    .feed-time,
+    .terminal,
+    .chip,
+    .button-row button {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+    }
+
+    .kicker {
+      color: var(--cyan);
+      font-size: 10px;
+      margin-bottom: 8px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 4.4vw, 54px);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      max-width: 760px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .button-row button {
+      min-height: 34px;
+      padding: 0 11px;
+      font-size: 10px;
+    }
+
+    .grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 14px;
+    }
+
+    .left {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      padding: 13px;
+      min-height: 84px;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric::after {
+      content: "";
+      position: absolute;
+      left: 13px;
+      right: 13px;
+      bottom: 10px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--green), rgba(125,232,255,0.22), transparent);
+      opacity: 0.55;
+    }
+    .metric-label {
+      color: var(--soft);
+      font-size: 9px;
+      margin-bottom: 10px;
+    }
+    .metric-value {
+      font-size: 27px;
+      font-weight: 750;
+      line-height: 1;
+    }
+    .metric-note {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 6px;
+    }
+
+    .visual {
+      min-height: 0;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+      overflow: hidden;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .section-label {
+      color: var(--green);
+      font-size: 10px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      color: var(--muted);
+      font-size: 9px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      background: rgba(0,0,0,0.22);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 7px;
+      background:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+        rgba(0,0,0,0.24);
+      background-size: 32px 32px;
+      overflow: hidden;
+    }
+
+    .map-grid {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 50% 54%, rgba(125,232,255,0.10), transparent 38%),
+        radial-gradient(ellipse at 36% 46%, rgba(0,232,123,0.12), transparent 16%),
+        radial-gradient(ellipse at 67% 58%, rgba(255,191,95,0.10), transparent 18%);
+    }
+    .pulse {
+      position: absolute;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 0 0 rgba(255,191,95,0.50);
+      animation: pulse 2.4s infinite;
+    }
+    @keyframes pulse {
+      70% { box-shadow: 0 0 0 24px rgba(255,191,95,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,191,95,0); }
+    }
+
+    .card-wall {
+      position: absolute;
+      inset: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-auto-rows: minmax(82px, 1fr);
+      gap: 10px;
+    }
+    .mini-card {
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 6px;
+      background: rgba(4, 6, 8, 0.70);
+      overflow: hidden;
+    }
+    .mini-card strong {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .mini-card span {
+      display: block;
+      height: 6px;
+      margin: 7px 0;
+      background: linear-gradient(90deg, rgba(125,232,255,0.60), rgba(255,255,255,0.08));
+      border-radius: 999px;
+    }
+    .mini-card span:nth-child(3) { width: 74%; }
+    .mini-card span:nth-child(4) { width: 48%; }
+
+    .candle-field,
+    .market-field,
+    .probability-field {
+      position: absolute;
+      inset: 16px;
+      display: grid;
+      align-items: end;
+      gap: 7px;
+    }
+    .candle-field { grid-template-columns: repeat(26, 1fr); }
+    .candle {
+      position: relative;
+      min-height: 34px;
+      border-radius: 3px;
+      background: rgba(0,232,123,0.54);
+    }
+    .candle.down { background: rgba(255,107,95,0.62); }
+    .candle::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -17px;
+      width: 1px;
+      height: calc(100% + 34px);
+      background: currentColor;
+      opacity: 0.42;
+    }
+
+    .probability-field {
+      grid-template-columns: repeat(3, 1fr);
+      align-items: stretch;
+    }
+    .curve {
+      align-self: center;
+      height: 58%;
+      border: 1px solid rgba(125,232,255,0.22);
+      border-radius: 48% 52% 44% 56%;
+      background: radial-gradient(ellipse at center, rgba(125,232,255,0.16), transparent 60%);
+      filter: blur(0.1px);
+    }
+    .curve:nth-child(2) {
+      height: 82%;
+      border-color: rgba(0,232,123,0.28);
+      background: radial-gradient(ellipse at center, rgba(0,232,123,0.15), transparent 58%);
+    }
+    .curve:nth-child(3) {
+      height: 66%;
+      border-color: rgba(255,191,95,0.25);
+      background: radial-gradient(ellipse at center, rgba(255,191,95,0.12), transparent 62%);
+    }
+
+    .market-field {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: stretch;
+    }
+    .market-tile {
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 6px;
+      background: rgba(5, 8, 10, 0.72);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+    }
+    .market-line {
+      align-self: end;
+      height: 42px;
+      background:
+        linear-gradient(135deg, transparent 45%, rgba(0,232,123,0.40) 46%, rgba(0,232,123,0.40) 52%, transparent 53%),
+        linear-gradient(20deg, transparent 46%, rgba(125,232,255,0.32) 47%, rgba(125,232,255,0.32) 52%, transparent 53%);
+    }
+
+    .terminal {
+      position: absolute;
+      inset: 16px;
+      padding: 14px;
+      color: rgba(217,255,233,0.88);
+      font-size: 12px;
+      line-height: 1.6;
+      border: 1px solid rgba(0,232,123,0.18);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.48);
+      overflow: hidden;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+    .terminal div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .terminal .warn { color: var(--amber); }
+    .terminal .hot { color: var(--green); }
+
+    .right {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 14px;
+    }
+
+    .feed {
+      min-height: 0;
+      padding: 14px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 12px;
+      overflow: hidden;
+    }
+    .feed-list {
+      min-height: 0;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .feed-item {
+      padding: 11px 0;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      cursor: pointer;
+    }
+    .feed-item:first-child { border-top: 0; }
+    .feed-item:hover .feed-title,
+    .feed-item.active .feed-title { color: var(--green); }
+    .feed-time {
+      color: var(--soft);
+      font-size: 9px;
+      margin-bottom: 5px;
+    }
+    .feed-title {
+      font-size: 13px;
+      line-height: 1.25;
+      transition: color 0.2s;
+    }
+    .feed-meta {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      margin-top: 6px;
+    }
+
+    .narration {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .caption {
+      min-height: 60px;
+      color: rgba(242,244,247,0.82);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .caption.loading { color: var(--soft); }
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+    .actions button {
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 11px;
+    }
+
+    @media (max-width: 680px) {
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100vh; }
+      .topbar,
+      .grid { grid-template-columns: 1fr; }
+      .button-row { justify-content: flex-start; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stage { min-height: 360px; }
+      .right { grid-template-rows: auto auto; }
+      .feed-list { max-height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <div class="kicker" id="kicker"></div>
+        <h1 id="title"></h1>
+        <div class="subtitle" id="subtitle"></div>
+      </div>
+      <div class="button-row" id="tabs"></div>
+    </header>
+
+    <section class="grid">
+      <div class="left">
+        <div class="metrics" id="metrics"></div>
+        <section class="module visual">
+          <div class="section-head">
+            <div>
+              <div class="section-label" id="visual-label"></div>
+              <div class="subtitle" id="visual-copy"></div>
+            </div>
+            <span class="chip" id="mode-chip"></span>
+          </div>
+          <div class="stage" id="stage"></div>
+        </section>
+      </div>
+
+      <aside class="right">
+        <section class="module feed">
+          <div class="section-head">
+            <div class="section-label" id="feed-label"></div>
+            <span class="chip" id="clock"></span>
+          </div>
+          <div class="feed-list" id="feed"></div>
+        </section>
+        <section class="module narration">
+          <div class="section-head">
+            <div class="section-label">kat narration</div>
+            <span class="chip" id="narration-lens"></span>
+          </div>
+          <div class="caption" id="caption"></div>
+          <div class="actions">
+            <button type="button" id="narrate">Generate Line</button>
+            <button type="button" id="pulse">Pulse Data</button>
+            <button type="button" id="live">Live On</button>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const dashboardId = (location.pathname.match(/^\/dashboards\/([^/]+)/) || [])[1] || "world-monitor";
+
+    const DASHBOARDS = {
+      "world-monitor": {
+        kicker: "geopolitical intelligence",
+        title: "World Monitor",
+        subtitle: "Conflict signals, market pressure, instability markers, and source-fused regional briefs.",
+        visual: "map",
+        visualLabel: "regional risk map",
+        visualCopy: "Synthetic hotspots pulse across a global monitoring layer while the feed tracks source confidence.",
+        feedLabel: "intel brief",
+        lens: "risk correlation",
+        tabs: ["Overview", "Conflict", "Markets", "Sources"],
+        metrics: [
+          ["Risk Index", "62", "+4.2"],
+          ["Signals", "148", "12 clusters"],
+          ["Markets", "31", "cross-asset"],
+          ["Confidence", "84%", "source fused"],
+        ],
+        feed: [
+          ["03m", "Border activity cluster moved from watch to active review.", "3 sources, medium confidence"],
+          ["07m", "Energy corridor risk model detected higher shipping sensitivity.", "markets and route layer"],
+          ["11m", "Country instability score crossed the analyst review threshold.", "social, currency, news"],
+          ["18m", "Commodity radar linked supply pressure to regional headlines.", "oil, gold, freight"],
+          ["24m", "Satellite tasking queue marked one zone for visual verification.", "imagery pending"],
+        ],
+        caption: "Kat reads this dashboard as a correlation surface: maps first, source confidence second, markets last.",
+      },
+      glance: {
+        kicker: "source wall",
+        title: "Glance",
+        subtitle: "A compact daily intelligence screen for feeds, markets, weather, communities, and video sources.",
+        visual: "cards",
+        visualLabel: "feed stack",
+        visualCopy: "Cards reorganize as source groups are selected, making the morning scan feel immediate.",
+        feedLabel: "source queue",
+        lens: "triage",
+        tabs: ["Headlines", "Markets", "Communities", "Weather"],
+        metrics: [
+          ["Sources", "42", "RSS + social"],
+          ["Markets", "18", "live widgets"],
+          ["Unread", "126", "-12 since open"],
+          ["Weather", "NYC", "48F clear"],
+        ],
+        feed: [
+          ["01m", "Markets card refreshed with index, crypto, oil, and gold context.", "dashboard widget"],
+          ["04m", "News queue grouped world, tech, and finance sources into one scan.", "RSS fused"],
+          ["09m", "Community posts surfaced early discussion around market structure.", "HN and Reddit"],
+          ["16m", "Video feed added analyst clips without taking over the layout.", "YouTube source"],
+          ["22m", "Weather and calendar context stayed visible beside the news wall.", "daily ops layer"],
+        ],
+        caption: "Kat treats Glance as a fast source triage wall: what changed, where it came from, and what deserves a second look.",
+      },
+      "crypto-trading": {
+        kicker: "crypto strategy workbench",
+        title: "Crypto Trading",
+        subtitle: "Live crypto tape, strategy controls, backtest surfaces, and risk panels for trader workflows.",
+        visual: "candles",
+        visualLabel: "strategy backtest",
+        visualCopy: "Synthetic candles and equity traces move together to show how a strategy reacts to market state.",
+        feedLabel: "trade tape",
+        lens: "risk discipline",
+        tabs: ["Tape", "Backtest", "Signals", "Risk"],
+        metrics: [
+          ["BTC", "67.4K", "+0.8%"],
+          ["Strategy", "1.42", "sharpe"],
+          ["Drawdown", "6.8%", "30d"],
+          ["Win Rate", "58%", "last run"],
+        ],
+        feed: [
+          ["now", "Momentum strategy reduced size after volatility expansion.", "risk engine"],
+          ["02m", "Backtest equity curve stayed positive after fee adjustment.", "simulation"],
+          ["05m", "Exchange tape flagged liquidity thinning near resistance.", "order flow"],
+          ["12m", "Signal panel moved from trend-following to neutral review.", "model state"],
+          ["20m", "Position monitor kept max exposure below configured threshold.", "portfolio guardrail"],
+        ],
+        caption: "Kat narrates this like a trader's cockpit: signal quality, drawdown, and execution risk before any directional story.",
+      },
+      polyrec: {
+        kicker: "prediction market terminal",
+        title: "Polyrec",
+        subtitle: "Polymarket BTC order books, oracle timing, probability curves, and terminal-style backtesting.",
+        visual: "terminal",
+        visualLabel: "market microstructure",
+        visualCopy: "The terminal view keeps reference price, order book depth, spread, and settlement timing together.",
+        feedLabel: "market log",
+        lens: "spread and clock",
+        tabs: ["Order Book", "Oracle", "Backtest", "Terminal"],
+        metrics: [
+          ["YES Bid", "48.5", "-1.2"],
+          ["Spread", "3.1", "wide"],
+          ["Oracle Lag", "14s", "watch"],
+          ["Depth", "72K", "two-sided"],
+        ],
+        feed: [
+          ["00s", "Order book imbalance widened while reference price stayed flat.", "microstructure"],
+          ["03s", "Oracle timing monitor marked settlement window as high attention.", "clock risk"],
+          ["09s", "Backtest replay showed edge fading after fees and slippage.", "strategy review"],
+          ["14s", "Probability curve diverged from spot movement for three ticks.", "basis watch"],
+          ["21s", "Terminal kept best bid, ask, volume, and reference feed visible.", "operator view"],
+        ],
+        caption: "Kat frames Polyrec around market structure: spread, clock, oracle lag, and whether the edge survives transaction costs.",
+      },
+      dashboard123: {
+        kicker: "professional market monitor",
+        title: "Dashboard123",
+        subtitle: "Indices, movers, macro, sentiment, technicals, news, and portfolio monitoring in a quant-grade view.",
+        visual: "markets",
+        visualLabel: "portfolio overview",
+        visualCopy: "Market tiles compare breadth, factors, macro pressure, sentiment, and technical state at a glance.",
+        feedLabel: "market desk",
+        lens: "macro context",
+        tabs: ["Indices", "Movers", "Macro", "Technicals"],
+        metrics: [
+          ["Breadth", "61%", "advancers"],
+          ["Macro", "72", "pressure"],
+          ["Sentiment", "Neutral", "mixed"],
+          ["Technicals", "18", "setups"],
+        ],
+        feed: [
+          ["02m", "Index monitor compared large-cap breadth against sector rotation.", "market internals"],
+          ["06m", "Macro card linked rates, dollar, oil, and volatility context.", "cross-asset"],
+          ["10m", "News sentiment panel separated noisy headlines from portfolio impact.", "NLP filter"],
+          ["15m", "Technical scan surfaced watchlist names near trend thresholds.", "setup engine"],
+          ["23m", "Portfolio view held exposure, drawdown, and factor tilt together.", "risk lens"],
+        ],
+        caption: "Kat reads Dashboard123 as a market desk: breadth, macro pressure, technical setups, then portfolio exposure.",
+      },
+      arena: {
+        kicker: "live model competition",
+        title: "AI Arena",
+        subtitle: "Two AI agents receive the same task, stream their work side by side, and are judged in real time.",
+        visual: "terminal",
+        visualLabel: "head-to-head round",
+        visualCopy: "The arena keeps task state, reasoning checkpoints, latency, and judge score visible as the round unfolds.",
+        feedLabel: "match log",
+        lens: "speed and accuracy",
+        tabs: ["Round", "Agent A", "Agent B", "Judge"],
+        metrics: [
+          ["Agent A", "86", "score"],
+          ["Agent B", "82", "score"],
+          ["Latency", "12s", "delta"],
+          ["Judge", "live", "review"],
+        ],
+        feed: [
+          ["00s", "Both agents received the same task and started parallel planning.", "round start"],
+          ["08s", "Agent A produced a concise plan while Agent B expanded edge cases.", "strategy split"],
+          ["15s", "Judge panel flagged one unsupported assumption for review.", "quality check"],
+          ["24s", "Agent B recovered with a validation step, narrowing the score gap.", "adaptation"],
+          ["31s", "Final comparison weighs task completion, evidence, latency, and clarity.", "scoring"],
+        ],
+        caption: "Kat calls the AI Arena like a match: speed matters, but the winning model has to be right.",
+      },
+    };
+
+    const config = DASHBOARDS[dashboardId] || DASHBOARDS["world-monitor"];
+    let activeTab = config.tabs[0];
+    let activeFeed = 0;
+    let live = true;
+    let tick = 0;
+    let timer = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function render() {
+      document.title = `${config.title} - Katechon`;
+      $("kicker").textContent = config.kicker;
+      $("title").textContent = config.title;
+      $("subtitle").textContent = config.subtitle;
+      $("visual-label").textContent = config.visualLabel;
+      $("visual-copy").textContent = config.visualCopy;
+      $("feed-label").textContent = config.feedLabel;
+      $("narration-lens").textContent = config.lens;
+      $("caption").textContent = config.caption;
+      renderTabs();
+      renderMetrics();
+      renderVisual();
+      renderFeed();
+      updateClock();
+      startLiveLoop();
+    }
+
+    function renderTabs() {
+      $("tabs").innerHTML = "";
+      config.tabs.forEach((tab) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = tab;
+        button.className = tab === activeTab ? "active" : "";
+        button.addEventListener("click", () => {
+          activeTab = tab;
+          activeFeed = 0;
+          renderMetrics();
+          renderVisual();
+          renderFeed();
+        });
+        $("tabs").appendChild(button);
+      });
+    }
+
+    function metricValue(raw, index) {
+      if (!live) return raw;
+      if (/^\d+$/.test(raw)) return String(Number(raw) + ((tick + index) % 3));
+      if (/^\d+\.\d$/.test(raw)) return (Number(raw) + (((tick + index) % 5) - 2) / 10).toFixed(1);
+      if (/^\d+%$/.test(raw)) return `${Math.max(1, Math.min(99, Number(raw.slice(0, -1)) + ((tick + index) % 3) - 1))}%`;
+      return raw;
+    }
+
+    function renderMetrics() {
+      $("metrics").innerHTML = "";
+      config.metrics.forEach((metric, index) => {
+        const el = document.createElement("div");
+        el.className = "module metric";
+        el.innerHTML = `
+          <div class="metric-label">${metric[0]}</div>
+          <div class="metric-value">${metricValue(metric[1], index)}</div>
+          <div class="metric-note">${activeTab} / ${metric[2]}</div>
+        `;
+        $("metrics").appendChild(el);
+      });
+    }
+
+    function renderVisual() {
+      $("mode-chip").textContent = activeTab;
+      const stage = $("stage");
+      stage.innerHTML = "";
+      if (config.visual === "map") renderMap(stage);
+      if (config.visual === "cards") renderCards(stage);
+      if (config.visual === "candles") renderCandles(stage);
+      if (config.visual === "terminal") renderTerminal(stage);
+      if (config.visual === "markets") renderMarkets(stage);
+    }
+
+    function renderMap(stage) {
+      const map = document.createElement("div");
+      map.className = "map-grid";
+      stage.appendChild(map);
+      const positions = [[20, 38], [38, 46], [51, 31], [61, 58], [75, 44], [47, 72]];
+      positions.forEach(([left, top], index) => {
+        const dot = document.createElement("span");
+        dot.className = "pulse";
+        dot.style.left = `${left + ((tick + index) % 3)}%`;
+        dot.style.top = `${top}%`;
+        dot.style.animationDelay = `${index * 0.34}s`;
+        stage.appendChild(dot);
+      });
+    }
+
+    function renderCards(stage) {
+      const wall = document.createElement("div");
+      wall.className = "card-wall";
+      config.feed.concat(config.feed.slice(0, 1)).slice(0, 6).forEach((item, index) => {
+        const card = document.createElement("div");
+        card.className = "mini-card";
+        card.innerHTML = `<strong>${item[0]} / ${config.tabs[index % config.tabs.length]}</strong><span></span><span></span><span></span>`;
+        wall.appendChild(card);
+      });
+      stage.appendChild(wall);
+    }
+
+    function renderCandles(stage) {
+      const field = document.createElement("div");
+      field.className = "candle-field";
+      for (let i = 0; i < 26; i++) {
+        const candle = document.createElement("span");
+        candle.className = `candle ${((i + tick) % 5 === 0 || i % 7 === 0) ? "down" : ""}`;
+        candle.style.height = `${28 + ((i * 17 + tick * 9) % 70)}%`;
+        candle.style.color = candle.className.includes("down") ? "var(--red)" : "var(--green)";
+        field.appendChild(candle);
+      }
+      stage.appendChild(field);
+    }
+
+    function renderTerminal(stage) {
+      const terminal = document.createElement("div");
+      terminal.className = "terminal";
+      terminal.innerHTML = `
+        <div class="hot">$ polyrec --market btc-updown --mode ${activeTab.toLowerCase().replace(/\s+/g, "-")}</div>
+        <div>ref_price=synthetic tick=${String(tick).padStart(4, "0")} book_depth=72k spread=3.1</div>
+        <div class="warn">oracle_window=watch settlement_clock=active slippage_model=on</div>
+        <div>yes_bid=48.5 yes_ask=51.6 no_bid=47.9 no_ask=52.1</div>
+        <div>curve.fit confidence=medium edge_after_fees=thin</div>
+        <div>backtest replay: 30d / volume filtered / latency adjusted</div>
+        <div class="hot">operator note: keep spread, clock, and reference visible</div>
+      `;
+      stage.appendChild(terminal);
+    }
+
+    function renderMarkets(stage) {
+      const field = document.createElement("div");
+      field.className = "market-field";
+      ["Breadth", "Macro", "News", "Factor", "Risk", "Rates", "Oil", "Vol"].forEach((label, index) => {
+        const tile = document.createElement("div");
+        tile.className = "market-tile";
+        tile.innerHTML = `<span class="chip">${label}</span><div class="market-line"></div><strong>${54 + ((tick + index * 7) % 39)}</strong>`;
+        field.appendChild(tile);
+      });
+      stage.appendChild(field);
+    }
+
+    function renderFeed() {
+      $("feed").innerHTML = "";
+      config.feed.forEach((item, index) => {
+        const el = document.createElement("div");
+        el.className = `feed-item ${index === activeFeed ? "active" : ""}`;
+        el.innerHTML = `
+          <div class="feed-time">${item[0]} / ${activeTab}</div>
+          <div class="feed-title">${item[1]}</div>
+          <div class="feed-meta">${item[2]}</div>
+        `;
+        el.addEventListener("click", () => {
+          activeFeed = index;
+          $("caption").textContent = `${config.title}: ${item[1]} Kat would narrate this through the ${config.lens} lens.`;
+          renderFeed();
+        });
+        $("feed").appendChild(el);
+      });
+    }
+
+    function pulseData() {
+      tick += 1;
+      activeFeed = (activeFeed + 1) % config.feed.length;
+      renderMetrics();
+      renderVisual();
+      renderFeed();
+      $("caption").textContent = `${config.title} shifted to ${activeTab.toLowerCase()} mode. Kat's narration lens is ${config.lens}.`;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      $("clock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function startLiveLoop() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        updateClock();
+        if (!live) return;
+        tick += 1;
+        renderMetrics();
+        renderVisual();
+      }, 2600);
+    }
+
+    async function generateNarration() {
+      const button = $("narrate");
+      button.disabled = true;
+      $("caption").classList.add("loading");
+      $("caption").textContent = "Generating dashboard-specific Kat line...";
+      try {
+        const resp = await fetch(`/api/narration/${dashboardId}?mute=1`, { cache: "no-store" });
+        const payload = await resp.json();
+        if (!resp.ok) throw new Error(payload.error || `narration ${resp.status}`);
+        $("caption").textContent = payload.text || config.caption;
+      } catch (err) {
+        $("caption").textContent = config.caption;
+        console.warn("narration preview failed:", err);
+      } finally {
+        $("caption").classList.remove("loading");
+        button.disabled = false;
+      }
+    }
+
+    $("narrate").addEventListener("click", generateNarration);
+    $("pulse").addEventListener("click", pulseData);
+    $("live").addEventListener("click", () => {
+      live = !live;
+      $("live").textContent = live ? "Live On" : "Live Off";
+      $("live").classList.toggle("active", live);
+    });
+    $("live").classList.add("active");
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 const path = require("path");
 const fs = require("fs");
+const net = require("net");
 require("dotenv").config();
 
 function loadEnvKeyFromFile(file, key) {
@@ -36,6 +37,7 @@ const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2"
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
+const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
   process.env.SPECTRE_DASHBOARD_URL,
@@ -46,6 +48,72 @@ const SPECTRE_DASHBOARD_UPSTREAMS = [
   .filter(Boolean)
   .map((url) => String(url).replace(/\/+$/, ""))
   .filter((url, index, all) => all.indexOf(url) === index);
+const NEWS_DASHBOARD_UPSTREAMS = [
+  process.env.NEWS_DASHBOARD_URL,
+  process.env.KATECHON_APP_URL,
+  "http://127.0.0.1:4060",
+  "http://127.0.0.1:3000",
+]
+  .filter(Boolean)
+  .map((url) => String(url).replace(/\/+$/, ""))
+  .filter((url, index, all) => all.indexOf(url) === index);
+const EXTERNAL_DASHBOARDS = {
+  "world-monitor": {
+    label: "World Monitor",
+    headline: "Geopolitical intelligence, news, and markets",
+    sourceUrl: "https://github.com/koala73/worldmonitor",
+    upstreams: [process.env.WORLD_MONITOR_DASHBOARD_URL, process.env.WORLD_MONITOR_URL, "http://127.0.0.1:5173"],
+    launch: "git clone https://github.com/koala73/worldmonitor.git && cd worldmonitor && npm install && npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
+    notes: ["Vite app", "No basic env required", "Expected local port 5173"],
+  },
+  glance: {
+    label: "Glance",
+    headline: "Self-hosted news, feeds, weather, and markets",
+    sourceUrl: "https://github.com/glanceapp/glance",
+    upstreams: [process.env.GLANCE_DASHBOARD_URL, process.env.GLANCE_URL, "http://127.0.0.1:8080"],
+    launch: "docker run --rm -p 8080:8080 -v ./glance-config:/app/config glanceapp/glance:latest -config /app/config/glance.yml",
+    notes: ["Docker or single binary", "YAML-configured widgets", "Expected local port 8080"],
+  },
+  "crypto-trading": {
+    label: "Crypto Trading",
+    headline: "Streamlit strategy dashboard and live crypto charts",
+    sourceUrl: "https://github.com/20wiz/crypto-trading-dashboard",
+    upstreams: [process.env.CRYPTO_TRADING_DASHBOARD_URL, process.env.CRYPTO_DASHBOARD_URL, "http://127.0.0.1:8501"],
+    launch: "git clone https://github.com/20wiz/crypto-trading-dashboard.git && cd crypto-trading-dashboard && streamlit run main.py --server.port 8501",
+    notes: ["Streamlit app", "Python dependencies required", "Expected local port 8501"],
+  },
+  polyrec: {
+    label: "Polyrec",
+    headline: "Polymarket BTC terminal dashboard and backtests",
+    sourceUrl: "https://github.com/txbabaxyz/polyrec",
+    upstreams: [process.env.POLYREC_DASHBOARD_URL, process.env.POLYREC_URL],
+    launch: "git clone https://github.com/txbabaxyz/polyrec.git && cd polyrec && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python dash.py",
+    notes: ["Terminal-first app", "Set POLYREC_DASHBOARD_URL to a ttyd/gotty wrapper", "Chainlink script path may need adjustment"],
+  },
+  dashboard123: {
+    label: "Dashboard123",
+    headline: "Portfolio123, macro, sentiment, technicals, and news",
+    sourceUrl: "https://github.com/Algoman123/Dashboard123",
+    upstreams: [process.env.DASHBOARD123_DASHBOARD_URL, process.env.DASHBOARD123_URL, "http://127.0.0.1:8510"],
+    launch: "git clone https://github.com/Algoman123/Dashboard123.git && cd Dashboard123 && streamlit run app.py --server.port 8510",
+    notes: ["Streamlit app", "Works partially without P123 API keys", "Expected local port 8510"],
+  },
+  arena: {
+    label: "AI Arena",
+    headline: "Live AI vs AI head-to-head battle — competing models, one task, judged in real time",
+    sourceUrl: "https://github.com/katechon/arena",
+    upstreams: [process.env.ARENA_DASHBOARD_URL, process.env.ARENA_URL, "http://127.0.0.1:8520"],
+    launch: "# Set ARENA_DASHBOARD_URL in .env to point at your arena app",
+    notes: ["Configure ARENA_DASHBOARD_URL env var", "Expected local port 8520"],
+  },
+};
+
+for (const dashboard of Object.values(EXTERNAL_DASHBOARDS)) {
+  dashboard.upstreams = dashboard.upstreams
+    .filter(Boolean)
+    .map((url) => String(url).replace(/\/+$/, ""))
+    .filter((url, index, all) => all.indexOf(url) === index);
+}
 
 async function proxyHls(req, res) {
   try {
@@ -74,6 +142,41 @@ const PANELS = [
     label: "SPECTRE OSINT dashboard",
     description: "The live OSINT/intelligence dashboard running on the remote desktop.",
   },
+  {
+    id: "news",
+    label: "generative news broadcast",
+    description: "The generated news broadcast surface from katechon-app.",
+  },
+  {
+    id: "world-monitor",
+    label: "World Monitor",
+    description: "Geopolitical intelligence dashboard with maps, briefs, risk signals, and markets context.",
+  },
+  {
+    id: "glance",
+    label: "Glance",
+    description: "Self-hosted feeds, news, weather, videos, and market widgets in one dashboard.",
+  },
+  {
+    id: "crypto-trading",
+    label: "Crypto Trading",
+    description: "Streamlit crypto markets dashboard with strategy backtesting and live signals.",
+  },
+  {
+    id: "polyrec",
+    label: "Polyrec",
+    description: "Terminal dashboard for Polymarket BTC prediction markets and backtesting.",
+  },
+  {
+    id: "dashboard123",
+    label: "Dashboard123",
+    description: "Professional stock, macro, sentiment, technicals, and portfolio monitoring dashboard.",
+  },
+  {
+    id: "arena",
+    label: "AI Arena",
+    description: "Live AI agent vs AI agent battle arena — competing models running head-to-head tasks in real time.",
+  },
 ];
 
 // Session IDs tracked at runtime — pre-seed known sessions
@@ -96,6 +199,90 @@ const DASHBOARD_NARRATION = {
       "This is the OSINT board. Maps, feeds, and posture signals are all in view.",
       "I'm scanning the dashboard like an analyst: movement first, corroboration second.",
       "The useful part here is correlation. One signal is noise, patterns are where the story starts.",
+    ],
+  },
+  news: {
+    label: "generative news broadcast",
+    voice:
+      "You are Kat narrating a generative news broadcast surface. Keep it cinematic, sharp, and tied to live news " +
+      "signals, generated imagery, source fusion, and editorial judgment without inventing specific new facts.",
+    fallback: [
+      "The news surface is live. I'm watching the generator turn source signals into a visual rundown.",
+      "This is the generative broadcast board. Images, sources, and narration are being assembled in real time.",
+      "I'm treating this like a newsroom stack: lead signal first, corroboration second, visuals only where they clarify.",
+      "The image pipeline is the tell here. It should make the story easier to inspect, not louder than the facts.",
+    ],
+  },
+  "world-monitor": {
+    label: "World Monitor geopolitical intelligence dashboard",
+    voice:
+      "You are Kat narrating World Monitor, a geopolitical intelligence dashboard with maps, conflict signals, " +
+      "market context, country risk, and synthesized news briefs. Stay precise and do not invent live events.",
+    fallback: [
+      "World Monitor is queued. I'm reading the map like a risk surface, not a headline board.",
+      "This panel is built for geopolitical context: feeds, instability signals, and market pressure in one view.",
+      "The useful motion here is correlation between news flow, geography, and finance.",
+      "I'm watching for clusters, not single alerts. One marker is a note; convergence is the story.",
+    ],
+  },
+  glance: {
+    label: "Glance news and markets dashboard",
+    voice:
+      "You are Kat narrating Glance, a clean self-hosted dashboard for RSS, Hacker News, Reddit, YouTube, weather, " +
+      "and market widgets. Keep the narration concise and operational.",
+    fallback: [
+      "Glance is the daily scan board: feeds, markets, weather, and source streams in one compact pass.",
+      "This surface is about speed. The viewer should get the morning read without hunting through tabs.",
+      "I'm treating Glance like a source triage wall: quick signals first, deeper context after.",
+      "Markets and feeds sit together here, which makes the day feel easier to parse.",
+    ],
+  },
+  "crypto-trading": {
+    label: "crypto trading dashboard",
+    voice:
+      "You are Kat narrating a crypto trading dashboard with live exchange data, charting, strategy settings, " +
+      "backtests, and signal widgets. Be sharp, practical, and avoid financial advice.",
+    fallback: [
+      "The crypto trading board is up. Charts, strategy controls, and backtests belong in the same loop.",
+      "I'm watching this as a trader's workbench: signal quality first, performance claims second.",
+      "The right question here is whether the strategy survives the backtest, not whether the chart looks exciting.",
+      "Live crypto dashboards need discipline: clear inputs, visible risk, and no magical thinking.",
+    ],
+  },
+  polyrec: {
+    label: "Polyrec Polymarket BTC dashboard",
+    voice:
+      "You are Kat narrating Polyrec, a terminal-style dashboard for Polymarket BTC prediction markets with order books, " +
+      "Binance price feeds, Chainlink oracle context, indicators, and backtesting. Avoid trading advice.",
+    fallback: [
+      "Polyrec is a terminal-grade view: order books, BTC feeds, and prediction market structure.",
+      "This panel is built for latency and microstructure, not decoration.",
+      "The edge here would come from comparing oracle lag, order book depth, and live BTC movement.",
+      "Prediction market dashboards are only useful when the spread, clock, and reference price stay visible.",
+    ],
+  },
+  dashboard123: {
+    label: "Dashboard123 markets dashboard",
+    voice:
+      "You are Kat narrating Dashboard123, a professional stocks and markets dashboard with indices, gainers and losers, " +
+      "macro indicators, TradingView charts, news, sentiment, technicals, and portfolio workflows. Avoid financial advice.",
+    fallback: [
+      "Dashboard123 is the broader market station: indices, movers, macro, news, and technicals in one pass.",
+      "This is where a portfolio view gets context from macro data and market internals.",
+      "I'm reading this like a quant monitor: breadth, factors, sentiment, and headlines before conclusions.",
+      "The dashboard is strongest when price action and news context stay side by side.",
+    ],
+  },
+  arena: {
+    label: "AI Arena — live AI vs AI battle",
+    voice:
+      "You are Kat narrating the AI Arena, a live head-to-head battle where two competing AI models run the same " +
+      "tasks simultaneously and their outputs are judged in real time. Be sharp, analytical, and treat it like a sport.",
+    fallback: [
+      "Two models, one task. I'm watching the outputs come in and deciding which one actually did the work.",
+      "The arena measures what matters: speed, accuracy, and whether the reasoning actually holds.",
+      "Left side is building an argument. Right side is running numbers. Let's see which approach closes first.",
+      "This is not a benchmark — it's live. The model that adapts to the prompt variation wins the round.",
     ],
   },
 };
@@ -174,6 +361,386 @@ async function proxySpectreDashboard(req, res) {
 }
 
 app.get(/^\/dashboards\/spectre(?:\/.*)?$/, proxySpectreDashboard);
+
+function newsProxyPath(originalUrl) {
+  const url = new URL(originalUrl, "http://katechon.local");
+  if (url.pathname === "/dashboards/news" || url.pathname === "/dashboards/news/") {
+    return `/demo${url.search}`;
+  }
+  if (url.pathname.startsWith("/dashboards/news/")) {
+    return `${url.pathname.slice("/dashboards/news".length)}${url.search}`;
+  }
+  return `${url.pathname}${url.search}`;
+}
+
+function newsProxyTimeout(proxyPath) {
+  if (proxyPath.startsWith("/api/demo/asset") || proxyPath.startsWith("/api/demo/video")) return 120000;
+  if (proxyPath.startsWith("/api/demo/voice") || proxyPath.startsWith("/api/demo/improvement")) return 45000;
+  if (proxyPath.startsWith("/_next/webpack-hmr")) return 0;
+  return 20000;
+}
+
+function rewriteNewsHtml(html) {
+  const injected = `
+    <style id="katechon-news-embed-tweaks">
+      iframe[title="Broadcast avatar"] { display: none !important; }
+    </style>
+    <script id="katechon-news-embed-script">
+      (() => {
+        const removeInternalAvatar = () => {
+          document.querySelectorAll('iframe[title="Broadcast avatar"]').forEach((frame) => frame.remove());
+        };
+        new MutationObserver(removeInternalAvatar).observe(document.documentElement, { childList: true, subtree: true });
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", removeInternalAvatar, { once: true });
+        } else {
+          removeInternalAvatar();
+        }
+      })();
+    </script>
+  `;
+  return html.includes("</head>") ? html.replace("</head>", `${injected}</head>`) : `${injected}${html}`;
+}
+
+async function fetchNewsUpstream(proxyPath, req) {
+  let lastErr = null;
+  for (const baseUrl of NEWS_DASHBOARD_UPSTREAMS) {
+    try {
+      const headers = {
+        Accept: req.get("accept") || "*/*",
+        "User-Agent": req.get("user-agent") || "katechon-demo",
+      };
+      let body;
+      if (!["GET", "HEAD"].includes(req.method)) {
+        headers["Content-Type"] = req.get("content-type") || "application/json";
+        body = req.body && Object.keys(req.body).length ? JSON.stringify(req.body) : undefined;
+      }
+      const upstream = await fetch(`${baseUrl}${proxyPath}`, {
+        method: req.method,
+        headers,
+        body,
+        timeout: newsProxyTimeout(proxyPath),
+      });
+      return { upstream };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("no news dashboard upstream configured");
+}
+
+async function proxyNewsDashboard(req, res) {
+  const proxyPath = newsProxyPath(req.originalUrl);
+  try {
+    const { upstream } = await fetchNewsUpstream(proxyPath, req);
+    const contentType = upstream.headers.get("content-type") || "";
+    const cacheControl = upstream.headers.get("cache-control");
+
+    if (contentType) res.setHeader("Content-Type", contentType);
+    if (cacheControl) res.setHeader("Cache-Control", cacheControl);
+    else res.setHeader("Cache-Control", "no-cache");
+
+    res.status(upstream.status);
+    if (contentType.includes("text/html")) {
+      const body = await upstream.text();
+      res.send(rewriteNewsHtml(body));
+      return;
+    }
+
+    upstream.body.pipe(res);
+  } catch (err) {
+    res.status(502).send(`News dashboard proxy failed for ${proxyPath}: ${err.message}`);
+  }
+}
+
+function newsDashboardUpgradePath(originalUrl) {
+  return newsProxyPath(originalUrl);
+}
+
+function proxyNewsDashboardUpgrade(req, socket, head) {
+  const proxyPath = newsDashboardUpgradePath(req.url);
+  const upstreams = NEWS_DASHBOARD_UPSTREAMS.filter((url) => {
+    try {
+      return new URL(url).protocol === "http:";
+    } catch {
+      return false;
+    }
+  });
+
+  function connect(index) {
+    if (index >= upstreams.length) {
+      socket.destroy();
+      return;
+    }
+
+    const target = new URL(upstreams[index]);
+    const port = Number(target.port || 80);
+    const upstream = net.connect(port, target.hostname);
+    let connected = false;
+
+    upstream.on("connect", () => {
+      connected = true;
+      const headers = { ...req.headers, host: target.host };
+      const headerLines = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
+      upstream.write(`${req.method} ${proxyPath} HTTP/${req.httpVersion}\r\n${headerLines.join("\r\n")}\r\n\r\n`);
+      if (head && head.length) upstream.write(head);
+      socket.pipe(upstream);
+      upstream.pipe(socket);
+    });
+
+    upstream.on("error", () => {
+      if (connected) {
+        socket.destroy();
+        return;
+      }
+      connect(index + 1);
+    });
+    socket.on("error", () => upstream.destroy());
+  }
+
+  connect(0);
+}
+
+app.all(/^\/dashboards\/news(?:\/.*)?$/, proxyNewsDashboard);
+app.all(/^\/demo(?:\/.*)?$/, proxyNewsDashboard);
+app.all(/^\/api\/demo(?:\/.*)?$/, proxyNewsDashboard);
+app.all(/^\/_next(?:\/.*)?$/, proxyNewsDashboard);
+app.all(/^\/generated\/demo(?:\/.*)?$/, proxyNewsDashboard);
+app.all(/^\/soundtracks(?:\/.*)?$/, proxyNewsDashboard);
+app.all("/breaking-news-bed.mp3", proxyNewsDashboard);
+
+function externalDashboardId(originalUrl) {
+  const url = new URL(originalUrl, "http://katechon.local");
+  const match = url.pathname.match(/^\/dashboards\/([^/]+)(?:\/.*)?$/);
+  return match ? match[1] : null;
+}
+
+function externalDashboardProxyPath(id, originalUrl) {
+  const url = new URL(originalUrl, "http://katechon.local");
+  const prefix = `/dashboards/${id}`;
+  const pathname = url.pathname === prefix ? "/" : url.pathname.slice(prefix.length) || "/";
+  return `${pathname}${url.search}`;
+}
+
+function rewriteExternalDashboardHtml(id, html) {
+  const prefix = `/dashboards/${id}`;
+  const baseTag = `<base href="${prefix}/">`;
+  const withBase = html.includes("<head")
+    ? html.replace(/<head([^>]*)>/i, `<head$1>${baseTag}`)
+    : `${baseTag}${html}`;
+
+  return withBase
+    .replace(/(href|src|action)=("|')\/(?!\/|dashboards\/)/g, `$1=$2${prefix}/`)
+    .replace(/(fetch|EventSource)\(("|')\/(?!\/|dashboards\/)/g, `$1($2${prefix}/`)
+    .replace(/url\(\s*\/(?!\/|dashboards\/)/g, `url(${prefix}/`);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderExternalDashboardFallback(id, err) {
+  const dashboard = EXTERNAL_DASHBOARDS[id];
+  const upstreams = dashboard.upstreams.length ? dashboard.upstreams : ["No upstream configured"];
+  const notes = dashboard.notes.map((note) => `<li>${escapeHtml(note)}</li>`).join("");
+  const upstreamList = upstreams.map((url) => `<li>${escapeHtml(url)}</li>`).join("");
+  const error = err ? `<div class="error">Last check: ${escapeHtml(err.message || err)}</div>` : "";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(dashboard.label)}</title>
+  <style>
+    :root { color-scheme: dark; --green: #00e87b; --cyan: #7de8ff; --bg: #050608; --line: rgba(255,255,255,0.12); }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: #f2f4f7;
+      font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 22% 18%, rgba(125,232,255,0.10), transparent 30%),
+        radial-gradient(circle at 82% 8%, rgba(0,232,123,0.09), transparent 24%),
+        linear-gradient(135deg, #050608, #0b0f13 58%, #040506);
+      overflow: hidden;
+    }
+    .wrap { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 28px; padding: 34px; }
+    .hero, .side {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(8, 11, 14, 0.78);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.32);
+      overflow: hidden;
+    }
+    .hero { display: flex; flex-direction: column; justify-content: space-between; padding: 28px; }
+    .kicker, .label { font-family: monospace; text-transform: uppercase; letter-spacing: 0.15em; font-size: 11px; }
+    .kicker { color: var(--cyan); }
+    h1 { margin: 16px 0 10px; font-size: clamp(34px, 5vw, 72px); line-height: 0.95; letter-spacing: 0; }
+    p { margin: 0; color: rgba(242,244,247,0.68); font-size: 16px; line-height: 1.5; max-width: 760px; }
+    .radar { margin-top: 30px; min-height: 220px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; align-items: end; }
+    .bar { min-height: 28px; border: 1px solid rgba(0,232,123,0.26); background: linear-gradient(180deg, rgba(0,232,123,0.34), rgba(125,232,255,0.06)); }
+    .bar:nth-child(1) { height: 52%; } .bar:nth-child(2) { height: 76%; } .bar:nth-child(3) { height: 34%; }
+    .bar:nth-child(4) { height: 88%; } .bar:nth-child(5) { height: 62%; } .bar:nth-child(6) { height: 45%; }
+    .bar:nth-child(7) { height: 92%; } .bar:nth-child(8) { height: 70%; }
+    .side { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+    .panel { border-top: 1px solid var(--line); padding-top: 16px; }
+    .label { color: var(--green); margin-bottom: 10px; }
+    ul { margin: 0; padding-left: 18px; color: rgba(242,244,247,0.72); line-height: 1.6; font-size: 13px; }
+    code {
+      display: block;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(0,0,0,0.36);
+      color: #d9ffe9;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .error { color: #ffb4a8; font-family: monospace; font-size: 12px; line-height: 1.4; }
+    a { color: var(--cyan); text-decoration: none; }
+    @media (max-width: 860px) {
+      body { overflow: auto; }
+      .wrap { grid-template-columns: 1fr; padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="kicker">iframe slot ready</div>
+        <h1>${escapeHtml(dashboard.label)}</h1>
+        <p>${escapeHtml(dashboard.headline)}</p>
+      </div>
+      <div class="radar" aria-hidden="true">
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+      </div>
+    </section>
+    <aside class="side">
+      <div>
+        <div class="label">upstream</div>
+        <ul>${upstreamList}</ul>
+      </div>
+      <div class="panel">
+        <div class="label">launch</div>
+        <code>${escapeHtml(dashboard.launch)}</code>
+      </div>
+      <div class="panel">
+        <div class="label">notes</div>
+        <ul>${notes}</ul>
+      </div>
+      <div class="panel">
+        <div class="label">source</div>
+        <a href="${escapeHtml(dashboard.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(dashboard.sourceUrl)}</a>
+      </div>
+      ${error}
+    </aside>
+  </main>
+</body>
+</html>`;
+}
+
+function sendPrototypeDashboard(res) {
+  res.sendFile(path.join(__dirname, "public", "prototype-dashboard.html"));
+}
+
+async function fetchExternalDashboardUpstream(id, proxyPath, req) {
+  const dashboard = EXTERNAL_DASHBOARDS[id];
+  let lastErr = null;
+  for (const baseUrl of dashboard.upstreams) {
+    try {
+      const headers = {
+        Accept: req.get("accept") || "*/*",
+        "User-Agent": req.get("user-agent") || "katechon-demo",
+      };
+      const upstream = await fetch(`${baseUrl}${proxyPath}`, {
+        method: req.method,
+        headers,
+        timeout: proxyPath.startsWith("/_stcore/") ? 0 : 8000,
+      });
+      return { upstream };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("no upstream configured");
+}
+
+async function proxyExternalDashboard(req, res) {
+  const id = externalDashboardId(req.originalUrl);
+  const dashboard = id ? EXTERNAL_DASHBOARDS[id] : null;
+  if (!dashboard) return res.status(404).send("Unknown dashboard");
+  if (!EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED) return sendPrototypeDashboard(res);
+
+  const proxyPath = externalDashboardProxyPath(id, req.originalUrl);
+  try {
+    const { upstream } = await fetchExternalDashboardUpstream(id, proxyPath, req);
+    const contentType = upstream.headers.get("content-type") || "";
+    if (!upstream.ok) {
+      if (req.get("accept")?.includes("text/html")) {
+        return res.status(200).send(renderExternalDashboardFallback(id, new Error(`upstream ${upstream.status}`)));
+      }
+      return res.status(upstream.status).send(await upstream.text());
+    }
+
+    if (contentType) res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-cache");
+
+    if (contentType.includes("text/html")) {
+      const body = await upstream.text();
+      res.send(rewriteExternalDashboardHtml(id, body));
+      return;
+    }
+
+    upstream.body.pipe(res);
+  } catch (err) {
+    if (proxyPath === "/" || req.get("accept")?.includes("text/html")) {
+      res.status(200).send(renderExternalDashboardFallback(id, err));
+      return;
+    }
+    res.status(502).send(`${dashboard.label} proxy failed for ${proxyPath}: ${err.message}`);
+  }
+}
+
+app.all(/^\/dashboards\/(?:world-monitor|glance|crypto-trading|polyrec|dashboard123|arena)(?:\/.*)?$/, proxyExternalDashboard);
+
+function proxyExternalDashboardUpgrade(req, socket, head) {
+  const id = externalDashboardId(req.url);
+  const dashboard = id ? EXTERNAL_DASHBOARDS[id] : null;
+  if (!dashboard || !dashboard.upstreams.length) {
+    socket.destroy();
+    return;
+  }
+
+  const target = new URL(dashboard.upstreams[0]);
+  if (target.protocol !== "http:") {
+    socket.destroy();
+    return;
+  }
+
+  const proxyPath = externalDashboardProxyPath(id, req.url);
+  const port = Number(target.port || 80);
+  const upstream = net.connect(port, target.hostname, () => {
+    const headers = { ...req.headers, host: target.host, origin: `${target.protocol}//${target.host}` };
+    const headerLines = Object.entries(headers).map(([key, value]) => `${key}: ${value}`);
+    upstream.write(`${req.method} ${proxyPath} HTTP/${req.httpVersion}\r\n${headerLines.join("\r\n")}\r\n\r\n`);
+    if (head && head.length) upstream.write(head);
+    socket.pipe(upstream);
+    upstream.pipe(socket);
+  });
+
+  upstream.on("error", () => socket.destroy());
+  socket.on("error", () => upstream.destroy());
+}
 
 // GET current state
 app.get("/api/state", (req, res) => {
@@ -258,6 +825,7 @@ app.put("/api/sessions/:kind/:id", (req, res) => {
 
 function workspaceForAction(action) {
   if (action === "open_spectre") return "spectre";
+  if (action === "open_dashboard") return null;
   if (action === "go_home") return "landing";
   return null;
 }
@@ -272,12 +840,31 @@ function fallbackAgentDecision(transcript) {
   const wantsSpectre =
     /\b(osint|spectre|intel|intelligence)\b/.test(text) ||
     /\bdashboard\b/.test(text);
+  const dashboardMatches = [
+    ["news", /\b(news|broadcast|feed)\b/],
+    ["world-monitor", /\b(world\s*monitor|geopolitical|geopolitics|world\s+map|instability)\b/],
+    ["glance", /\b(glance|rss|hacker\s*news|reddit|youtube|weather)\b/],
+    ["crypto-trading", /\b(crypto\s*trading|trading\s*dashboard|backtest|backtesting|binance|coinbase|kraken)\b/],
+    ["polyrec", /\b(polyrec|polymarket|prediction\s*market|order\s*book|btc)\b/],
+    ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
+  ];
 
   if (wantsHome && !/\b(osint|spectre|intel|intelligence)\b/.test(text)) {
     return {
       action: "go_home",
       workspace: "landing",
       speech: "Back to the main panel.",
+      source: "fallback",
+    };
+  }
+
+  const matchedDashboard = dashboardMatches.find(([, pattern]) => pattern.test(text));
+  if (matchedDashboard) {
+    const panel = PANELS.find((candidate) => candidate.id === matchedDashboard[0]);
+    return {
+      action: matchedDashboard[0] === "spectre" ? "open_spectre" : "open_dashboard",
+      workspace: matchedDashboard[0],
+      speech: `Opening ${panel?.label || matchedDashboard[0]} now.`,
       source: "fallback",
     };
   }
@@ -308,7 +895,8 @@ function normalizeAgentDecision(raw, transcript, source) {
   let normalizedAction = action;
   if (workspace === "landing") normalizedAction = "go_home";
   if (workspace === "spectre") normalizedAction = "open_spectre";
-  if (!["go_home", "open_spectre", "unknown"].includes(normalizedAction)) normalizedAction = "unknown";
+  if (workspace && !["landing", "spectre"].includes(workspace)) normalizedAction = "open_dashboard";
+  if (!["go_home", "open_spectre", "open_dashboard", "unknown"].includes(normalizedAction)) normalizedAction = "unknown";
 
   const speech = String(raw.speech || raw.reply || "").trim();
   if (!speech) return fallbackAgentDecision(transcript);
@@ -351,7 +939,7 @@ async function routeWithKatAgent(transcript) {
             properties: {
               action: {
                 type: "string",
-                enum: ["open_spectre", "go_home", "unknown"],
+                enum: ["open_spectre", "open_dashboard", "go_home", "unknown"],
               },
               workspace: {
                 type: "string",
@@ -450,11 +1038,15 @@ async function generateDashboardNarration(dashboardId) {
         max_tokens: 90,
         system:
           `${dashboard.voice} Speak as one short narration beat, 1 sentence, under 22 words. ` +
+          "You are not receiving live screen data. Do not mention specific countries, companies, tickers, prices, " +
+          "events, attacks, trades, or market moves. Narrate only the dashboard's workflow, interface, and analytical posture. " +
           "No markdown, no stage directions, no unverifiable claims.",
         messages: [
           {
             role: "user",
-            content: `Generate the next live narration line for ${dashboard.label}.`,
+            content:
+              `Generate the next live narration line for ${dashboard.label}. ` +
+              "No live facts are available, so describe how the viewer should read the dashboard.",
           },
         ],
       }),
@@ -656,11 +1248,14 @@ app.get("/api/narration/:dashboard", async (req, res) => {
     }
 
     const text = await generateDashboardNarration(dashboardId);
+    const mute = req.query.mute === "1";
     let audio = "";
-    try {
-      audio = await synthesizeSpeech(text);
-    } catch (err) {
-      console.warn("dashboard narration TTS failed:", err.message);
+    if (!mute) {
+      try {
+        audio = await synthesizeSpeech(text);
+      } catch (err) {
+        console.warn("dashboard narration TTS failed:", err.message);
+      }
     }
 
     res.json({
@@ -669,7 +1264,7 @@ app.get("/api/narration/:dashboard", async (req, res) => {
       dashboard: dashboardId,
       text,
       audio,
-      muted: !audio,
+      muted: mute || !audio,
     });
   } catch (err) {
     console.error("narration error:", err.message);
@@ -735,8 +1330,19 @@ app.post("/api/register", (req, res) => {
 });
 
 const PORT = process.env.PORT || 4040;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`katechon-demo running at http://localhost:${PORT}`);
   console.log(`Kat voice: ${VOICE_SOURCE} (${ELEVENLABS_VOICE_ID}), model=${ELEVENLABS_MODEL_ID}`);
   console.log(`HLS control: ${HLS_CONTROL_URL}`);
+});
+server.on("upgrade", (req, socket, head) => {
+  if (req.url?.startsWith("/_next/webpack-hmr")) {
+    proxyNewsDashboardUpgrade(req, socket, head);
+    return;
+  }
+  if (EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED && externalDashboardId(req.url)) {
+    proxyExternalDashboardUpgrade(req, socket, head);
+    return;
+  }
+  socket.destroy();
 });
