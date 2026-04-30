@@ -4,7 +4,8 @@ CONTAINER ?= katechon-desktop
 IMAGE ?= katechon-stream-client:latest
 HOST_HLS_PORT ?= 3100
 APP_PORT ?= 4040
-ENABLE_HLS_AUDIO ?= 1
+ENABLE_HLS_AUDIO ?= 0
+REMOTE_AVATAR_ENABLED ?= 0
 
 .SILENT:
 
@@ -24,7 +25,7 @@ deploy:
 	$(MAKE) remote-env remote-install remote-start
 
 remote-env:
-	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); src=/opt/katechon/katechon-app/.env.local; [ -f "$$src" ] || src=/opt/katechon/.env; umask 077; : > .env; for key in GROQ_API_KEY ELEVENLABS_API_KEY ELEVENLABS_MODEL_ID ANTHROPIC_API_KEY YOUTUBE_RTMP_URL YOUTUBE_STREAM_KEY; do awk -F= -v k="$$key" '\''$$1 == k { print; exit }'\'' "$$src" >> .env || true; done; printf "%s\n" PORT=$(APP_PORT) HLS_CONTROL_URL=http://127.0.0.1:$(HOST_HLS_PORT) KAT_VOICE_SOURCE=pitch STREAM_AUDIO_ENABLED=1 >> .env; chmod 600 .env'
+	ssh $(REMOTE) 'set -eu; cd $(REMOTE_DIR); src=/opt/katechon/katechon-app/.env.local; [ -f "$$src" ] || src=/opt/katechon/.env; umask 077; : > .env; for key in GROQ_API_KEY ELEVENLABS_API_KEY ELEVENLABS_MODEL_ID ANTHROPIC_API_KEY YOUTUBE_RTMP_URL YOUTUBE_STREAM_KEY; do awk -F= -v k="$$key" '\''$$1 == k { print; exit }'\'' "$$src" >> .env || true; done; printf "%s\n" PORT=$(APP_PORT) HLS_CONTROL_URL=http://127.0.0.1:$(HOST_HLS_PORT) KAT_VOICE_SOURCE=pitch STREAM_AUDIO_ENABLED=0 >> .env; chmod 600 .env'
 
 remote-install:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR) && npm ci --omit=dev --no-audit --no-fund'
@@ -33,7 +34,7 @@ remote-start:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR) && APP_PORT=$(APP_PORT) bash scripts/remote-node-start.sh'
 
 compositor-start:
-	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
+	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -e REMOTE_AVATAR_ENABLED=$(REMOTE_AVATAR_ENABLED) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
 
 wait-hls:
 	ssh $(REMOTE) 'set -eu; for i in $$(seq 1 60); do if curl -fsS http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 >/dev/null; then echo "hls ready"; exit 0; fi; sleep 1; done; docker logs --tail 120 $(CONTAINER); exit 1'

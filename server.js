@@ -36,6 +36,16 @@ const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2"
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
+const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
+const SPECTRE_DASHBOARD_UPSTREAMS = [
+  process.env.SPECTRE_DASHBOARD_URL,
+  process.env.SPECTRE_URL,
+  "http://127.0.0.1:3010",
+  "http://127.0.0.1:9092",
+]
+  .filter(Boolean)
+  .map((url) => String(url).replace(/\/+$/, ""))
+  .filter((url, index, all) => all.indexOf(url) === index);
 
 async function proxyHls(req, res) {
   try {
@@ -75,12 +85,95 @@ const state = {
   currentWorkspace: "landing",
 };
 
+const DASHBOARD_NARRATION = {
+  spectre: {
+    label: "SPECTRE OSINT dashboard",
+    voice:
+      "You are Kat narrating a live OSINT dashboard. Keep it sharp, observational, and useful. " +
+      "React to intelligence workflows, maps, signals, risk, and analyst posture without inventing specific facts.",
+    fallback: [
+      "SPECTRE is online. I'm watching the signal layer for anything that deserves attention.",
+      "This is the OSINT board. Maps, feeds, and posture signals are all in view.",
+      "I'm scanning the dashboard like an analyst: movement first, corroboration second.",
+      "The useful part here is correlation. One signal is noise, patterns are where the story starts.",
+    ],
+  },
+};
+const narrationCursor = {};
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.get("/stream.m3u8", proxyHls);
 app.get(/^\/seg\d+\.ts$/, proxyHls);
+
+function spectreProxyPath(originalUrl) {
+  const url = new URL(originalUrl, "http://katechon.local");
+  const pathname = url.pathname.slice(SPECTRE_PROXY_PREFIX.length) || "/";
+  return `${pathname}${url.search}`;
+}
+
+function rewriteSpectreHtml(html) {
+  return html
+    .replaceAll("fetch('/api/", "fetch('/dashboards/spectre/api/")
+    .replaceAll('fetch("/api/', 'fetch("/dashboards/spectre/api/')
+    .replaceAll("EventSource('/api/", "EventSource('/dashboards/spectre/api/")
+    .replaceAll('EventSource("/api/', 'EventSource("/dashboards/spectre/api/');
+}
+
+async function fetchSpectreUpstream(proxyPath, req) {
+  let lastErr = null;
+  for (const baseUrl of SPECTRE_DASHBOARD_UPSTREAMS) {
+    try {
+      const upstream = await fetch(`${baseUrl}${proxyPath}`, {
+        method: req.method,
+        headers: {
+          Accept: req.get("accept") || "*/*",
+          "User-Agent": req.get("user-agent") || "katechon-demo",
+        },
+        timeout: proxyPath.startsWith("/api/stream") ? 0 : 8000,
+      });
+      return { upstream };
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error("no SPECTRE upstream configured");
+}
+
+async function proxySpectreDashboard(req, res) {
+  const proxyPath = spectreProxyPath(req.originalUrl);
+  try {
+    const { upstream } = await fetchSpectreUpstream(proxyPath, req);
+    const contentType = upstream.headers.get("content-type") || "";
+
+    if (!upstream.ok) {
+      return res.status(upstream.status).send(await upstream.text());
+    }
+
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    if (contentType) res.setHeader("Content-Type", contentType);
+
+    if (contentType.includes("text/event-stream")) {
+      res.setHeader("Connection", "keep-alive");
+      upstream.body.pipe(res);
+      return;
+    }
+
+    const body = await upstream.buffer();
+    if (contentType.includes("text/html")) {
+      res.send(rewriteSpectreHtml(body.toString("utf8")));
+      return;
+    }
+
+    res.send(body);
+  } catch (err) {
+    res.status(502).send(`SPECTRE proxy failed for ${proxyPath}: ${err.message}`);
+  }
+}
+
+app.get(/^\/dashboards\/spectre(?:\/.*)?$/, proxySpectreDashboard);
 
 // GET current state
 app.get("/api/state", (req, res) => {
@@ -323,6 +416,61 @@ async function synthesizeSpeech(text) {
   return (await resp.buffer()).toString("base64");
 }
 
+function cleanSpeech(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .trim()
+    .slice(0, 360);
+}
+
+function fallbackNarration(dashboardId) {
+  const dashboard = DASHBOARD_NARRATION[dashboardId] || DASHBOARD_NARRATION.spectre;
+  const index = narrationCursor[dashboardId] || 0;
+  narrationCursor[dashboardId] = index + 1;
+  return dashboard.fallback[index % dashboard.fallback.length];
+}
+
+async function generateDashboardNarration(dashboardId) {
+  const dashboard = DASHBOARD_NARRATION[dashboardId];
+  if (!dashboard) throw new Error(`unknown dashboard: ${dashboardId}`);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return fallbackNarration(dashboardId);
+
+  try {
+    const resp = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 90,
+        system:
+          `${dashboard.voice} Speak as one short narration beat, 1 sentence, under 22 words. ` +
+          "No markdown, no stage directions, no unverifiable claims.",
+        messages: [
+          {
+            role: "user",
+            content: `Generate the next live narration line for ${dashboard.label}.`,
+          },
+        ],
+      }),
+      timeout: 2500,
+    });
+    if (!resp.ok) throw new Error(`anthropic ${resp.status}: ${(await resp.text()).slice(0, 180)}`);
+    const data = await resp.json();
+    const textBlock = data.content?.find((block) => block.type === "text");
+    const generated = cleanSpeech(textBlock?.text);
+    return generated || fallbackNarration(dashboardId);
+  } catch (err) {
+    console.warn("dashboard narration failed:", err.message);
+    return fallbackNarration(dashboardId);
+  }
+}
+
 async function postStreamControl(pathname, payload) {
   const resp = await fetch(`${HLS_CONTROL_URL}${pathname}`, {
     method: "POST",
@@ -495,6 +643,36 @@ app.post("/api/speak", async (req, res) => {
     res.json({ ...payload, remote, streamAudio: STREAM_AUDIO_ENABLED });
   } catch (err) {
     console.error("speech error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/narration/:dashboard — one browser-avatar narration payload.
+app.get("/api/narration/:dashboard", async (req, res) => {
+  try {
+    const dashboardId = String(req.params.dashboard || "").toLowerCase().replace(/[^\w-]/g, "");
+    if (!DASHBOARD_NARRATION[dashboardId]) {
+      return res.status(404).json({ error: `unknown dashboard: ${dashboardId}` });
+    }
+
+    const text = await generateDashboardNarration(dashboardId);
+    let audio = "";
+    try {
+      audio = await synthesizeSpeech(text);
+    } catch (err) {
+      console.warn("dashboard narration TTS failed:", err.message);
+    }
+
+    res.json({
+      type: "audio",
+      id: `narration-${dashboardId}-${Date.now()}`,
+      dashboard: dashboardId,
+      text,
+      audio,
+      muted: !audio,
+    });
+  } catch (err) {
+    console.error("narration error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

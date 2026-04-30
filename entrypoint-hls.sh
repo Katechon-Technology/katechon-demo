@@ -14,6 +14,7 @@ W=1920; H=1080
 AVT_W=640; AVT_H=1080
 OVERLAY_X=1280; OVERLAY_Y=0
 ENABLE_HLS_AUDIO="${ENABLE_HLS_AUDIO:-0}"
+REMOTE_AVATAR_ENABLED="${REMOTE_AVATAR_ENABLED:-0}"
 
 export XDG_RUNTIME_DIR=/tmp/xdg-runtime
 mkdir -p "$XDG_RUNTIME_DIR" /tmp/.X11-unix /tmp/hls
@@ -312,22 +313,26 @@ DISPLAY="$DISPLAY_DESK" chromium \
 CHROME1_PID=$!
 log "Desktop Chrome started (PID $CHROME1_PID)"
 
-# ── 5. Avatar display: Chromium showing avatar-pet.html ───────────
-log "Launching avatar Chromium on $DISPLAY_AVT..."
-rm -rf /tmp/chrome-avt-profile
-DISPLAY="$DISPLAY_AVT" chromium \
-    --no-sandbox --no-first-run --disable-infobars --disable-dev-shm-usage \
-    --window-size="${AVT_W},${AVT_H}" --window-position=0,0 --kiosk \
-    --use-gl=angle --use-angle="${ANGLE_BACKEND:-swiftshader}" \
-    --ignore-gpu-blocklist --enable-webgl \
-    --disable-background-timer-throttling \
-    --disable-backgrounding-occluded-windows \
-    --disable-renderer-backgrounding \
-    --autoplay-policy=no-user-gesture-required \
-    --user-data-dir=/tmp/chrome-avt-profile \
-    "http://localhost:8080/avatar-pet.html?model=0&w=${AVT_W}&h=${AVT_H}" \
-    >/tmp/chrome-avt.log 2>&1 &
-CHROME2_PID=$!
+# ── 5. Optional avatar display: browser now renders the demo avatar ─
+if [ "$REMOTE_AVATAR_ENABLED" = "1" ]; then
+    log "Launching avatar Chromium on $DISPLAY_AVT..."
+    rm -rf /tmp/chrome-avt-profile
+    DISPLAY="$DISPLAY_AVT" chromium \
+        --no-sandbox --no-first-run --disable-infobars --disable-dev-shm-usage \
+        --window-size="${AVT_W},${AVT_H}" --window-position=0,0 --kiosk \
+        --use-gl=angle --use-angle="${ANGLE_BACKEND:-swiftshader}" \
+        --ignore-gpu-blocklist --enable-webgl \
+        --disable-background-timer-throttling \
+        --disable-backgrounding-occluded-windows \
+        --disable-renderer-backgrounding \
+        --autoplay-policy=no-user-gesture-required \
+        --user-data-dir=/tmp/chrome-avt-profile \
+        "http://localhost:8080/avatar-pet.html?model=0&w=${AVT_W}&h=${AVT_H}" \
+        >/tmp/chrome-avt.log 2>&1 &
+    CHROME2_PID=$!
+else
+    log "Remote avatar Chromium disabled; browser renders avatar locally."
+fi
 
 log "Waiting 14s for Chromium renders..."
 sleep 14
@@ -474,35 +479,62 @@ log "HLS+state server started (PID $HLS_SRV_PID)"
 # ── 7. FFmpeg: composite → HLS ────────────────────────────────────
 log "Starting FFmpeg → HLS..."
 if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
-    ffmpeg -loglevel warning \
-        -thread_queue_size 512 \
-        -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
-        -thread_queue_size 512 \
-        -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
-        -thread_queue_size 512 \
-        -f pulse -i kat_sink.monitor \
-        -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}[vout]" \
-        -map "[vout]" -map 2:a \
-        -c:v libx264 -preset ultrafast -tune zerolatency \
-        -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
-        -c:a aac -b:a 128k -ac 2 -ar 44100 \
-        -f hls -hls_time 2 -hls_list_size 5 \
-        -hls_flags delete_segments+append_list \
-        -hls_segment_filename /tmp/hls/seg%05d.ts \
-        /tmp/hls/stream.m3u8 &
+    if [ "$REMOTE_AVATAR_ENABLED" = "1" ]; then
+        ffmpeg -loglevel warning \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
+            -thread_queue_size 512 \
+            -f pulse -i kat_sink.monitor \
+            -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}[vout]" \
+            -map "[vout]" -map 2:a \
+            -c:v libx264 -preset ultrafast -tune zerolatency \
+            -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+            -c:a aac -b:a 128k -ac 2 -ar 44100 \
+            -f hls -hls_time 2 -hls_list_size 5 \
+            -hls_flags delete_segments+append_list \
+            -hls_segment_filename /tmp/hls/seg%05d.ts \
+            /tmp/hls/stream.m3u8 &
+    else
+        ffmpeg -loglevel warning \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+            -thread_queue_size 512 \
+            -f pulse -i kat_sink.monitor \
+            -c:v libx264 -preset ultrafast -tune zerolatency \
+            -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+            -c:a aac -b:a 128k -ac 2 -ar 44100 \
+            -f hls -hls_time 2 -hls_list_size 5 \
+            -hls_flags delete_segments+append_list \
+            -hls_segment_filename /tmp/hls/seg%05d.ts \
+            /tmp/hls/stream.m3u8 &
+    fi
 else
-    ffmpeg -loglevel warning \
-        -thread_queue_size 512 \
-        -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
-        -thread_queue_size 512 \
-        -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
-        -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}" \
-        -c:v libx264 -preset ultrafast -tune zerolatency \
-        -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
-        -f hls -hls_time 2 -hls_list_size 5 \
-        -hls_flags delete_segments+append_list \
-        -hls_segment_filename /tmp/hls/seg%05d.ts \
-        /tmp/hls/stream.m3u8 &
+    if [ "$REMOTE_AVATAR_ENABLED" = "1" ]; then
+        ffmpeg -loglevel warning \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${AVT_W}x${AVT_H}" -draw_mouse 0 -i "${DISPLAY_AVT}.0" \
+            -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}" \
+            -c:v libx264 -preset ultrafast -tune zerolatency \
+            -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+            -f hls -hls_time 2 -hls_list_size 5 \
+            -hls_flags delete_segments+append_list \
+            -hls_segment_filename /tmp/hls/seg%05d.ts \
+            /tmp/hls/stream.m3u8 &
+    else
+        ffmpeg -loglevel warning \
+            -thread_queue_size 512 \
+            -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
+            -c:v libx264 -preset ultrafast -tune zerolatency \
+            -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
+            -f hls -hls_time 2 -hls_list_size 5 \
+            -hls_flags delete_segments+append_list \
+            -hls_segment_filename /tmp/hls/seg%05d.ts \
+            /tmp/hls/stream.m3u8 &
+    fi
 fi
 FFMPEG_PID=$!
 

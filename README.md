@@ -81,7 +81,7 @@ Edit `.env` and fill in:
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
-| `STREAM_AUDIO_ENABLED` | No | Set with `ENABLE_HLS_AUDIO=1` so the browser waits for streamed audio instead of playing local fallback |
+| `STREAM_AUDIO_ENABLED` | No | Legacy HLS-audio flag. Keep off for the browser-rendered avatar flow |
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
 
 ### 3. Configure SSH
@@ -140,7 +140,7 @@ Useful operator commands:
 |---|---|
 | `make deploy` | Sync repo to `/opt/katechon/katechon-demo`, rebuild remote `.env`, install deps, restart remote Node |
 | `make remote-start` | Restart only the remote Node UI/API |
-| `make compositor-start` | Cold-restart `katechon-desktop`; defaults to `ENABLE_HLS_AUDIO=1` |
+| `make compositor-start` | Cold-restart `katechon-desktop`; defaults to video-only with the remote avatar disabled |
 | `make stream-audio-restart` | Stop YouTube/recording, restart compositor with audio, wait for HLS, then restart YouTube and recording |
 | `make youtube-start` / `make youtube-stop` | Start/stop the remote YouTube RTMP push |
 | `make record-start` / `make record-stop` | Start/stop server-side recording under `recordings/` |
@@ -149,14 +149,22 @@ Useful operator commands:
 
 YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, which is generated from existing remote secrets and is not committed. The saved YouTube log is redacted after startup, but the running FFmpeg process arguments still contain the RTMP destination, so avoid sharing raw remote `ps` output while the stream is live.
 
-### Audio Streaming
+### Browser Avatar + Audio
+
+The demo UI now renders the Live2D avatar directly in the user's browser. The avatar iframe mounts as soon as the page opens, and dashboard-specific narration starts when the user opens a dashboard such as SPECTRE. This keeps iteration fast and avoids coupling avatar rendering to the remote Xvfb/PulseAudio/FFmpeg HLS pipeline.
+
+The remote compositor defaults to `REMOTE_AVATAR_ENABLED=0` and `ENABLE_HLS_AUDIO=0`; it should be treated as a passive desktop/backdrop stream for this flow.
+
+SPECTRE is embedded through the same-origin `/dashboards/spectre/` proxy so viewers do not need direct browser access to port `3010`. The proxy tries `SPECTRE_DASHBOARD_URL`, `SPECTRE_URL`, `http://127.0.0.1:3010`, then the local tunnel `http://127.0.0.1:9092`.
+
+### Legacy Audio Streaming
 
 The compositor supports two modes:
 
 | Mode | How | Notes |
 |---|---|---|
-| Video-only | `make compositor-start ENABLE_HLS_AUDIO=0` | Stable fallback if PulseAudio causes issues |
-| Video + Kat audio | `make stream-audio-restart` | Starts PulseAudio in the container, captures `kat_sink.monitor`, and muxes AAC into HLS |
+| Video-only browser-avatar mode | `make compositor-start` | Default mode for rapid local/demo iteration |
+| Video + remote avatar/audio | `make stream-audio-restart REMOTE_AVATAR_ENABLED=1` | Legacy path; starts PulseAudio, captures `kat_sink.monitor`, and muxes AAC into HLS |
 
 After switching audio modes, restart the YouTube and recording FFmpeg processes so they ingest the new HLS stream cleanly. `make stream-audio-restart` does this in one command. The YouTube and recording scripts use `ffprobe` to detect whether the HLS feed has an audio track; if it does, they forward that audio, and if it does not, they fall back to generated silent AAC so YouTube ingest stays valid.
 
@@ -197,3 +205,4 @@ All endpoints are served by `server.js` on port 4040.
 | `POST` | `/api/sessions/start/:kind` | Spawn a new broker session |
 | `GET`  | `/api/sessions/:id` | Poll session status + stream URL |
 | `PUT`  | `/api/sessions/:kind/:id` | Register an existing session ID |
+| `GET`  | `/dashboards/spectre/*` | Same-origin proxy for the SPECTRE dashboard iframe |
