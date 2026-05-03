@@ -38,7 +38,7 @@ compositor-start:
 	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -e REMOTE_AVATAR_ENABLED=$(REMOTE_AVATAR_ENABLED) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
 
 wait-hls:
-	ssh $(REMOTE) 'set -eu; for i in $$(seq 1 60); do if curl -fsS http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 >/dev/null; then echo "hls ready"; exit 0; fi; sleep 1; done; docker logs --tail 120 $(CONTAINER); exit 1'
+	ssh $(REMOTE) 'set -eu; for i in $$(seq 1 60); do if curl -fsS --max-time 3 http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8 >/dev/null; then echo "hls ready"; exit 0; fi; sleep 1; done; docker logs --tail 120 $(CONTAINER); exit 1'
 
 stream-audio-restart:
 	$(MAKE) youtube-stop record-stop
@@ -63,7 +63,7 @@ record-stop:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR); [ -f run/record.pid ] && kill "$$(cat run/record.pid)" 2>/dev/null || true'
 
 status:
-	ssh $(REMOTE) 'set +e; echo "node: $$(curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:4040/)"; echo "hls: $$(curl -fsS -o /dev/null -w "%{http_code}" http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8)"; docker ps --filter name=$(CONTAINER) --format "{{.Names}} {{.Status}} {{.Ports}}"; for name in server youtube record; do pidfile=$(REMOTE_DIR)/run/$$name.pid; if [ -f "$$pidfile" ] && kill -0 "$$(cat "$$pidfile")" 2>/dev/null; then echo "$$name: running pid=$$(cat "$$pidfile")"; else echo "$$name: stopped"; fi; done; [ -f $(REMOTE_DIR)/run/record.path ] && echo "recording: $$(cat $(REMOTE_DIR)/run/record.path)"'
+	ssh $(REMOTE) 'set +e; echo "node: $$(curl -fsS --max-time 3 -o /dev/null -w "%{http_code}" http://127.0.0.1:4040/)"; echo "hls: $$(curl -fsS --max-time 3 -o /dev/null -w "%{http_code}" http://127.0.0.1:$(HOST_HLS_PORT)/stream.m3u8)"; docker ps --filter name=$(CONTAINER) --format "{{.Names}} {{.Status}} {{.Ports}}"; for name in server youtube record; do pidfile=$(REMOTE_DIR)/run/$$name.pid; if [ -f "$$pidfile" ] && kill -0 "$$(cat "$$pidfile")" 2>/dev/null; then echo "$$name: running pid=$$(cat "$$pidfile")"; else echo "$$name: stopped"; fi; done; [ -f $(REMOTE_DIR)/run/record.path ] && echo "recording: $$(cat $(REMOTE_DIR)/run/record.path)"'
 
 logs:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR); tail -n 80 logs/server.log 2>/dev/null; echo "--- compositor"; docker logs --tail 80 $(CONTAINER); echo "--- youtube"; tail -n 40 logs/youtube.log 2>/dev/null | sed -E "s#rtmp://[^ ]+#rtmp://[redacted]#g"; echo "--- record"; tail -n 40 logs/record.log 2>/dev/null'
