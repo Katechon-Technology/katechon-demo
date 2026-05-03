@@ -1242,17 +1242,75 @@
       { id: 'rows', label: 'Rows' },
       { id: 'spotlight', label: 'Spotlight' },
     ];
+    const SPOTLIGHT_LOOP_CLONE_COUNT = 6;
     let tileLayout = null;
     let currentLayoutMode = 'showcase';
     let spotlightIndex = 0;
     let spotlightScrollRaf = 0;
+    let spotlightLoopResetting = false;
 
     function layoutRoot() {
       return document.querySelector('.gif-groups');
     }
 
-    function layoutTiles() {
-      return Array.from(document.querySelectorAll('.gif-groups .gif-box'));
+    function layoutTiles(includeClones = false) {
+      const selector = includeClones ? '.gif-groups .gif-box' : '.gif-groups .gif-box:not(.spotlight-clone)';
+      return Array.from(document.querySelectorAll(selector));
+    }
+
+    function ensureSpotlightLoopClones() {
+      const root = layoutRoot();
+      if (!root || root.querySelector('.spotlight-clone')) return;
+
+      layoutTiles(false).slice(0, SPOTLIGHT_LOOP_CLONE_COUNT).forEach((tile, index) => {
+        const clone = tile.cloneNode(true);
+        clone.classList.add('spotlight-clone');
+        clone.dataset.spotlightIndex = String(index);
+        clone.querySelectorAll('video').forEach(video => {
+          try { video.currentTime = 0; } catch (_) {}
+          video.muted = true;
+          video.play().catch(() => {});
+        });
+        root.appendChild(clone);
+      });
+    }
+
+    function removeSpotlightLoopClones() {
+      layoutRoot()?.querySelectorAll('.spotlight-clone').forEach(clone => clone.remove());
+    }
+
+    function spotlightLogicalIndex(tile, originalIndexByTile) {
+      if (tile.classList.contains('spotlight-clone')) {
+        const cloneIndex = Number(tile.dataset.spotlightIndex);
+        if (Number.isFinite(cloneIndex)) return cloneIndex;
+      }
+      return originalIndexByTile.get(tile) ?? -1;
+    }
+
+    function spotlightDistance(index, focus, count) {
+      const linear = Math.abs(index - focus);
+      return Math.min(linear, count - linear);
+    }
+
+    function wrapSpotlightScrollIfNeeded(root) {
+      if (spotlightLoopResetting) return false;
+      const firstClone = root.querySelector('.spotlight-clone');
+      const firstOriginal = layoutTiles(false)[0];
+      if (!firstClone || !firstOriginal) return false;
+
+      const rootRect = root.getBoundingClientRect();
+      const cloneStart = firstClone.getBoundingClientRect().top - rootRect.top + root.scrollTop;
+      if (root.scrollTop < cloneStart - 1) return false;
+
+      const originalStart = firstOriginal.getBoundingClientRect().top - rootRect.top + root.scrollTop;
+      const extra = Math.max(0, root.scrollTop - cloneStart);
+      spotlightLoopResetting = true;
+      root.scrollTop = Math.max(0, originalStart + extra);
+      requestAnimationFrame(() => {
+        spotlightLoopResetting = false;
+        updateSpotlightFromScroll();
+      });
+      return true;
     }
 
     function initTileLayout() {
@@ -1302,12 +1360,16 @@
     }
 
     function applySpotlightClasses(index = spotlightIndex) {
-      const tiles = layoutTiles();
-      if (!tiles.length) return;
-      spotlightIndex = Math.max(0, Math.min(index, tiles.length - 1));
-      tiles.forEach((tile, idx) => {
-        const distance = Math.abs(idx - spotlightIndex);
-        tile.classList.toggle('spotlight-focus', idx === spotlightIndex);
+      const originals = layoutTiles(false);
+      if (!originals.length) return;
+      const originalIndexByTile = new Map(originals.map((tile, idx) => [tile, idx]));
+      const tiles = layoutTiles(true);
+      spotlightIndex = Math.max(0, Math.min(index, originals.length - 1));
+      tiles.forEach(tile => {
+        const logicalIndex = spotlightLogicalIndex(tile, originalIndexByTile);
+        if (logicalIndex < 0) return;
+        const distance = spotlightDistance(logicalIndex, spotlightIndex, originals.length);
+        tile.classList.toggle('spotlight-focus', logicalIndex === spotlightIndex);
         tile.classList.toggle('spotlight-side', distance > 0 && distance <= 2);
         tile.classList.toggle('spotlight-tail', distance > 2);
         tile.style.setProperty('--spotlight-glow', String(Math.max(0, 1 - distance * 0.34)));
@@ -1315,7 +1377,7 @@
     }
 
     function clearSpotlightClasses() {
-      layoutTiles().forEach(tile => {
+      layoutTiles(true).forEach(tile => {
         tile.classList.remove('spotlight-focus', 'spotlight-side', 'spotlight-tail');
         tile.style.removeProperty('--spotlight-glow');
       });
@@ -1333,24 +1395,30 @@
       spotlightScrollRaf = 0;
       if (currentLayoutMode !== 'spotlight') return;
       const root = layoutRoot();
-      const tiles = layoutTiles();
-      if (!root || tiles.length < 2) return;
+      const originals = layoutTiles(false);
+      if (!root || originals.length < 2) return;
+      ensureSpotlightLoopClones();
+      const originalIndexByTile = new Map(originals.map((tile, idx) => [tile, idx]));
+      const tiles = layoutTiles(true);
       const rootRect = root.getBoundingClientRect();
       const targetY = rootRect.top + rootRect.height * 0.42;
       let nextIndex = spotlightIndex;
       let nearestDistance = Infinity;
-      tiles.forEach((tile, index) => {
+      tiles.forEach(tile => {
+        const logicalIndex = spotlightLogicalIndex(tile, originalIndexByTile);
+        if (logicalIndex < 0) return;
         const rect = tile.getBoundingClientRect();
         const centerY = rect.top + rect.height * 0.5;
         const distance = Math.abs(centerY - targetY);
         if (distance < nearestDistance) {
           nearestDistance = distance;
-          nextIndex = index;
+          nextIndex = logicalIndex;
         }
       });
       if (nextIndex !== spotlightIndex) {
         applySpotlightClasses(nextIndex);
       }
+      wrapSpotlightScrollIfNeeded(root);
     }
 
     function onTileLayoutScroll() {
@@ -1371,11 +1439,13 @@
         syncLayoutLabel();
         root.scrollLeft = 0;
         if (nextMode === 'spotlight') {
+          ensureSpotlightLoopClones();
           root.scrollTop = 0;
           applySpotlightClasses(0);
         } else {
           root.scrollTop = 0;
           clearSpotlightClasses();
+          removeSpotlightLoopClones();
         }
       };
 
