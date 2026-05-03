@@ -41,6 +41,8 @@ const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS === "1";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
+const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
+const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
   process.env.SPECTRE_DASHBOARD_URL,
@@ -296,6 +298,11 @@ const PANELS = [
     id: "dark-forest",
     label: "Dark Forest",
     description: "Fermi paradox signal monitor — anomalous stellar event tracking and unexplained astronomical dimming.",
+  },
+  {
+    id: "pitch-deck",
+    label: "Fundraise Deck",
+    description: "Live-linked slide deck from the sibling katechon-pitch repo and current fundraise deck branch.",
   },
 ];
 
@@ -777,6 +784,122 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+function appendSearch(url, search) {
+  if (!search) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}${search.slice(1)}`;
+}
+
+async function getPitchDeckSource(req) {
+  const search = new URL(req.originalUrl, "http://katechon.local").search;
+  try {
+    const resp = await fetch(PITCH_DECK_URL, {
+      headers: { Accept: "text/html" },
+      timeout: 650,
+    });
+    if (resp.ok) {
+      return {
+        type: "live",
+        src: appendSearch(PITCH_DECK_URL, search),
+        label: "Live from ../katechon-pitch",
+      };
+    }
+  } catch (_) {
+    // Fall through to the built snapshot.
+  }
+
+  const snapshotIndex = path.join(PITCH_DECK_DIST_DIR, "deck", "index.html");
+  if (fs.existsSync(snapshotIndex)) {
+    return {
+      type: "snapshot",
+      src: appendSearch("/dashboards/pitch-deck-snapshot/deck/", search),
+      label: "Built snapshot from ../katechon-pitch/dist",
+    };
+  }
+
+  return {
+    type: "missing",
+    src: "",
+    label: "Pitch deck unavailable",
+  };
+}
+
+function renderPitchDeckFrame(source) {
+  const body = source.src
+    ? `<iframe src="${escapeHtml(source.src)}" title="Fundraise Deck" allow="fullscreen; autoplay"></iframe>`
+    : `<div class="missing">
+        <h1>Fundraise Deck</h1>
+        <p>Start the linked deck with <code>npm run pitch:dev</code>, or build <code>../katechon-pitch/dist</code>.</p>
+      </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fundraise Deck</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; background: #000; overflow: hidden; }
+    body { font-family: Inter, "Helvetica Neue", Arial, sans-serif; color: #f6f3ee; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+    .deck-status {
+      position: fixed;
+      left: 14px;
+      bottom: 12px;
+      z-index: 2;
+      padding: 6px 9px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      background: rgba(0,0,0,0.54);
+      color: rgba(246,243,238,0.48);
+      font: 10px/1.2 monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .missing {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-content: center;
+      gap: 16px;
+      text-align: center;
+      background: radial-gradient(circle at 50% 40%, rgba(224,74,47,0.16), transparent 36%), #0b0b0b;
+    }
+    .missing h1 { margin: 0; font-size: clamp(38px, 7vw, 86px); line-height: 0.95; }
+    .missing p { margin: 0; color: rgba(246,243,238,0.64); font-size: 15px; }
+    code { color: #2bd17e; }
+  </style>
+</head>
+<body>
+  ${body}
+  <div class="deck-status">${escapeHtml(source.label)}</div>
+</body>
+</html>`;
+}
+
+async function sendPitchDeckDashboard(req, res) {
+  const source = await getPitchDeckSource(req);
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.send(renderPitchDeckFrame(source));
+}
+
+function sendPitchDeckSnapshotIndex(req, res) {
+  const indexPath = path.join(PITCH_DECK_DIST_DIR, "deck", "index.html");
+  try {
+    const html = fs.readFileSync(indexPath, "utf8")
+      .replace(/(src|href)="\/assets\//g, '$1="/dashboards/pitch-deck-snapshot/assets/');
+    res.setHeader("Cache-Control", "no-cache");
+    res.send(html);
+  } catch (err) {
+    res.status(404).send(`Pitch deck snapshot unavailable: ${err.message}`);
+  }
+}
+
+app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
+app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
+app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
+
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
   const upstreams = dashboard.upstreams.length ? dashboard.upstreams : ["No upstream configured"];
@@ -1081,6 +1204,7 @@ function fallbackAgentDecision(transcript) {
     ["crypto-trading", /\b(crypto\s*trading|trading\s*dashboard|backtest|backtesting|binance|coinbase|kraken)\b/],
     ["polyrec", /\b(polyrec|polymarket|prediction\s*market|order\s*book|btc)\b/],
     ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
+    ["pitch-deck", /\b(pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
   ];
 
   if (wantsHome && !/\b(osint|spectre|intel|intelligence)\b/.test(text)) {

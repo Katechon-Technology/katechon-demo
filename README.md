@@ -82,6 +82,8 @@ Edit `.env` and fill in:
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
 | `DASHBOARD_NARRATION_TTS` | No | Set to `1` to use ElevenLabs for dashboard narration; defaults off so the browser narration fallback starts immediately |
+| `PITCH_DECK_URL` | No | Defaults to `http://127.0.0.1:5174/deck/`; live-linked Vite deck from `../katechon-pitch` |
+| `PITCH_DECK_DIST_DIR` | No | Defaults to `../katechon-pitch/dist`; used as a snapshot fallback when the live deck is not running |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
 | `STREAM_AUDIO_ENABLED` | No | Legacy HLS-audio flag. Keep off for the browser-rendered avatar flow |
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
@@ -170,8 +172,17 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 | Market Pulse | `/dashboards/dashboard123/` | Macro context |
 | World Monitor | `/dashboards/world-monitor/` | Risk correlation |
 | AI Arena | `/dashboards/arena/` | Speed and accuracy |
+| Fundraise Deck | `/dashboards/pitch-deck/` | Deck preview, narration later |
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
+
+The fundraise deck dashboard is linked to the sibling repo rather than copied. For live updates while editing `../katechon-pitch` on its current branch, run this in a second terminal:
+
+```bash
+npm run pitch:dev
+```
+
+`/dashboards/pitch-deck/` will embed that Vite server. If it is not running, the route falls back to the last built `../katechon-pitch/dist` snapshot.
 
 This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
 
@@ -207,6 +218,7 @@ The UI will show "reconnecting…" for the video but all API endpoints work. Use
 | Port | Tunnel target | Purpose |
 |------|--------------|---------|
 | 4040 | — | Local Express server (this app) |
+| 5174 | — | Optional local Vite server for `../katechon-pitch` (`npm run pitch:dev`) |
 | 9095 | remote:3100 | Vtuber desktop HLS stream |
 | 9091 | 172.20.0.2:12393 | Open-LLM-VTuber avatar + WS |
 | 9092 | remote:3010 | SPECTRE Flask dashboard |

@@ -4,7 +4,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "pitch:dev": "npm --prefix ../katechon-pitch run dev -- --host 127.0.0.1 --port 5174 --strictPort"
   },
   "dependencies": {
     "dotenv": "^17.4.2",
