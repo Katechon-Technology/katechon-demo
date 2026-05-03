@@ -1,0 +1,75 @@
+server:
+  port: 8080
+
+branding:
+  app-name: Katechon Glance
+
+theme:
+  background-color: 220 16 8
+  primary-color: 155 90 48
+  positive-color: 155 90 48
+  negative-color: 5 74 58
+  contrast-multiplier: 1.15
+
+pages:
+  - name: Market Brief
+    width: wide
+    head-widgets:
+      - type: markets
+        hide-header: true
+        markets:
+          - symbol: SPY
+            name: S&P 500
+          - symbol: QQQ
+            name: Nasdaq 100
+          - symbol: BTC-USD
+            name: Bitcoin
+          - symbol: ETH-USD
+            name: Ethereum
+          - symbol: GC=F
+            name: Gold
+          - symbol: CL=F
+            name: Crude Oil
+
+    columns:
+      - size: small
+        widgets:
+          - type: weather
+            location: New York, United States
+          - type: calendar
+
+      - size: full
+        widgets:
+          - type: rss
+            title: Markets + World
+            style: horizontal-cards
+            feeds:
+              - url: https://feeds.bloomberg.com/markets/news.rss
+                title: Bloomberg Markets
+                limit: 6
+              - url: https://www.ft.com/rss/world
+                title: FT World
+                limit: 6
+              - url: https://feeds.bbci.co.uk/news/world/rss.xml
+                title: BBC World
+                limit: 6
+          - type: hacker-news
+            title: Hacker News
+            limit: 12
+            collapse-after: 6
+
+      - size: small
+        widgets:
+          - type: markets
+            title: Risk Watch
+            markets:
+              - symbol: ^VIX
+                name: VIX
+              - symbol: DX-Y.NYB
+                name: Dollar Index
+              - symbol: TLT
+                name: Long Bonds
+          - type: reddit
+            subreddit: geopolitics
+            limit: 8
+            collapse-after: 5
