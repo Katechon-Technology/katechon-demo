@@ -1,0 +1,50 @@
+{
+  "usage": "Optional Replicate image/video targets for the dashboard anthology. The dashboards render polished CSS/video fallbacks when these files are absent.",
+  "targets": [
+    {
+      "id": "news",
+      "file": "newsroom-evidence.jpg",
+      "prompt": "Futuristic editorial situation room evidence board, source cards, timeline fragments, generated visual proof frames, high contrast, cinematic but readable, no text, no logos"
+    },
+    {
+      "id": "world-monitor",
+      "file": "world-risk-map.jpg",
+      "prompt": "Abstract geopolitical intelligence map texture with risk corridors, source-confidence markers, satellite scan traces, luminous green and cyan accents, no labels, no borders"
+    },
+    {
+      "id": "biotech",
+      "file": "biotech-protein-field.jpg",
+      "prompt": "Nanoscale biotech command surface texture, protein folding ribbons, CRISPR guide marks, glowing lab graph nodes, clean sci-fi interface material, no readable text"
+    },
+    {
+      "id": "space",
+      "file": "deep-space-observatory.jpg",
+      "prompt": "Deep space observatory texture, pulsar timing rings, exoplanet transit traces, long-baseline star catalog, dark cinematic astronomy dashboard material, no text"
+    },
+    {
+      "id": "iran",
+      "file": "iran-orbital-map.jpg",
+      "prompt": "Measured OSINT satellite coverage texture for a regional infrastructure dashboard, orbital sweep arcs, route corridors, calm analytical tone, no flags, no readable labels"
+    },
+    {
+      "id": "meme-coin",
+      "file": "meme-market-collage.jpg",
+      "prompt": "Futuristic social market collage texture, bonding curve energy, meme culture signals, liquidity heat, neon magenta and yellow, analytical not cartoonish, no text"
+    },
+    {
+      "id": "quantum",
+      "file": "quantum-probability-field.jpg",
+      "prompt": "Quantum probability dashboard texture, superposition fields, translucent state orbs, market belief curves, violet cyan gold, ultra-clean futuristic data surface, no text"
+    },
+    {
+      "id": "deep-sea",
+      "file": "abyssal-sensor-field.jpg",
+      "prompt": "Abyssal ocean sensor network texture, hydrothermal vent plumes, pressure waves, bioluminescent traces, deep cyan and electric teal, scientific dashboard background, no text"
+    },
+    {
+      "id": "dark-forest",
+      "file": "dark-forest-catalog.jpg",
+      "prompt": "Anomalous astronomy watch texture, dark star catalog, stellar dimming traces, silence window, long-baseline signal grid, quiet ominous sci-fi, no text"
+    }
+  ]
+}

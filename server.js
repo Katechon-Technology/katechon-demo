@@ -789,6 +789,222 @@ function appendSearch(url, search) {
   return `${url}${url.includes("?") ? "&" : "?"}${search.slice(1)}`;
 }
 
+const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 900);
+const LIVE_API_TTL_MS = Number(process.env.LIVE_API_TTL_MS || 12000);
+const LIVE_API_CACHE = new Map();
+
+function liveSeed(seed) {
+  let hash = 2166136261;
+  for (const char of String(seed)) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
+}
+
+function seededFloat(seed, min, max) {
+  const n = Math.sin(liveSeed(seed)) * 10000;
+  const unit = n - Math.floor(n);
+  return min + unit * (max - min);
+}
+
+async function fetchLiveJson(url, options = {}) {
+  const resp = await fetch(url, {
+    timeout: LIVE_API_TIMEOUT_MS,
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.headers || {}),
+    },
+  });
+  if (!resp.ok) throw new Error(`${new URL(url).hostname} ${resp.status}`);
+  return resp.json();
+}
+
+async function fetchHyperliquidInfo(body) {
+  return fetchLiveJson("https://api.hyperliquid.xyz/info", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+function syntheticCandles(seed, count, base) {
+  return Array.from({ length: count }, (_, index) => {
+    const open = base + seededFloat(`${seed}:open:${index}`, -base * 0.015, base * 0.015);
+    const close = open + seededFloat(`${seed}:close:${index}`, -base * 0.009, base * 0.009);
+    return {
+      t: Date.now() - (count - index) * 15 * 60 * 1000,
+      o: open.toFixed(2),
+      h: Math.max(open, close + seededFloat(`${seed}:high:${index}`, 4, base * 0.004)).toFixed(2),
+      l: Math.min(open, close - seededFloat(`${seed}:low:${index}`, 4, base * 0.004)).toFixed(2),
+      c: close.toFixed(2),
+      v: seededFloat(`${seed}:volume:${index}`, 0.4, 18).toFixed(4),
+    };
+  });
+}
+
+function syntheticHyperliquidData(coin = "BTC") {
+  const base = coin === "ETH" ? 3400 : coin === "SOL" ? 155 : 68000;
+  const mid = base + seededFloat(`${coin}:mid`, -base * 0.018, base * 0.018);
+  return {
+    coin,
+    mid,
+    spreadBps: seededFloat(`${coin}:spread`, 2.2, 8.8),
+    depthUsd: seededFloat(`${coin}:depth`, 52000, 184000),
+    candles: syntheticCandles(coin, 34, mid),
+    book: {
+      levels: [
+        Array.from({ length: 12 }, (_, index) => ({ px: (mid - index * mid * 0.00018).toFixed(2), sz: seededFloat(`${coin}:bid:${index}`, 0.2, 8.4).toFixed(4) })),
+        Array.from({ length: 12 }, (_, index) => ({ px: (mid + index * mid * 0.00018).toFixed(2), sz: seededFloat(`${coin}:ask:${index}`, 0.2, 8.4).toFixed(4) })),
+      ],
+    },
+    updatedAt: Date.now(),
+  };
+}
+
+async function getHyperliquidLiveData(req) {
+  const coin = String(req.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
+  const endTime = Date.now();
+  const startTime = endTime - 36 * 15 * 60 * 1000;
+  const [mids, book, candles] = await Promise.all([
+    fetchHyperliquidInfo({ type: "allMids" }),
+    fetchHyperliquidInfo({ type: "l2Book", coin }),
+    fetchHyperliquidInfo({ type: "candleSnapshot", req: { coin, interval: "15m", startTime, endTime } }),
+  ]);
+  const bid = Number(book?.levels?.[0]?.[0]?.px);
+  const ask = Number(book?.levels?.[1]?.[0]?.px);
+  const mid = Number(mids?.[coin]) || (Number.isFinite(bid) && Number.isFinite(ask) ? (bid + ask) / 2 : 0);
+  const depthUsd = [...(book?.levels?.[0] || []).slice(0, 8), ...(book?.levels?.[1] || []).slice(0, 8)]
+    .reduce((sum, level) => sum + Number(level.px || 0) * Number(level.sz || 0), 0);
+
+  return {
+    coin,
+    mid,
+    spreadBps: mid && Number.isFinite(bid) && Number.isFinite(ask) ? ((ask - bid) / mid) * 10000 : 0,
+    depthUsd,
+    candles: Array.isArray(candles) ? candles.slice(-36) : [],
+    book,
+    updatedAt: Date.now(),
+  };
+}
+
+function parseMaybeJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function syntheticPolymarketData() {
+  const questions = [
+    "Will a major AI model top the live agent benchmark this quarter?",
+    "Will BTC close above the watched threshold by Friday?",
+    "Will a new orbital launch window open before month end?",
+    "Will quantum error correction headline the next research cycle?",
+    "Will a geopolitical risk index finish the week elevated?",
+  ];
+  return {
+    markets: questions.map((question, index) => ({
+      id: `synthetic-${index}`,
+      question,
+      yes: seededFloat(`poly:${index}`, 0.22, 0.78),
+      no: 1 - seededFloat(`poly:${index}`, 0.22, 0.78),
+      volume: Math.round(seededFloat(`poly:volume:${index}`, 8000, 580000)),
+      category: ["AI", "Crypto", "Space", "Science", "Politics"][index],
+    })),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getPolymarketLiveData() {
+  const url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=8";
+  const markets = await fetchLiveJson(url);
+  return {
+    markets: (Array.isArray(markets) ? markets : []).slice(0, 8).map((market, index) => {
+      const outcomes = parseMaybeJsonArray(market.outcomes);
+      const prices = parseMaybeJsonArray(market.outcomePrices).map(Number);
+      const yesIndex = outcomes.findIndex((outcome) => String(outcome).toLowerCase() === "yes");
+      const yes = Number.isFinite(prices[yesIndex]) ? prices[yesIndex] : Number(prices[0] || seededFloat(`poly-live:${index}`, 0.25, 0.75));
+      return {
+        id: market.id || market.conditionId || `market-${index}`,
+        question: market.question || market.title || "Public prediction market updated.",
+        yes,
+        no: Math.max(0, 1 - yes),
+        volume: Number(market.volumeNum || market.volume || market.liquidity || 0),
+        category: market.category || market.tags?.[0]?.label || "market",
+      };
+    }),
+    updatedAt: Date.now(),
+  };
+}
+
+function syntheticPumpfunData() {
+  const names = ["Neon Kat", "Terminal Wif Signal", "Liquidity Ghost", "Meme Reactor", "Bonding Curve Club"];
+  return {
+    tokens: names.map((name, index) => ({
+      name,
+      symbol: name.split(" ").map((part) => part[0]).join("").slice(0, 6),
+      price: seededFloat(`pump:price:${index}`, 0.00002, 0.018).toFixed(6),
+      change1h: seededFloat(`pump:change:${index}`, -18, 42),
+      change24h: seededFloat(`pump:change24:${index}`, -32, 118),
+      marketCap: `$${Math.round(seededFloat(`pump:mcap:${index}`, 28000, 2800000)).toLocaleString()}`,
+    })),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getPumpfunLiveData() {
+  const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=pump-fun&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h,24h";
+  const coins = await fetchLiveJson(url);
+  return {
+    tokens: (Array.isArray(coins) ? coins : []).slice(0, 10).map((coin) => ({
+      name: coin.name,
+      symbol: coin.symbol,
+      price: coin.current_price,
+      change1h: Number(coin.price_change_percentage_1h_in_currency || 0),
+      change24h: Number(coin.price_change_percentage_24h_in_currency || coin.price_change_percentage_24h || 0),
+      marketCap: `$${Math.round(Number(coin.market_cap || 0)).toLocaleString()}`,
+    })),
+    updatedAt: Date.now(),
+  };
+}
+
+async function sendCachedLive(req, res, key, loader, fallback) {
+  const cached = LIVE_API_CACHE.get(key);
+  if (cached && Date.now() - cached.time < LIVE_API_TTL_MS) {
+    return res.json({ ok: true, source: cached.source, stale: false, data: cached.data, fallbackReason: null });
+  }
+
+  try {
+    const data = await loader(req);
+    LIVE_API_CACHE.set(key, { time: Date.now(), source: key.split(":")[0], data });
+    res.json({ ok: true, source: key.split(":")[0], stale: false, data, fallbackReason: null });
+  } catch (err) {
+    if (cached) {
+      return res.json({ ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason: err.message });
+    }
+    res.json({ ok: true, source: `${key.split(":")[0]}-synthetic`, stale: true, data: fallback(req), fallbackReason: err.message });
+  }
+}
+
+app.get("/api/live/hyperliquid", (req, res) => {
+  const coin = String(req.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
+  sendCachedLive(req, res, `hyperliquid:${coin}`, getHyperliquidLiveData, () => syntheticHyperliquidData(coin));
+});
+
+app.get("/api/live/polymarket", (req, res) => {
+  sendCachedLive(req, res, "polymarket:markets", getPolymarketLiveData, syntheticPolymarketData);
+});
+
+app.get("/api/live/pumpfun", (req, res) => {
+  sendCachedLive(req, res, "pumpfun:tokens", getPumpfunLiveData, syntheticPumpfunData);
+});
+
 async function getPitchDeckSource(req) {
   const search = new URL(req.originalUrl, "http://katechon.local").search;
   try {

@@ -358,6 +358,7 @@
     }
     .dashboard-frame.active {
       opacity: 1;
+      pointer-events: auto;
       transform: translate3d(0, 0, 0) scale(1);
       filter: none;
       z-index: 2;
@@ -1198,8 +1199,8 @@
     <div class="main-head">
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
-        <div class="main-title">Narrated live dashboards</div>
-        <div class="main-sub">Application surfaces that play like channels: OSINT, news, markets, agents, and world state.</div>
+        <div class="main-title">Katechon Technology</div>
+        <div class="main-sub">Live software, built to watch.</div>
         <div class="layout-control-row">
           <button id="layout-toggle" type="button" title="Change channel layout">
             <span>Layout</span>
@@ -1223,7 +1224,7 @@
             <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
             <div class="gif-label">SPECTRE Event Room</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="News Situation Room preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('news')" aria-label="News Situation Room">
             <div class="tile-kicker">02 / SITUATION ROOM</div>
             <video src="videos/news.mp4" aria-label="News Situation Room" autoplay muted loop playsinline preload="metadata"></video>
             <div class="gif-label">News Situation Room</div>
@@ -1233,7 +1234,7 @@
       <div class="gif-group">
         <div class="dashboard-group-label">More dashboard channels</div>
         <div class="gif-row gif-row-dashboard">
-          <div class="gif-box channel-preview" aria-label="Market Pulse preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('dashboard123')" aria-label="Market Pulse">
             <div class="tile-kicker">03 / MARKET PULSE</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1244,7 +1245,7 @@
             <video src="videos/dashboard123.mp4" aria-label="Market Pulse" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Market Pulse</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="World Monitor preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('world-monitor')" aria-label="World Monitor">
             <div class="tile-kicker">04 / WORLD STATE</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1255,7 +1256,7 @@
             <video src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">World Monitor</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="AI Arena preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('arena')" aria-label="AI Arena">
             <div class="tile-kicker">05 / AGENT ARENA</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1266,7 +1267,7 @@
             <video src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">AI Arena</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Glance preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('glance')" aria-label="Glance">
             <div class="tile-kicker">06 / SOURCE WALL</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1277,7 +1278,7 @@
             <video src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Glance</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Crypto Trading preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('crypto-trading')" aria-label="Crypto Trading">
             <div class="tile-kicker">07 / CRYPTO TAPE</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1288,7 +1289,7 @@
             <video src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Crypto Trading</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Polyrec preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('polyrec')" aria-label="Polyrec">
             <div class="tile-kicker">08 / MARKET CLOCK</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1299,7 +1300,7 @@
             <video src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Polyrec</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Biotech preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('biotech')" aria-label="Biotech">
             <div class="tile-kicker">09 / BIO SIGNALS</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1310,7 +1311,7 @@
             <video src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Biotech</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Deep Space preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('space')" aria-label="Deep Space">
             <div class="tile-kicker">10 / SPACE OBSERVATORY</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1321,7 +1322,7 @@
             <video src="videos/space.mp4" aria-label="Deep Space" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Deep Space</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Iran Signal preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('iran')" aria-label="Iran Signal">
             <div class="tile-kicker">11 / GEO SIGNAL</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1332,7 +1333,7 @@
             <video src="videos/iran.mp4" aria-label="Iran Signal" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Iran Signal</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Meme Coin preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('meme-coin')" aria-label="Meme Coin">
             <div class="tile-kicker">12 / SOCIAL MARKET</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1343,7 +1344,7 @@
             <video src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Meme Coin</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Quantum States preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('quantum')" aria-label="Quantum States">
             <div class="tile-kicker">13 / QUANTUM</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1354,7 +1355,7 @@
             <video src="videos/quantum.mp4" aria-label="Quantum States" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Quantum States</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Abyssal Monitor preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('deep-sea')" aria-label="Abyssal Monitor">
             <div class="tile-kicker">14 / ABYSS</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1365,7 +1366,7 @@
             <video src="videos/deep-sea.mp4" aria-label="Abyssal Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Abyssal Monitor</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Power Grid preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('power-grid')" aria-label="Power Grid">
             <div class="tile-kicker">15 / GRID</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1376,7 +1377,7 @@
             <video src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Power Grid</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Viral Spread preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('viral')" aria-label="Viral Spread">
             <div class="tile-kicker">16 / VIRAL MODEL</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -1387,7 +1388,7 @@
             <video src="videos/viral.mp4" aria-label="Viral Spread" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Viral Spread</div>
           </div>
-          <div class="gif-box channel-preview" aria-label="Dark Forest preview">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('dark-forest')" aria-label="Dark Forest">
             <div class="tile-kicker">17 / VOID WATCH</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
