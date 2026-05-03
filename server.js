@@ -38,6 +38,7 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-2025100
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
+const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
   process.env.SPECTRE_DASHBOARD_URL,
@@ -189,7 +190,7 @@ for (const dashboard of Object.values(EXTERNAL_DASHBOARDS)) {
 
 async function proxyHls(req, res) {
   try {
-    const upstream = await fetch(`${HLS_CONTROL_URL}${req.path}`, { timeout: 3000 });
+    const upstream = await fetch(`${HLS_CONTROL_URL}${req.path}`, { timeout: HLS_PROXY_TIMEOUT_MS });
     if (!upstream.ok) {
       return res.status(upstream.status).send(await upstream.text());
     }

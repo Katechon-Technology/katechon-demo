@@ -15,6 +15,9 @@ AVT_W=640; AVT_H=1080
 OVERLAY_X=1280; OVERLAY_Y=0
 ENABLE_HLS_AUDIO="${ENABLE_HLS_AUDIO:-0}"
 REMOTE_AVATAR_ENABLED="${REMOTE_AVATAR_ENABLED:-0}"
+HLS_TIME="${HLS_TIME:-2}"
+HLS_LIST_SIZE="${HLS_LIST_SIZE:-12}"
+HLS_DELETE_THRESHOLD="${HLS_DELETE_THRESHOLD:-12}"
 
 export XDG_RUNTIME_DIR=/tmp/xdg-runtime
 mkdir -p "$XDG_RUNTIME_DIR" /tmp/.X11-unix /tmp/hls
@@ -343,7 +346,7 @@ cat > /tmp/hls_server.py << 'PYEOF'
 import os, sys, json, time
 from urllib.parse import urlparse, parse_qs
 sys.path.insert(0, '')
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 _state = {"workspace": "landing"}
 _voice_seq = 0
@@ -470,7 +473,7 @@ class Handler(SimpleHTTPRequestHandler):
             _json(self, 404, {"error": "not found"})
 
 os.chdir('/tmp/hls')
-HTTPServer(('', 3000), Handler).serve_forever()
+ThreadingHTTPServer(('', 3000), Handler).serve_forever()
 PYEOF
 python3 /tmp/hls_server.py &
 HLS_SRV_PID=$!
@@ -492,7 +495,8 @@ if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
             -c:v libx264 -preset ultrafast -tune zerolatency \
             -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
             -c:a aac -b:a 128k -ac 2 -ar 44100 \
-            -f hls -hls_time 2 -hls_list_size 5 \
+            -f hls -hls_time "$HLS_TIME" -hls_list_size "$HLS_LIST_SIZE" \
+            -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
             -hls_flags delete_segments+append_list \
             -hls_segment_filename /tmp/hls/seg%05d.ts \
             /tmp/hls/stream.m3u8 &
@@ -505,7 +509,8 @@ if [ "$ENABLE_HLS_AUDIO" = "1" ]; then
             -c:v libx264 -preset ultrafast -tune zerolatency \
             -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
             -c:a aac -b:a 128k -ac 2 -ar 44100 \
-            -f hls -hls_time 2 -hls_list_size 5 \
+            -f hls -hls_time "$HLS_TIME" -hls_list_size "$HLS_LIST_SIZE" \
+            -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
             -hls_flags delete_segments+append_list \
             -hls_segment_filename /tmp/hls/seg%05d.ts \
             /tmp/hls/stream.m3u8 &
@@ -520,7 +525,8 @@ else
             -filter_complex "[1:v]colorkey=0x00ff00:0.3:0.1[ov];[0:v][ov]overlay=${OVERLAY_X}:${OVERLAY_Y}" \
             -c:v libx264 -preset ultrafast -tune zerolatency \
             -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
-            -f hls -hls_time 2 -hls_list_size 5 \
+            -f hls -hls_time "$HLS_TIME" -hls_list_size "$HLS_LIST_SIZE" \
+            -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
             -hls_flags delete_segments+append_list \
             -hls_segment_filename /tmp/hls/seg%05d.ts \
             /tmp/hls/stream.m3u8 &
@@ -530,7 +536,8 @@ else
             -f x11grab -framerate 30 -video_size "${W}x${H}" -draw_mouse 0 -i "${DISPLAY_DESK}.0" \
             -c:v libx264 -preset ultrafast -tune zerolatency \
             -pix_fmt yuv420p -g 60 -sc_threshold 0 -b:v 3000k \
-            -f hls -hls_time 2 -hls_list_size 5 \
+            -f hls -hls_time "$HLS_TIME" -hls_list_size "$HLS_LIST_SIZE" \
+            -hls_delete_threshold "$HLS_DELETE_THRESHOLD" \
             -hls_flags delete_segments+append_list \
             -hls_segment_filename /tmp/hls/seg%05d.ts \
             /tmp/hls/stream.m3u8 &
