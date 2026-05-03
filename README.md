@@ -1,6 +1,6 @@
 # katechon-demo
 
-Remote-first demo runtime for the Katechon 24hr interactive livestream. The remote server runs the public UI/API, the compositor container, the YouTube RTMP push, and server-side recording; developer machines sync code to the server for fast iteration.
+Remote-first demo runtime for Katechon narrated dashboard channels. The remote server can still run the public UI/API, compositor container, YouTube RTMP push, and server-side recording; developer machines sync code to the server for fast iteration.
 
 ## Architecture
 
@@ -80,6 +80,8 @@ Edit `.env` and fill in:
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
+| `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
+| `DASHBOARD_NARRATION_TTS` | No | Set to `1` to use ElevenLabs for dashboard narration; defaults off so the browser narration fallback starts immediately |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
 | `STREAM_AUDIO_ENABLED` | No | Legacy HLS-audio flag. Keep off for the browser-rendered avatar flow |
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
@@ -159,17 +161,17 @@ SPECTRE is embedded through the same-origin `/dashboards/spectre/` proxy so view
 
 ### Prototype Dashboards
 
-The landing grid has five concept dashboard slots inspired by external open-source dashboards. By default, each iframe renders the local `public/prototype-dashboard.html` experience so the demo is reliable: distinct dashboard visuals, tabs, feed-item clicks, live data pulsing, and a `Generate Line` control that previews dashboard-specific Kat narration through `GET /api/narration/:dashboard?mute=1`.
+The investor path is a focused feed of narrated dashboard channels. By default, each iframe renders the local `public/prototype-dashboard.html` experience so the demo is reliable: distinct dashboard visuals, tabs, feed-item clicks, live data pulsing, and dashboard-specific Kat narration through `GET /api/narration/:dashboard`.
 
 | Dashboard | Iframe route | Narration lens |
 |---|---|---|
+| SPECTRE Event Room | `/dashboards/spectre/` | Correlation |
+| News Situation Room | `/dashboards/news/` | Source fusion |
+| Market Pulse | `/dashboards/dashboard123/` | Macro context |
 | World Monitor | `/dashboards/world-monitor/` | Risk correlation |
-| Glance | `/dashboards/glance/` | Source triage |
-| Crypto Trading | `/dashboards/crypto-trading/` | Risk discipline |
-| Polyrec | `/dashboards/polyrec/` | Spread and clock |
-| Dashboard123 | `/dashboards/dashboard123/` | Macro context |
+| AI Arena | `/dashboards/arena/` | Speed and accuracy |
 
-Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode the optional upstream env vars are `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL`. Polyrec is terminal-first, so it still needs a web terminal wrapper before it behaves like the other dashboards.
+Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
 This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
 

@@ -90,6 +90,84 @@
       display: block;
       background: transparent;
     }
+    #kat-narrator {
+      position: fixed;
+      right: 3.2%;
+      top: 16%;
+      width: min(26vw, 360px);
+      z-index: 19;
+      pointer-events: none;
+      display: none !important;
+      grid-template-columns: 82px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(0,232,123,0.22);
+      border-radius: 8px;
+      background: rgba(5, 8, 9, 0.72);
+      box-shadow: 0 18px 54px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+    }
+    #kat-narrator.hidden { display: none; }
+    .kat-portrait {
+      position: relative;
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,232,123,0.42);
+      background:
+        radial-gradient(circle at 50% 37%, rgba(242,244,247,0.90) 0 7px, transparent 8px),
+        radial-gradient(circle at 38% 46%, rgba(0,232,123,0.92) 0 4px, transparent 5px),
+        radial-gradient(circle at 62% 46%, rgba(0,232,123,0.92) 0 4px, transparent 5px),
+        radial-gradient(circle at 50% 56%, rgba(255,95,128,0.56) 0 7px, transparent 8px),
+        linear-gradient(145deg, rgba(24,38,40,0.96), rgba(4,7,8,0.98));
+      box-shadow: 0 0 22px rgba(0,232,123,0.16);
+      overflow: hidden;
+    }
+    .kat-portrait::after {
+      content: "";
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(0,232,123,0.72);
+      transform-origin: center;
+    }
+    #kat-narrator.speaking .kat-portrait::after {
+      animation: kat-mouth 360ms ease-in-out infinite;
+    }
+    @keyframes kat-mouth {
+      0%, 100% { transform: scaleY(1); opacity: 0.62; }
+      50% { transform: scaleY(3.8); opacity: 1; }
+    }
+    .kat-copy {
+      min-width: 0;
+      display: grid;
+      gap: 7px;
+    }
+    .kat-kicker {
+      font-family: monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--green);
+      font-size: 9px;
+    }
+    #kat-channel {
+      color: rgba(242,244,247,0.90);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+    #kat-line {
+      color: rgba(242,244,247,0.66);
+      font-size: 12px;
+      line-height: 1.35;
+      max-height: 66px;
+      overflow: hidden;
+    }
 
     #status {
       position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%);
@@ -129,6 +207,27 @@
       display: flex;
       flex-direction: column;
       backdrop-filter: blur(2px);
+      transition:
+        left 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        top 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        width 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        height 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        border-radius 260ms cubic-bezier(0.16, 1, 0.3, 1),
+        background 260ms ease;
+    }
+    body.dashboard-fullscreen #dashboard-overlay {
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+      border-color: rgba(255,255,255,0.06);
+      background: rgba(3, 5, 6, 0.96);
+      z-index: 17;
+    }
+    body.dashboard-fullscreen #browser-avatar-wrap,
+    body.dashboard-fullscreen #kat-narrator {
+      z-index: 24;
     }
     .frame-bar {
       height: 32px;
@@ -161,35 +260,136 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    #dashboard-back {
+    .frame-action {
       flex-shrink: 0;
+      width: 34px;
+      height: 24px;
       border: 1px solid rgba(255,255,255,0.10);
       border-radius: 5px;
       background: rgba(255,255,255,0.035);
-      color: rgba(242,244,247,0.58);
+      color: rgba(242,244,247,0.66);
       cursor: pointer;
       font-family: monospace;
-      font-size: 10px;
+      font-size: 9px;
       letter-spacing: 0.12em;
-      padding: 5px 9px;
       text-transform: uppercase;
-      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
     }
-    #dashboard-back:hover,
-    #dashboard-back:focus-visible {
+    .frame-action-text {
+      width: auto;
+      min-width: 44px;
+      padding: 0 9px;
+    }
+    .frame-action:hover,
+    .frame-action:focus-visible {
       border-color: rgba(0,232,123,0.52);
       background: rgba(0,232,123,0.08);
-      color: rgba(242,244,247,0.86);
+      color: rgba(242,244,247,0.88);
       outline: none;
     }
-    #dashboard-frame {
+    .fullscreen-icon {
+      position: relative;
+      width: 14px;
+      height: 14px;
+      display: block;
+    }
+    .fullscreen-icon span {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      border-color: currentColor;
+      transition: transform 120ms ease;
+    }
+    .fullscreen-icon span:nth-child(1) {
+      left: 0;
+      top: 0;
+      border-left: 2px solid;
+      border-top: 2px solid;
+    }
+    .fullscreen-icon span:nth-child(2) {
+      right: 0;
+      top: 0;
+      border-right: 2px solid;
+      border-top: 2px solid;
+    }
+    .fullscreen-icon span:nth-child(3) {
+      left: 0;
+      bottom: 0;
+      border-left: 2px solid;
+      border-bottom: 2px solid;
+    }
+    .fullscreen-icon span:nth-child(4) {
+      right: 0;
+      bottom: 0;
+      border-right: 2px solid;
+      border-bottom: 2px solid;
+    }
+    #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(1) { transform: translate(4px, 4px); }
+    #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(2) { transform: translate(-4px, 4px); }
+    #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(3) { transform: translate(4px, -4px); }
+    #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(4) { transform: translate(-4px, -4px); }
+    #dashboard-frame-stage {
       width: 100%;
       flex: 1;
       min-height: 0;
+      position: relative;
+      overflow: hidden;
+      background: #050607;
+    }
+    .dashboard-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       border: 0;
       display: block;
       background: #050607;
-      transition: opacity 120ms ease;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate3d(0, 0, 0) scale(1);
+      transition:
+        opacity 180ms ease,
+        transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+        filter 300ms ease;
+      will-change: opacity, transform;
+    }
+    .dashboard-frame.active {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+      filter: none;
+      z-index: 2;
+    }
+    .dashboard-frame.incoming {
+      opacity: 0;
+      z-index: 3;
+      filter: brightness(0.94);
+    }
+    .dashboard-frame.outgoing {
+      opacity: 0;
+      z-index: 1;
+      filter: brightness(0.78);
+    }
+    #dashboard-position {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(242,244,247,0.38);
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    #dashboard-position::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 14px rgba(0,232,123,0.62);
     }
 
     #avatar-tools {
@@ -200,7 +400,9 @@
       color: #e8e8ec;
       font-family: monospace;
       pointer-events: all;
+      display: none;
     }
+    body.debug-tools #avatar-tools { display: block; }
     #avatar-tools-toggle,
     #avatar-tools button {
       background: rgba(8,10,12,0.9);
@@ -401,10 +603,11 @@
       border: 1.5px solid rgba(255,255,255,0.12);
       border-radius: 50%;
       cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
       backdrop-filter: blur(10px);
       transition: border-color 0.2s, transform 0.15s;
     }
+    body.debug-tools #speech-btn { display: flex; }
     #speech-btn:hover {
       border-color: #00e87b;
       transform: scale(1.06);
@@ -761,9 +964,33 @@
       min-width: 0;
       box-shadow: 0 12px 35px rgba(0,0,0,0.24);
     }
+    #main-overlay[data-layout="showcase"] .channel-hero,
+    #main-overlay[data-layout="rows"] .channel-hero,
+    .channel-hero {
+      border-color: rgba(0,232,123,0.70);
+      box-shadow: 0 18px 58px rgba(0,0,0,0.42), 0 0 0 1px rgba(0,232,123,0.16);
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-primary .channel-hero {
+      grid-column: span 2;
+      height: clamp(220px, 29vh, 328px);
+    }
+    #main-overlay[data-layout="showcase"] .gif-row-primary .gif-box:not(.channel-hero) {
+      height: clamp(220px, 29vh, 328px);
+    }
+    .channel-hero .gif-label {
+      font-size: 12px;
+      padding: 12px 13px;
+    }
     .gif-box:hover {
       border-color: var(--line-hot);
       box-shadow: 0 16px 45px rgba(0,0,0,0.32), 0 0 0 1px rgba(0,232,123,0.07);
+    }
+    .channel-preview {
+      cursor: default;
+    }
+    .channel-preview:hover {
+      border-color: rgba(255,255,255,0.12);
+      box-shadow: 0 12px 35px rgba(0,0,0,0.24);
     }
     .gif-box img,
     .gif-box video {
@@ -879,6 +1106,9 @@
         min-height: 126px;
         aspect-ratio: 16 / 9;
       }
+      #main-overlay[data-layout="showcase"] .gif-row-primary .channel-hero {
+        grid-column: auto;
+      }
       #main-overlay[data-layout="rows"] .gif-row { overflow-x: auto; }
       #main-overlay[data-layout="rows"] .gif-row .gif-box { flex-basis: min(78vw, 330px); }
       #main-overlay[data-layout="spotlight"] .gif-groups {
@@ -895,6 +1125,17 @@
       }
       #main-overlay[data-layout="spotlight"] .gif-box.spotlight-focus {
         min-height: 260px;
+      }
+      #kat-narrator {
+        right: 5%;
+        top: auto;
+        bottom: 24px;
+        width: 90%;
+        grid-template-columns: 64px minmax(0, 1fr);
+      }
+      .kat-portrait {
+        width: 64px;
+        height: 64px;
       }
     }
 
@@ -915,6 +1156,14 @@
   <div id="browser-avatar-wrap" aria-hidden="true">
     <iframe id="browser-avatar" src="/avatar-pet.html?model=0&w=640&h=1080" allow="autoplay"></iframe>
   </div>
+  <div id="kat-narrator" class="hidden" aria-live="polite">
+    <div class="kat-portrait" aria-hidden="true"></div>
+    <div class="kat-copy">
+      <div class="kat-kicker">Kat narration</div>
+      <div id="kat-channel">Dashboard channel</div>
+      <div id="kat-line">Watching the live surface.</div>
+    </div>
+  </div>
 
   <!-- landing: email input -->
   <div id="email-overlay" class="overlay">
@@ -928,7 +1177,7 @@
       </div>
       <div class="email-kicker">Katechon gateway</div>
       <div class="email-title">Enter the live system</div>
-      <div class="email-copy">A 24hr interactive stream running across remote desktops, agents, and live panels.</div>
+      <div class="email-copy">A feed of narrated live dashboards: software surfaces that can be watched without becoming flat videos.</div>
       <div class="form-grid">
         <input id="email-input" class="card-input" type="email"
           placeholder="name@company.com" autocomplete="email">
@@ -941,11 +1190,11 @@
   <div id="main-overlay" class="overlay hidden" data-layout="showcase">
     <div class="main-head">
       <div>
-        <div class="main-kicker"><span class="status-dot"></span>Katechon live</div>
-        <div class="main-title">Katechon Technology</div>
-        <div class="main-sub">24hr interactive livestream</div>
+        <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
+        <div class="main-title">Narrated live dashboards</div>
+        <div class="main-sub">Application surfaces that play like channels: OSINT, news, markets, agents, and world state.</div>
         <div class="layout-control-row">
-          <button id="layout-toggle" type="button" title="Change video layout">
+          <button id="layout-toggle" type="button" title="Change channel layout">
             <span>Layout</span>
             <strong id="layout-label">Showcase</strong>
             <span class="layout-dots" aria-hidden="true">
@@ -960,198 +1209,188 @@
     <div class="main-divider"></div>
     <div class="gif-groups">
       <div class="gif-group">
-        <div class="dashboard-group-label">Core demos</div>
+        <div class="dashboard-group-label">First dashboard moment</div>
         <div class="gif-row gif-row-primary">
-      <div class="gif-box" onclick="switchWs('spectre')">
-        <div class="tile-kicker">01 / OSINT</div>
-        <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
-        <div class="gif-label">OSINT / SPECTRE</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('minecraft')">
-        <div class="tile-kicker">02 / WORLD</div>
-        <img src="gifs/minecraft.gif" alt="Minecraft" onerror="this.style.display='none'">
-        <div class="gif-label">Minecraft AI</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('news')">
-        <div class="tile-kicker">03 / FEED</div>
-        <video src="videos/news.mp4" aria-label="News" autoplay muted loop playsinline preload="metadata"></video>
-        <div class="gif-label">AI News Feed</div>
-      </div>
+          <div class="gif-box channel-hero" onclick="switchWs('spectre')">
+            <div class="tile-kicker">01 / OSINT CHANNEL</div>
+            <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
+            <div class="gif-label">SPECTRE Event Room</div>
+          </div>
+          <div class="gif-box channel-preview" aria-label="News Situation Room preview">
+            <div class="tile-kicker">02 / SITUATION ROOM</div>
+            <video src="videos/news.mp4" aria-label="News Situation Room" autoplay muted loop playsinline preload="metadata"></video>
+            <div class="gif-label">News Situation Room</div>
+          </div>
         </div>
       </div>
       <div class="gif-group">
-        <div class="dashboard-group-label">Generated dashboard prototypes</div>
+        <div class="dashboard-group-label">More dashboard channels</div>
         <div class="gif-row gif-row-dashboard">
-      <div class="gif-box" onclick="switchWs('world-monitor')">
-        <div class="tile-kicker">04 / GEO</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">world monitor</div>
+          <div class="gif-box channel-preview" aria-label="Market Pulse preview">
+            <div class="tile-kicker">03 / MARKET PULSE</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">market pulse</div>
+              </div>
+            </div>
+            <video src="videos/dashboard123.mp4" aria-label="Market Pulse" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Market Pulse</div>
           </div>
-        </div>
-        <video src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">World Monitor</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('glance')">
-        <div class="tile-kicker">05 / NEWS</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">glance</div>
+          <div class="gif-box channel-preview" aria-label="World Monitor preview">
+            <div class="tile-kicker">04 / WORLD STATE</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">world monitor</div>
+              </div>
+            </div>
+            <video src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">World Monitor</div>
           </div>
-        </div>
-        <video src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Glance / Feeds</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('crypto-trading')">
-        <div class="tile-kicker">06 / CRYPTO</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">crypto trading</div>
+          <div class="gif-box channel-preview" aria-label="AI Arena preview">
+            <div class="tile-kicker">05 / AGENT ARENA</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">ai arena</div>
+              </div>
+            </div>
+            <video src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">AI Arena</div>
           </div>
-        </div>
-        <video src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Crypto Trading</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('polyrec')">
-        <div class="tile-kicker">07 / PRED</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">polyrec</div>
+          <div class="gif-box channel-preview" aria-label="Glance preview">
+            <div class="tile-kicker">06 / SOURCE WALL</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">glance</div>
+              </div>
+            </div>
+            <video src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Glance</div>
           </div>
-        </div>
-        <video src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Polyrec / Polymarket</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('dashboard123')">
-        <div class="tile-kicker">08 / MARKETS</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">dashboard123</div>
+          <div class="gif-box channel-preview" aria-label="Crypto Trading preview">
+            <div class="tile-kicker">07 / CRYPTO TAPE</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">crypto trading</div>
+              </div>
+            </div>
+            <video src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Crypto Trading</div>
           </div>
-        </div>
-        <video src="videos/dashboard123.mp4" aria-label="Dashboard123" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Dashboard123</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('arena')">
-        <div class="tile-kicker">09 / ARENA</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">ai arena</div>
+          <div class="gif-box channel-preview" aria-label="Polyrec preview">
+            <div class="tile-kicker">08 / MARKET CLOCK</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">polyrec</div>
+              </div>
+            </div>
+            <video src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Polyrec</div>
           </div>
-        </div>
-        <video src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">AI vs AI Arena</div>
-      </div>
-        </div>
-      </div>
-      <div class="gif-group">
-        <div class="dashboard-group-label">Intelligence feeds</div>
-        <div class="gif-row gif-row-dashboard">
-      <div class="gif-box" onclick="switchWs('biotech')">
-        <div class="tile-kicker">10 / BIO</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">biotech</div>
+          <div class="gif-box channel-preview" aria-label="Biotech preview">
+            <div class="tile-kicker">09 / BIO SIGNALS</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">biotech</div>
+              </div>
+            </div>
+            <video src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Biotech</div>
           </div>
-        </div>
-        <video src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Biotech / CRISPR</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('space')">
-        <div class="tile-kicker">11 / SPACE</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">space</div>
+          <div class="gif-box channel-preview" aria-label="Deep Space preview">
+            <div class="tile-kicker">10 / SPACE OBSERVATORY</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">space</div>
+              </div>
+            </div>
+            <video src="videos/space.mp4" aria-label="Deep Space" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Deep Space</div>
           </div>
-        </div>
-        <video src="videos/space.mp4" aria-label="Space" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Deep Space</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('iran')">
-        <div class="tile-kicker">12 / IRAN</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">iran tracker</div>
+          <div class="gif-box channel-preview" aria-label="Iran Signal preview">
+            <div class="tile-kicker">11 / GEO SIGNAL</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">iran signal</div>
+              </div>
+            </div>
+            <video src="videos/iran.mp4" aria-label="Iran Signal" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Iran Signal</div>
           </div>
-        </div>
-        <video src="videos/iran.mp4" aria-label="Iran" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Iran Signal</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('meme-coin')">
-        <div class="tile-kicker">13 / DEGEN</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">meme coin</div>
+          <div class="gif-box channel-preview" aria-label="Meme Coin preview">
+            <div class="tile-kicker">12 / SOCIAL MARKET</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">meme coin</div>
+              </div>
+            </div>
+            <video src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Meme Coin</div>
           </div>
-        </div>
-        <video src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Meme Coin Temple</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('quantum')">
-        <div class="tile-kicker">14 / QUANT</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">quantum</div>
+          <div class="gif-box channel-preview" aria-label="Quantum States preview">
+            <div class="tile-kicker">13 / QUANTUM</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">quantum</div>
+              </div>
+            </div>
+            <video src="videos/quantum.mp4" aria-label="Quantum States" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Quantum States</div>
           </div>
-        </div>
-        <video src="videos/quantum.mp4" aria-label="Quantum" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Quantum States</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('deep-sea')">
-        <div class="tile-kicker">15 / ABYSS</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">deep sea</div>
+          <div class="gif-box channel-preview" aria-label="Abyssal Monitor preview">
+            <div class="tile-kicker">14 / ABYSS</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">deep sea</div>
+              </div>
+            </div>
+            <video src="videos/deep-sea.mp4" aria-label="Abyssal Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Abyssal Monitor</div>
           </div>
-        </div>
-        <video src="videos/deep-sea.mp4" aria-label="Deep Sea" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Abyssal Monitor</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('power-grid')">
-        <div class="tile-kicker">16 / GRID</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">power grid</div>
+          <div class="gif-box channel-preview" aria-label="Power Grid preview">
+            <div class="tile-kicker">15 / GRID</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">power grid</div>
+              </div>
+            </div>
+            <video src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Power Grid</div>
           </div>
-        </div>
-        <video src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Power Grid</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('viral')">
-        <div class="tile-kicker">17 / VIRAL</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">viral</div>
+          <div class="gif-box channel-preview" aria-label="Viral Spread preview">
+            <div class="tile-kicker">16 / VIRAL MODEL</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">viral</div>
+              </div>
+            </div>
+            <video src="videos/viral.mp4" aria-label="Viral Spread" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Viral Spread</div>
           </div>
-        </div>
-        <video src="videos/viral.mp4" aria-label="Viral" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Viral Spread</div>
-      </div>
-      <div class="gif-box" onclick="switchWs('dark-forest')">
-        <div class="tile-kicker">18 / VOID</div>
-        <div class="tile-preview" aria-hidden="true">
-          <div class="tile-preview-inner">
-            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-            <div class="tile-preview-title">dark forest</div>
+          <div class="gif-box channel-preview" aria-label="Dark Forest preview">
+            <div class="tile-kicker">17 / VOID WATCH</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">dark forest</div>
+              </div>
+            </div>
+            <video src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <div class="gif-label">Dark Forest</div>
           </div>
-        </div>
-        <video src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
-        <div class="gif-label">Dark Forest</div>
-      </div>
         </div>
       </div>
     </div>
@@ -1163,9 +1402,18 @@
       <span class="frame-dot"></span>
       <span class="frame-dot"></span>
       <span id="dashboard-title">// KATECHON — INTELLIGENCE PLATFORM</span>
-      <button id="dashboard-back" type="button">Back</button>
+      <span id="dashboard-position">01 / 17</span>
+      <button id="dashboard-back" class="frame-action frame-action-text" type="button" title="Back to channels" aria-label="Back to channels">Back</button>
+      <button id="dashboard-fullscreen" class="frame-action" type="button" title="Fullscreen dashboard" aria-label="Fullscreen dashboard" aria-pressed="false">
+        <span class="fullscreen-icon" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+      </button>
     </div>
-    <iframe id="dashboard-frame" title="Live dashboard"></iframe>
+    <div id="dashboard-frame-stage">
+      <iframe id="dashboard-frame-a" class="dashboard-frame active" title="Live dashboard"></iframe>
+      <iframe id="dashboard-frame-b" class="dashboard-frame" title="Live dashboard"></iframe>
+    </div>
   </div>
 
   <div id="transcript"></div>
@@ -1388,7 +1636,7 @@
       const label = document.getElementById('layout-label');
       if (label) label.textContent = mode.label;
       const button = document.getElementById('layout-toggle');
-      if (button) button.setAttribute('aria-label', `Video layout: ${mode.label}`);
+      if (button) button.setAttribute('aria-label', `Channel layout: ${mode.label}`);
     }
 
     function updateSpotlightFromScroll() {
@@ -1589,7 +1837,10 @@
     runIntroMotion();
     wireMotionInteractions();
 
-    if (new URLSearchParams(window.location.search).get('demo') === '1') {
+    const pageParams = new URLSearchParams(window.location.search);
+    if (pageParams.get('tools') === '1') document.body.classList.add('debug-tools');
+
+    if (pageParams.get('demo') === '1') {
       document.getElementById('email-overlay').classList.add('hidden');
       const main = document.getElementById('main-overlay');
       main.classList.remove('hidden');
@@ -1609,9 +1860,19 @@
     const src = '/stream.m3u8';
     const landingFrameCache = document.getElementById('landing-frame-cache');
     const dashboardOverlay = document.getElementById('dashboard-overlay');
-    const dashboardFrame = document.getElementById('dashboard-frame');
+    const dashboardFrameStage = document.getElementById('dashboard-frame-stage');
+    const dashboardFrames = [
+      document.getElementById('dashboard-frame-a'),
+      document.getElementById('dashboard-frame-b'),
+    ];
     const dashboardTitle = document.getElementById('dashboard-title');
+    const dashboardPosition = document.getElementById('dashboard-position');
+    const backButton = document.getElementById('dashboard-back');
+    const fullscreenButton = document.getElementById('dashboard-fullscreen');
     const browserAvatar = document.getElementById('browser-avatar');
+    const katNarrator = document.getElementById('kat-narrator');
+    const katChannel = document.getElementById('kat-channel');
+    const katLine = document.getElementById('kat-line');
     const avatarTools = document.getElementById('avatar-tools');
     const avatarControlIds = ['x', 'y', 'w', 'h', 'scale', 'model-y'];
     const avatarControls = Object.fromEntries(avatarControlIds.map(id => [id, document.getElementById(`avatar-${id}`)]));
@@ -1627,109 +1888,146 @@
     const AVATAR_STORAGE_KEY = 'katechon.browserAvatarPlacement.v1';
     const DASHBOARDS = {
       spectre: {
-        label: 'SPECTRE OSINT',
-        title: '// OSINT — SPECTRE INTELLIGENCE',
+        label: 'SPECTRE Event Room',
+        title: '// OSINT — SPECTRE EVENT ROOM',
+        channel: '01 / OSINT',
         url: () => '/dashboards/spectre/?kiosk=1',
         narration: true,
       },
       news: {
-        label: 'Generative News',
-        title: '// NEWS — GENERATIVE BROADCAST',
+        label: 'News Situation Room',
+        title: '// NEWS — SITUATION ROOM',
+        channel: '02 / NEWS',
         url: () => '/dashboards/news/',
         narration: true,
       },
       'world-monitor': {
         label: 'World Monitor',
         title: '// GEO — WORLD MONITOR',
+        channel: '04 / WORLD',
         url: () => '/dashboards/world-monitor/',
         narration: true,
       },
       glance: {
         label: 'Glance',
         title: '// FEEDS — GLANCE',
+        channel: '06 / SOURCE WALL',
         url: () => '/dashboards/glance/',
         narration: true,
       },
       'crypto-trading': {
         label: 'Crypto Trading',
         title: '// CRYPTO — TRADING DASHBOARD',
+        channel: '07 / CRYPTO',
         url: () => '/dashboards/crypto-trading/',
         narration: true,
       },
       polyrec: {
         label: 'Polyrec',
         title: '// PREDICTION MARKETS — POLYREC',
+        channel: '08 / CLOCK',
         url: () => '/dashboards/polyrec/',
         narration: true,
       },
       dashboard123: {
-        label: 'Dashboard123',
-        title: '// MARKETS — DASHBOARD123',
+        label: 'Market Pulse',
+        title: '// MARKETS — MARKET PULSE',
+        channel: '03 / MARKETS',
         url: () => '/dashboards/dashboard123/',
         narration: true,
       },
       arena: {
         label: 'AI Arena',
         title: '// ARENA — AI vs AI',
+        channel: '05 / AGENTS',
         url: () => '/dashboards/arena/',
         narration: true,
       },
       biotech: {
         label: 'Biotech',
         title: '// BIO — CRISPR & PROTEIN',
+        channel: '09 / BIO',
         url: () => '/dashboards/biotech/',
         narration: true,
       },
       space: {
         label: 'Deep Space',
         title: '// SPACE — DEEP FIELD',
+        channel: '10 / SPACE',
         url: () => '/dashboards/space/',
         narration: true,
       },
       iran: {
         label: 'Iran Signal',
         title: '// IRAN — SIGNAL TRACKER',
+        channel: '11 / GEO',
         url: () => '/dashboards/iran/',
         narration: true,
       },
       'meme-coin': {
         label: 'Meme Coin',
         title: '// DEGEN — MEME COIN TEMPLE',
+        channel: '12 / SOCIAL',
         url: () => '/dashboards/meme-coin/',
         narration: true,
       },
       quantum: {
         label: 'Quantum States',
         title: '// QUANT — QUANTUM COMPUTING',
+        channel: '13 / QUANT',
         url: () => '/dashboards/quantum/',
         narration: true,
       },
       'deep-sea': {
         label: 'Abyssal Monitor',
         title: '// ABYSS — DEEP SEA',
+        channel: '14 / ABYSS',
         url: () => '/dashboards/deep-sea/',
         narration: true,
       },
       'power-grid': {
         label: 'Power Grid',
         title: '// GRID — POWER INFRASTRUCTURE',
+        channel: '15 / GRID',
         url: () => '/dashboards/power-grid/',
         narration: true,
       },
       viral: {
         label: 'Viral Spread',
         title: '// VIRAL — TRANSMISSION MODEL',
+        channel: '16 / VIRAL',
         url: () => '/dashboards/viral/',
         narration: true,
       },
       'dark-forest': {
         label: 'Dark Forest',
         title: '// VOID — DARK FOREST',
+        channel: '17 / VOID',
         url: () => '/dashboards/dark-forest/',
         narration: true,
       },
     };
+    const CHANNEL_ORDER = [
+      'spectre',
+      'news',
+      'dashboard123',
+      'world-monitor',
+      'arena',
+      'glance',
+      'crypto-trading',
+      'polyrec',
+      'biotech',
+      'space',
+      'iran',
+      'meme-coin',
+      'quantum',
+      'deep-sea',
+      'power-grid',
+      'viral',
+      'dark-forest',
+    ];
     const avatarAudioWaiters = new Map();
+    let fallbackSpeechUtterance = null;
     const narration = {
       dashboard: null,
       runId: 0,
@@ -1738,10 +2036,8 @@
     };
     let dashboardFrameLoadToken = 0;
     let dashboardFrameRevealTimer = null;
-    dashboardFrame.addEventListener('load', () => {
-      const src = dashboardFrame.getAttribute('src') || '';
-      if (src && src !== 'about:blank') revealDashboardFrame(dashboardFrameLoadToken);
-    });
+    let activeDashboardFrameIndex = 0;
+    let currentDashboardUrl = '';
     let avatarReady = false;
     let avatarReadyResolver = null;
     let avatarPlacement = loadAvatarPlacement();
@@ -1749,18 +2045,29 @@
     let landingCaptureTimer = null;
     let landingSwitchRunId = 0;
     let currentDashboardId = null;
+    let dashboardScrollLocked = false;
+    let dashboardScrollReleaseTimer = null;
+    let dashboardWheelDelta = 0;
+    let streamFallbackActive = false;
+    const streamFallbackTimer = setTimeout(() => activateStreamFallback(), 2400);
 
-    if (Hls.isSupported()) {
+    if (window.Hls && Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
       hls.loadSource(src);
       hls.attachMedia(v);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        streamFallbackActive = false;
+        clearTimeout(streamFallbackTimer);
         v.play().catch(() => {});
         st.textContent = 'LIVE - katechon-desktop';
       });
       v.addEventListener('loadeddata', handleStreamLoadedData);
       hls.on(Hls.Events.ERROR, (_, d) => {
-        if (d.fatal) { v.classList.remove('stream-ready'); st.textContent = 'reconnecting...'; setTimeout(() => hls.loadSource(src), 2000); }
+        if (d.fatal) {
+          v.classList.remove('stream-ready');
+          if (!streamFallbackActive) st.textContent = 'reconnecting...';
+          setTimeout(() => hls.loadSource(src), 2000);
+        }
       });
     } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src = src;
@@ -1768,7 +2075,15 @@
       v.addEventListener('loadeddata', handleStreamLoadedData);
     }
 
+    function activateStreamFallback() {
+      if (v.classList.contains('stream-ready')) return;
+      streamFallbackActive = true;
+      st.textContent = 'LOCAL CHANNEL MODE';
+    }
+
     function handleStreamLoadedData() {
+      streamFallbackActive = false;
+      clearTimeout(streamFallbackTimer);
       v.classList.add('stream-ready');
       scheduleLandingFrameCapture(500);
     }
@@ -1911,14 +2226,65 @@
       browserAvatar.contentWindow?.postMessage(message, '*');
     }
 
+    function showKatNarrator(dashboardId, line = '') {
+      const dashboard = DASHBOARDS[dashboardId];
+      katChannel.textContent = dashboard?.label || 'Dashboard channel';
+      katLine.textContent = line || 'Watching the live surface.';
+      katNarrator.classList.remove('hidden');
+    }
+
+    function setKatNarrationLine(line, speaking = false) {
+      if (line) katLine.textContent = line;
+      katNarrator.classList.toggle('speaking', speaking);
+    }
+
+    function hideKatNarrator() {
+      katNarrator.classList.add('hidden');
+      katNarrator.classList.remove('speaking');
+    }
+
     async function unlockBrowserAvatarAudio() {
       postToAvatar({ type: 'unlock' });
     }
 
+    function stopBrowserFallbackSpeech() {
+      if (!window.speechSynthesis) return;
+      try { window.speechSynthesis.cancel(); } catch (_) {}
+      fallbackSpeechUtterance = null;
+    }
+
+    function speakWithBrowserVoice(text) {
+      if (!text || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+        return wait(readableDelay(text));
+      }
+      stopBrowserFallbackSpeech();
+      return new Promise(resolve => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.96;
+        utterance.pitch = 1.04;
+        utterance.volume = 0.9;
+        fallbackSpeechUtterance = utterance;
+        const timeout = setTimeout(resolve, readableDelay(text) + 1800);
+        utterance.onend = utterance.onerror = () => {
+          clearTimeout(timeout);
+          if (fallbackSpeechUtterance === utterance) fallbackSpeechUtterance = null;
+          resolve();
+        };
+        try { window.speechSynthesis.speak(utterance); }
+        catch (_) {
+          clearTimeout(timeout);
+          fallbackSpeechUtterance = null;
+          resolve();
+        }
+      });
+    }
+
     async function playThroughBrowserAvatar(payload) {
       const text = payload.text || payload.speech || payload.reply || '';
+      setKatNarrationLine(text, true);
       if (!payload.audio || payload.muted) {
-        await wait(readableDelay(text));
+        await speakWithBrowserVoice(text);
+        setKatNarrationLine('', false);
         return;
       }
 
@@ -1932,11 +2298,14 @@
         });
         postToAvatar({ type: 'audio', id, text, audio: payload.audio });
       });
+      setKatNarrationLine('', false);
     }
 
     function stopBrowserAvatarAudio() {
       avatarAudioWaiters.clear();
+      stopBrowserFallbackSpeech();
       postToAvatar({ type: 'stop' });
+      setKatNarrationLine('', false);
     }
 
     function stopDashboardNarration() {
@@ -1960,38 +2329,143 @@
       homeTransitionTimer = setTimeout(clearHomeTransitionMask, duration);
     }
 
+    function activeDashboardFrame() {
+      return dashboardFrames[activeDashboardFrameIndex];
+    }
+
+    function bufferDashboardFrame() {
+      return dashboardFrames[1 - activeDashboardFrameIndex];
+    }
+
+    function resetDashboardFrame(frame) {
+      if (!frame) return;
+      frame.className = 'dashboard-frame';
+      frame.style.opacity = '';
+      frame.style.transform = '';
+      frame.style.filter = '';
+      frame.src = 'about:blank';
+      frame.removeAttribute('src');
+    }
+
     function unloadDashboardFrame() {
       dashboardFrameLoadToken++;
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
-      if (!dashboardFrame.getAttribute('src')) return;
-      dashboardFrame.src = 'about:blank';
-      dashboardFrame.removeAttribute('src');
-      dashboardFrame.style.opacity = '';
+      currentDashboardUrl = '';
+      activeDashboardFrameIndex = 0;
+      dashboardFrames.forEach(resetDashboardFrame);
+      dashboardFrames[0].classList.add('active');
     }
 
-    function revealDashboardFrame(token) {
+    function revealDashboardFrame(token, nextFrame, previousFrame, direction) {
       if (token !== dashboardFrameLoadToken) return;
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
-      dashboardFrame.style.opacity = '';
+
+      const exitOffset = direction >= 0 ? -24 : 24;
+      nextFrame.classList.remove('incoming');
+      nextFrame.classList.add('active');
+      nextFrame.style.opacity = '1';
+      nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1)';
+      nextFrame.style.filter = 'none';
+
+      previousFrame.classList.remove('active');
+      previousFrame.classList.add('outgoing');
+      previousFrame.style.opacity = '0';
+      previousFrame.style.transform = `translate3d(0, ${exitOffset}px, 0) scale(0.992)`;
+
+      activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
+      currentDashboardUrl = nextFrame.getAttribute('src') || '';
+      setTimeout(() => {
+        if (activeDashboardFrame() !== previousFrame) resetDashboardFrame(previousFrame);
+      }, 340);
     }
 
-    function loadDashboardFrame(url) {
-      if (dashboardFrame.getAttribute('src') === url) {
-        dashboardFrame.style.opacity = '';
+    function loadDashboardFrame(url, direction = 1) {
+      if (currentDashboardUrl === url || activeDashboardFrame().getAttribute('src') === url) {
+        currentDashboardUrl = url;
+        activeDashboardFrame().classList.add('active');
+        activeDashboardFrame().style.opacity = '';
+        activeDashboardFrame().style.transform = '';
         return;
       }
 
       const token = ++dashboardFrameLoadToken;
+      const previousFrame = activeDashboardFrame();
+      const nextFrame = bufferDashboardFrame();
+      let revealed = false;
+      const enterOffset = direction >= 0 ? 24 : -24;
+
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
-      dashboardFrame.style.opacity = '0';
-      dashboardFrame.src = 'about:blank';
+      dashboardFrameRevealTimer = null;
+
+      nextFrame.className = 'dashboard-frame incoming';
+      nextFrame.title = previousFrame.title || 'Live dashboard';
+      nextFrame.style.opacity = '0';
+      nextFrame.style.transform = `translate3d(0, ${enterOffset}px, 0) scale(0.992)`;
+      nextFrame.style.filter = 'brightness(0.94)';
+
+      const finish = () => {
+        if (revealed || token !== dashboardFrameLoadToken) return;
+        revealed = true;
+        revealDashboardFrame(token, nextFrame, previousFrame, direction);
+      };
+
+      nextFrame.addEventListener('load', finish, { once: true });
       requestAnimationFrame(() => {
         if (token !== dashboardFrameLoadToken) return;
-        dashboardFrame.src = url;
-        dashboardFrameRevealTimer = setTimeout(() => revealDashboardFrame(token), 900);
+        nextFrame.src = url;
+        dashboardFrameRevealTimer = setTimeout(finish, 360);
       });
+    }
+
+    function channelIds() {
+      return CHANNEL_ORDER.filter(id => DASHBOARDS[id]);
+    }
+
+    function updateDashboardPosition() {
+      const ids = channelIds();
+      const index = ids.indexOf(currentDashboardId);
+      dashboardPosition.textContent = index >= 0
+        ? `${String(index + 1).padStart(2, '0')} / ${ids.length}`
+        : `-- / ${ids.length}`;
+    }
+
+    function syncFullscreenButton() {
+      const fullscreen = document.body.classList.contains('dashboard-fullscreen');
+      fullscreenButton.classList.toggle('is-fullscreen', fullscreen);
+      fullscreenButton.setAttribute('aria-pressed', String(fullscreen));
+      fullscreenButton.setAttribute('aria-label', fullscreen ? 'Exit fullscreen dashboard' : 'Fullscreen dashboard');
+      fullscreenButton.title = fullscreen ? 'Exit fullscreen dashboard' : 'Fullscreen dashboard';
+    }
+
+    function setDashboardFullscreen(fullscreen, native = true) {
+      document.body.classList.toggle('dashboard-fullscreen', fullscreen);
+      syncFullscreenButton();
+      if (!native) return;
+      if (fullscreen) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      } else if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    }
+
+    function scrollDashboard(direction) {
+      if (dashboardOverlay.classList.contains('hidden') || dashboardScrollLocked) return false;
+      const ids = channelIds();
+      if (!ids.length) return false;
+      const index = ids.indexOf(currentDashboardId);
+      if (index < 0) return false;
+      const nextIndex = (index + direction + ids.length) % ids.length;
+      if (nextIndex === index) return false;
+      dashboardScrollLocked = true;
+      openDashboard(ids[nextIndex], { direction });
+      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
+      dashboardScrollReleaseTimer = setTimeout(() => {
+        dashboardScrollLocked = false;
+        dashboardScrollReleaseTimer = null;
+      }, 260);
+      return true;
     }
 
     async function runDashboardNarration(dashboardId, runId) {
@@ -2001,7 +2475,6 @@
         const payload = await resp.json();
         if (!resp.ok) throw new Error(payload.error || `narration failed (${resp.status})`);
         if (!narration.active || narration.runId !== runId) return;
-        if (payload.text) showToast(`Kat: ${payload.text}`, '#00e87b');
         await playThroughBrowserAvatar(payload);
         if (!narration.active || narration.runId !== runId) return;
         narration.timer = setTimeout(() => runDashboardNarration(dashboardId, runId), 1200);
@@ -2022,12 +2495,15 @@
       runDashboardNarration(dashboardId, narration.runId);
     }
 
-    function openDashboard(workspace) {
+    function openDashboard(workspace, options = {}) {
       const dashboard = DASHBOARDS[workspace];
       if (!dashboard) {
         stopDashboardNarration();
         unloadDashboardFrame();
+        setDashboardFullscreen(false);
         dashboardOverlay.classList.add('hidden');
+        currentDashboardId = null;
+        updateDashboardPosition();
         hideMainOverlay();
         return fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
       }
@@ -2041,10 +2517,14 @@
         console.warn('remote workspace switch failed:', err);
       });
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
-      dashboardFrame.title = dashboard.label;
+      dashboardFrames.forEach(frame => {
+        frame.title = dashboard.label;
+      });
+      updateDashboardPosition();
       dashboardOverlay.classList.remove('hidden');
+      showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
-      loadDashboardFrame(url);
+      loadDashboardFrame(url, options.direction ?? 1);
       startDashboardNarration(workspace);
       showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
@@ -2107,9 +2587,40 @@
     document.getElementById('email-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') enter();
     });
-    document.getElementById('dashboard-back').addEventListener('click', () => {
+    backButton.addEventListener('click', () => {
       goHome();
-      showToast('-> main panel', '#00e87b');
+    });
+    fullscreenButton.addEventListener('click', () => {
+      setDashboardFullscreen(!document.body.classList.contains('dashboard-fullscreen'));
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && document.body.classList.contains('dashboard-fullscreen')) {
+        setDashboardFullscreen(false, false);
+      }
+    });
+    syncFullscreenButton();
+
+    window.addEventListener('wheel', (event) => {
+      if (dashboardOverlay.classList.contains('hidden') || event.ctrlKey) return;
+      event.preventDefault();
+      dashboardWheelDelta += event.deltaY;
+      if (Math.abs(dashboardWheelDelta) < 24) return;
+      scrollDashboard(dashboardWheelDelta > 0 ? 1 : -1);
+      dashboardWheelDelta = 0;
+    }, { passive: false });
+
+    window.addEventListener('keydown', (event) => {
+      if (dashboardOverlay.classList.contains('hidden')) return;
+      const keys = {
+        ArrowDown: 1,
+        PageDown: 1,
+        Space: 1,
+        ArrowUp: -1,
+        PageUp: -1,
+      };
+      if (!(event.code in keys) && !(event.key in keys)) return;
+      event.preventDefault();
+      scrollDashboard(keys[event.code] ?? keys[event.key]);
     });
 
     // ── VOICE / PUSH-TO-TALK ──────────────────────────────────────────────────
@@ -2125,8 +2636,15 @@
       const runId = ++landingSwitchRunId;
       stopDashboardNarration();
       unloadDashboardFrame();
+      setDashboardFullscreen(false);
       dashboardOverlay.classList.add('hidden');
       currentDashboardId = null;
+      updateDashboardPosition();
+      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
+      dashboardScrollReleaseTimer = null;
+      dashboardScrollLocked = false;
+      dashboardWheelDelta = 0;
+      hideKatNarrator();
       maskStaleDesktopFrame();
       const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
       revealMainOverlay(true);

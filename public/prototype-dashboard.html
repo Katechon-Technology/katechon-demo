@@ -225,6 +225,124 @@
         radial-gradient(ellipse at 36% 46%, rgba(0,232,123,0.12), transparent 16%),
         radial-gradient(ellipse at 67% 58%, rgba(255,191,95,0.10), transparent 18%);
     }
+    .spectre-field {
+      position: absolute;
+      inset: 16px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 12px;
+    }
+    .spectre-map,
+    .spectre-stack {
+      min-height: 0;
+      border: 1px solid rgba(0,232,123,0.18);
+      border-radius: 7px;
+      background: rgba(0,0,0,0.34);
+      overflow: hidden;
+      position: relative;
+    }
+    .spectre-map {
+      background:
+        radial-gradient(circle at 34% 42%, rgba(0,232,123,0.20), transparent 14%),
+        radial-gradient(circle at 64% 56%, rgba(255,191,95,0.18), transparent 15%),
+        radial-gradient(circle at 48% 24%, rgba(125,232,255,0.18), transparent 13%),
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+        rgba(2,7,7,0.84);
+      background-size: auto, auto, auto, 38px 38px, 38px 38px, auto;
+    }
+    .spectre-track {
+      position: absolute;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(125,232,255,0.68), transparent);
+      transform-origin: left center;
+      opacity: 0.82;
+    }
+    .spectre-node {
+      position: absolute;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(0,232,123,0.68);
+      animation: pulse 2.2s infinite;
+    }
+    .spectre-stack {
+      display: grid;
+      grid-template-rows: repeat(4, 1fr);
+      gap: 8px;
+      padding: 10px;
+    }
+    .spectre-card {
+      min-height: 0;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 6px;
+      background: rgba(4,8,9,0.78);
+      display: grid;
+      align-content: center;
+      gap: 5px;
+    }
+    .spectre-card strong {
+      color: var(--green);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+    }
+    .spectre-card span {
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(125,232,255,0.70), rgba(255,255,255,0.08));
+    }
+    .newsroom-field {
+      position: absolute;
+      inset: 16px;
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 12px;
+    }
+    .news-lead,
+    .news-stack {
+      min-height: 0;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 7px;
+      background: rgba(4,6,8,0.72);
+      overflow: hidden;
+    }
+    .news-lead {
+      padding: 14px;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 12px;
+      background:
+        radial-gradient(circle at 42% 30%, rgba(255,191,95,0.20), transparent 28%),
+        radial-gradient(circle at 68% 64%, rgba(125,232,255,0.13), transparent 30%),
+        rgba(4,6,8,0.76);
+    }
+    .news-frame {
+      min-height: 0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      background:
+        linear-gradient(135deg, rgba(125,232,255,0.20), transparent 44%),
+        linear-gradient(45deg, transparent 48%, rgba(255,191,95,0.22), transparent 54%);
+    }
+    .news-stack {
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .news-row {
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.26);
+    }
+    .news-row strong {
+      display: block;
+      margin-bottom: 7px;
+      color: rgba(242,244,247,0.84);
+      font-size: 12px;
+    }
     .pulse {
       position: absolute;
       width: 13px;
@@ -493,6 +611,56 @@
     const dashboardId = (location.pathname.match(/^\/dashboards\/([^/]+)/) || [])[1] || "world-monitor";
 
     const DASHBOARDS = {
+      spectre: {
+        kicker: "osint event room",
+        title: "SPECTRE Event Room",
+        subtitle: "A dense intelligence workspace with signal clusters, analyst posture, source review, and narrated context.",
+        visual: "spectre",
+        visualLabel: "signal correlation layer",
+        visualCopy: "Signals move across a live-feeling OSINT board while the right rail keeps analyst state visible.",
+        feedLabel: "analyst queue",
+        lens: "correlation",
+        tabs: ["Live Board", "Signals", "Sources", "Posture"],
+        metrics: [
+          ["Signals", "184", "clustered"],
+          ["Sources", "29", "triangulated"],
+          ["Risk", "Elevated", "watch"],
+          ["Review", "7", "analyst tasks"],
+        ],
+        feed: [
+          ["now", "Cross-source cluster moved into active analyst review.", "maps, feeds, posture"],
+          ["02m", "Source confidence panel separated corroborated signals from noise.", "triage layer"],
+          ["05m", "Map overlay linked movement, timing, and local context into one view.", "event room"],
+          ["09m", "Narration keeps the viewer oriented without flattening the dashboard.", "watchable software"],
+          ["14m", "Analyst posture shifted from monitoring to verification.", "workflow state"],
+        ],
+        caption: "Kat reads SPECTRE as the hero event room: signals first, source confidence second, analyst posture always visible.",
+      },
+      news: {
+        kicker: "news situation room",
+        title: "News Situation Room",
+        subtitle: "Source cards, timeline updates, visual briefs, and editorial state arranged as a watchable news dashboard.",
+        visual: "newsroom",
+        visualLabel: "story assembly board",
+        visualCopy: "A newsroom-like surface keeps source evidence, generated visuals, and editorial priority in one frame.",
+        feedLabel: "story queue",
+        lens: "source fusion",
+        tabs: ["Briefing", "Timeline", "Sources", "Visuals"],
+        metrics: [
+          ["Sources", "36", "ranked"],
+          ["Stories", "9", "active"],
+          ["Visuals", "12", "generated"],
+          ["Confidence", "81%", "editorial"],
+        ],
+        feed: [
+          ["01m", "Lead brief pulled source cards, timeline, and visual context into one panel.", "editorial stack"],
+          ["04m", "Story queue separated fresh movement from repeated headline churn.", "signal hygiene"],
+          ["08m", "Visual board stayed subordinate to source evidence.", "facts first"],
+          ["13m", "Timeline marked what changed, what is known, and what still needs review.", "rundown state"],
+          ["19m", "Narration turns the news wall into a watchable channel.", "live software"],
+        ],
+        caption: "Kat treats this as a situation room: sources, timeline, visuals, and editorial priority all stay inspectable.",
+      },
       "world-monitor": {
         kicker: "geopolitical intelligence",
         title: "World Monitor",
@@ -595,7 +763,7 @@
       },
       dashboard123: {
         kicker: "professional market monitor",
-        title: "Dashboard123",
+        title: "Market Pulse",
         subtitle: "Indices, movers, macro, sentiment, technicals, news, and portfolio monitoring in a quant-grade view.",
         visual: "markets",
         visualLabel: "portfolio overview",
@@ -641,9 +809,198 @@
           ["24s", "Agent B recovered with a validation step, narrowing the score gap.", "adaptation"],
           ["31s", "Final comparison weighs task completion, evidence, latency, and clarity.", "scoring"],
         ],
+        terminal: [
+          ["hot", "$ arena --round live-eval --view judge"],
+          ["", "agent_a.plan=concise agent_b.plan=exhaustive latency_delta=12s"],
+          ["warn", "judge.flag=unsupported_assumption review_state=active"],
+          ["", "task_state=running score_a=86 score_b=82 evidence_check=on"],
+          ["", "output_diff: accuracy + clarity + completion + speed"],
+          ["hot", "operator note: the channel is the match, not a static benchmark"],
+        ],
         caption: "Kat calls the AI Arena like a match: speed matters, but the winning model has to be right.",
       },
     };
+
+    Object.assign(DASHBOARDS, {
+      biotech: {
+        kicker: "biotech intelligence",
+        title: "Biotech",
+        subtitle: "CRISPR, protein folding, drug pipeline, and nanoscale biology signals in one narrated surface.",
+        visual: "cards",
+        visualLabel: "research signal stack",
+        visualCopy: "Source cards group pipeline updates, target confidence, and lab-state changes for fast review.",
+        feedLabel: "research queue",
+        lens: "pipeline signal",
+        tabs: ["Pipeline", "Targets", "Papers", "Risk"],
+        metrics: [["Targets", "28", "ranked"], ["Papers", "64", "triaged"], ["Trials", "11", "watch"], ["Confidence", "76%", "source fused"]],
+        feed: [
+          ["03m", "Target confidence moved after a new paper joined the evidence cluster.", "research graph"],
+          ["08m", "Protein folding panel separated useful structure hints from low-confidence output.", "model review"],
+          ["14m", "Pipeline card linked discovery stage to clinical dependency.", "translation risk"],
+          ["19m", "CRISPR edit notes stayed visible beside off-target risk.", "safety lens"],
+        ],
+        caption: "Kat narrates Biotech as a research signal stack: target, evidence, pipeline, and risk.",
+      },
+      space: {
+        kicker: "deep space observatory",
+        title: "Deep Space",
+        subtitle: "Pulsar timing, exoplanet transits, survey drift, and long-baseline anomaly watches.",
+        visual: "map",
+        visualLabel: "observatory field",
+        visualCopy: "Signal points pulse across a slow observatory layer where baseline drift matters more than headlines.",
+        feedLabel: "observation log",
+        lens: "baseline drift",
+        tabs: ["Survey", "Pulsars", "Transits", "Anomalies"],
+        metrics: [["Pulsars", "37", "timing"], ["Transits", "9", "active"], ["Baseline", "0.04", "drift"], ["Noise", "Low", "clean"]],
+        feed: [
+          ["05m", "Transit watch marked a shallow dip for second-pass review.", "light curve"],
+          ["12m", "Pulsar timing panel held stable after calibration update.", "clock layer"],
+          ["18m", "Deep field survey separated drift from possible signal.", "baseline"],
+          ["26m", "Anomaly queue kept slow evidence visible without speculation.", "watch state"],
+        ],
+        caption: "Kat reads Deep Space slowly: baseline, calibration, signal, then anomaly.",
+      },
+      iran: {
+        kicker: "geopolitical signal tracker",
+        title: "Iran Signal",
+        subtitle: "Infrastructure nodes, regional pressure, orbital windows, and measured geopolitical context.",
+        visual: "map",
+        visualLabel: "regional pressure map",
+        visualCopy: "The map keeps infrastructure, route pressure, and observation windows in one operator view.",
+        feedLabel: "signal log",
+        lens: "pressure gradient",
+        tabs: ["Map", "Infrastructure", "Orbital", "Region"],
+        metrics: [["Nodes", "42", "tracked"], ["Coverage", "71%", "window"], ["Pressure", "58", "index"], ["Review", "6", "items"]],
+        feed: [
+          ["02m", "Infrastructure watch shifted one node into analyst review.", "node layer"],
+          ["09m", "Coverage window changed how the map should be read.", "orbital"],
+          ["16m", "Regional context panel separated pressure from prediction.", "measured"],
+          ["21m", "Route monitor kept ports, energy, and timing visible together.", "corridor"],
+        ],
+        caption: "Kat frames Iran Signal as pressure context, not alarm: nodes, windows, and regional posture.",
+      },
+      "meme-coin": {
+        kicker: "social market monitor",
+        title: "Meme Coin",
+        subtitle: "Social volume, liquidity pockets, whale motion, and narrative velocity without execution controls.",
+        visual: "candles",
+        visualLabel: "narrative tape",
+        visualCopy: "Candles move beside social-state updates so the channel feels like a market story, not a trade form.",
+        feedLabel: "social tape",
+        lens: "narrative velocity",
+        tabs: ["Tape", "Social", "Liquidity", "Whales"],
+        metrics: [["Social", "92", "velocity"], ["Liquidity", "Thin", "watch"], ["Whales", "7", "active"], ["Narrative", "Hot", "unstable"]],
+        feed: [
+          ["now", "Social volume outran available liquidity on the tape.", "velocity"],
+          ["04m", "Whale monitor marked accumulation but not conviction.", "wallet cluster"],
+          ["10m", "Narrative card separated jokes from coordinated attention.", "social layer"],
+          ["18m", "Liquidity pocket stayed visible beside the price move.", "risk lens"],
+        ],
+        caption: "Kat narrates Meme Coin as social market structure: attention, liquidity, and narrative decay.",
+      },
+      quantum: {
+        kicker: "quantum computing monitor",
+        title: "Quantum States",
+        subtitle: "Qubit coherence, entanglement fidelity, error correction overhead, and benchmark state.",
+        visual: "probability",
+        visualLabel: "state probability field",
+        visualCopy: "Probability curves shift as coherence, fidelity, and correction overhead update together.",
+        feedLabel: "lab log",
+        lens: "coherence window",
+        tabs: ["Coherence", "Fidelity", "Errors", "Benchmarks"],
+        metrics: [["Qubits", "128", "logical"], ["Coherence", "84", "index"], ["Fidelity", "99%", "target"], ["Errors", "12", "events"]],
+        feed: [
+          ["01m", "Coherence window narrowed after error correction overhead changed.", "lab state"],
+          ["07m", "Fidelity panel held near target while event count rose.", "measurement"],
+          ["13m", "Benchmark view separated hardware progress from corrected output.", "context"],
+          ["20m", "Decoherence events stayed visible as the central constraint.", "physics"],
+        ],
+        caption: "Kat watches Quantum States through the limiting variable: how long the state holds.",
+      },
+      "deep-sea": {
+        kicker: "abyssal sensor network",
+        title: "Abyssal Monitor",
+        subtitle: "Hydrothermal vents, abyssal current shifts, pressure anomalies, and bioluminescent logs.",
+        visual: "map",
+        visualLabel: "ocean floor sensor field",
+        visualCopy: "Slow sensor pulses make pressure, thermal plumes, and current movement legible.",
+        feedLabel: "sensor log",
+        lens: "slow signal",
+        tabs: ["Vents", "Pressure", "Currents", "Events"],
+        metrics: [["Depth", "4.1km", "array"], ["Pressure", "612", "bar"], ["Thermal", "+3", "plumes"], ["Events", "18", "logged"]],
+        feed: [
+          ["06m", "Vent activity rose along the eastern transect.", "thermal"],
+          ["13m", "Pressure anomaly persisted long enough for second-pass review.", "sensor"],
+          ["21m", "Current shift changed expected plume direction.", "movement"],
+          ["29m", "Bioluminescent event log clustered around the ridge.", "event"],
+        ],
+        caption: "Kat narrates Abyssal Monitor as a slow live system: pressure, heat, current, and event.",
+      },
+      "power-grid": {
+        kicker: "infrastructure operations",
+        title: "Power Grid",
+        subtitle: "Load balancing, frequency drift, corridor stress, and cascade fault risk in one grid channel.",
+        visual: "markets",
+        visualLabel: "grid stability board",
+        visualCopy: "Tiles compare load, frequency, corridor stress, reserve margin, and fault isolation state.",
+        feedLabel: "operator log",
+        lens: "system stability",
+        tabs: ["Load", "Frequency", "Corridors", "Faults"],
+        metrics: [["Load", "71%", "regional"], ["Frequency", "60.0", "hz"], ["Reserve", "18%", "margin"], ["Faults", "2", "isolated"]],
+        feed: [
+          ["02m", "Load shifted across interconnects after reserve margin changed.", "balancing"],
+          ["08m", "Frequency drift remained inside tolerance but stayed on watch.", "stability"],
+          ["15m", "Transmission corridor stress moved above operator threshold.", "infrastructure"],
+          ["22m", "Fault isolation panel showed containment before cascade.", "risk"],
+        ],
+        caption: "Kat reads Power Grid as infrastructure stability: load, frequency, reserve, and cascade risk.",
+      },
+      viral: {
+        kicker: "epidemiology model",
+        title: "Viral Spread",
+        subtitle: "R0 estimates, contact networks, scenario curves, detection lag, and containment state.",
+        visual: "probability",
+        visualLabel: "scenario projection",
+        visualCopy: "Projection curves keep transmission, contact density, and detection lag in one frame.",
+        feedLabel: "model log",
+        lens: "transmission threshold",
+        tabs: ["R0", "Network", "Scenarios", "Detection"],
+        metrics: [["R0", "1.3", "watch"], ["Contacts", "68", "density"], ["Lag", "5d", "detect"], ["Scenarios", "3", "active"]],
+        feed: [
+          ["03m", "R0 stayed above one in the early projection window.", "threshold"],
+          ["09m", "Contact network density changed containment assumptions.", "network"],
+          ["16m", "Detection lag widened the uncertainty band.", "model state"],
+          ["23m", "Scenario panel kept best, middle, and stress cases visible.", "projection"],
+        ],
+        caption: "Kat narrates Viral Spread through thresholds: transmission, contact density, and detection lag.",
+      },
+      "dark-forest": {
+        kicker: "anomalous astronomy watch",
+        title: "Dark Forest",
+        subtitle: "Stellar dimming, catalog irregularities, long-baseline silence, and anomaly clustering.",
+        visual: "terminal",
+        visualLabel: "anomaly watch",
+        visualCopy: "A terminal-like board keeps absence, deviation, and clustering readable without speculation.",
+        feedLabel: "watch log",
+        lens: "statistical deviation",
+        tabs: ["Catalog", "Dimming", "Silence", "Clusters"],
+        metrics: [["Stars", "118K", "catalog"], ["Dimming", "3", "sequence"], ["Sigma", "2.7", "deviation"], ["Window", "Long", "baseline"]],
+        feed: [
+          ["11m", "Dimming sequence stayed outside expected thermal noise.", "catalog"],
+          ["22m", "Silence window remained the strongest observation.", "absence"],
+          ["34m", "Cluster check separated coincidence from meaningful deviation.", "statistics"],
+          ["47m", "Long-baseline watch held the anomaly for review.", "patience"],
+        ],
+        terminal: [
+          ["hot", "$ dark-forest --catalog long-baseline --mode watch"],
+          ["", "catalog_size=118k anomaly_window=long silence_signal=active"],
+          ["warn", "dimming_sequence=3 sigma=2.7 cause=unassigned"],
+          ["", "cluster_check=running thermal_noise=below_threshold"],
+          ["", "operator note: track absence before inventing presence"],
+        ],
+        caption: "Kat keeps Dark Forest measured: what should be here, what is absent, and what deviates.",
+      },
+    });
 
     const config = DASHBOARDS[dashboardId] || DASHBOARDS["world-monitor"];
     let activeTab = config.tabs[0];
@@ -717,8 +1074,11 @@
       const stage = $("stage");
       stage.innerHTML = "";
       if (config.visual === "map") renderMap(stage);
+      if (config.visual === "spectre") renderSpectre(stage);
+      if (config.visual === "newsroom") renderNewsroom(stage);
       if (config.visual === "cards") renderCards(stage);
       if (config.visual === "candles") renderCandles(stage);
+      if (config.visual === "probability") renderProbability(stage);
       if (config.visual === "terminal") renderTerminal(stage);
       if (config.visual === "markets") renderMarkets(stage);
     }
@@ -736,6 +1096,55 @@
         dot.style.animationDelay = `${index * 0.34}s`;
         stage.appendChild(dot);
       });
+    }
+
+    function renderSpectre(stage) {
+      const field = document.createElement("div");
+      field.className = "spectre-field";
+      field.innerHTML = `
+        <div class="spectre-map">
+          <span class="spectre-track" style="left: 18%; top: 42%; width: 48%; transform: rotate(13deg);"></span>
+          <span class="spectre-track" style="left: 36%; top: 62%; width: 38%; transform: rotate(-18deg);"></span>
+          <span class="spectre-track" style="left: 42%; top: 28%; width: 31%; transform: rotate(39deg);"></span>
+        </div>
+        <div class="spectre-stack">
+          <div class="spectre-card"><strong>source confidence</strong><span></span><span></span></div>
+          <div class="spectre-card"><strong>signal cluster</strong><span></span><span></span></div>
+          <div class="spectre-card"><strong>analyst posture</strong><span></span><span></span></div>
+          <div class="spectre-card"><strong>watch queue</strong><span></span><span></span></div>
+        </div>
+      `;
+      stage.appendChild(field);
+      [[26, 44], [48, 31], [62, 58], [73, 41], [39, 68]].forEach(([left, top], index) => {
+        const node = document.createElement("span");
+        node.className = "spectre-node";
+        node.style.left = `${left + ((tick + index) % 2)}%`;
+        node.style.top = `${top}%`;
+        node.style.animationDelay = `${index * 0.25}s`;
+        field.querySelector(".spectre-map").appendChild(node);
+      });
+    }
+
+    function renderNewsroom(stage) {
+      const field = document.createElement("div");
+      field.className = "newsroom-field";
+      const rows = config.feed.slice(0, 4).map((item) => `
+        <div class="news-row">
+          <strong>${item[0]} / ${item[2]}</strong>
+          <span>${item[1]}</span>
+        </div>
+      `).join("");
+      field.innerHTML = `
+        <div class="news-lead">
+          <div class="news-frame"></div>
+          <div>
+            <span class="chip">${activeTab}</span>
+            <div class="subtitle">visual brief assembled from source cards</div>
+          </div>
+        </div>
+        <div class="news-stack">${rows}</div>
+      `;
+      stage.appendChild(field);
     }
 
     function renderCards(stage) {
@@ -763,18 +1172,33 @@
       stage.appendChild(field);
     }
 
+    function renderProbability(stage) {
+      const field = document.createElement("div");
+      field.className = "probability-field";
+      for (let i = 0; i < 3; i++) {
+        const curve = document.createElement("div");
+        curve.className = "curve";
+        curve.style.transform = `translateY(${((tick + i) % 5) - 2}px) rotate(${(tick + i * 6) % 18 - 9}deg)`;
+        field.appendChild(curve);
+      }
+      stage.appendChild(field);
+    }
+
     function renderTerminal(stage) {
       const terminal = document.createElement("div");
       terminal.className = "terminal";
-      terminal.innerHTML = `
-        <div class="hot">$ polyrec --market btc-updown --mode ${activeTab.toLowerCase().replace(/\s+/g, "-")}</div>
-        <div>ref_price=synthetic tick=${String(tick).padStart(4, "0")} book_depth=72k spread=3.1</div>
-        <div class="warn">oracle_window=watch settlement_clock=active slippage_model=on</div>
-        <div>yes_bid=48.5 yes_ask=51.6 no_bid=47.9 no_ask=52.1</div>
-        <div>curve.fit confidence=medium edge_after_fees=thin</div>
-        <div>backtest replay: 30d / volume filtered / latency adjusted</div>
-        <div class="hot">operator note: keep spread, clock, and reference visible</div>
-      `;
+      const lines = config.terminal || [
+        ["hot", `$ polyrec --market btc-updown --mode ${activeTab.toLowerCase().replace(/\s+/g, "-")}`],
+        ["", `ref_price=synthetic tick=${String(tick).padStart(4, "0")} book_depth=72k spread=3.1`],
+        ["warn", "oracle_window=watch settlement_clock=active slippage_model=on"],
+        ["", "yes_bid=48.5 yes_ask=51.6 no_bid=47.9 no_ask=52.1"],
+        ["", "curve.fit confidence=medium edge_after_fees=thin"],
+        ["", "backtest replay: 30d / volume filtered / latency adjusted"],
+        ["hot", "operator note: keep spread, clock, and reference visible"],
+      ];
+      terminal.innerHTML = lines.map(([className, text]) =>
+        `<div${className ? ` class="${className}"` : ""}>${text}</div>`
+      ).join("");
       stage.appendChild(terminal);
     }
 

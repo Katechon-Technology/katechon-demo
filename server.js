@@ -36,6 +36,8 @@ const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOUR
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const DASHBOARD_NARRATION_REMOTE = process.env.DASHBOARD_NARRATION_REMOTE === "1";
+const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS === "1";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
@@ -92,8 +94,8 @@ const EXTERNAL_DASHBOARDS = {
     notes: ["Terminal-first app", "Set POLYREC_DASHBOARD_URL to a ttyd/gotty wrapper", "Chainlink script path may need adjustment"],
   },
   dashboard123: {
-    label: "Dashboard123",
-    headline: "Portfolio123, macro, sentiment, technicals, and news",
+    label: "Market Pulse",
+    headline: "Macro, sentiment, technicals, market breadth, and portfolio context",
     sourceUrl: "https://github.com/Algoman123/Dashboard123",
     upstreams: [process.env.DASHBOARD123_DASHBOARD_URL, process.env.DASHBOARD123_URL, "http://127.0.0.1:8510"],
     launch: "git clone https://github.com/Algoman123/Dashboard123.git && cd Dashboard123 && streamlit run app.py --server.port 8510",
@@ -212,13 +214,13 @@ const PANELS = [
   },
   {
     id: "spectre",
-    label: "SPECTRE OSINT dashboard",
-    description: "The live OSINT/intelligence dashboard running on the remote desktop.",
+    label: "SPECTRE Event Room",
+    description: "The hero OSINT/intelligence dashboard channel with maps, signals, analyst posture, and narration.",
   },
   {
     id: "news",
-    label: "generative news broadcast",
-    description: "The generated news broadcast surface from katechon-app.",
+    label: "News Situation Room",
+    description: "A live-feeling news dashboard with source cards, timeline updates, topic clusters, and narration.",
   },
   {
     id: "world-monitor",
@@ -242,8 +244,8 @@ const PANELS = [
   },
   {
     id: "dashboard123",
-    label: "Dashboard123",
-    description: "Professional stock, macro, sentiment, technicals, and portfolio monitoring dashboard.",
+    label: "Market Pulse",
+    description: "Professional markets dashboard with breadth, macro pressure, sentiment, technicals, and portfolio context.",
   },
   {
     id: "arena",
@@ -308,7 +310,7 @@ const state = {
 
 const DASHBOARD_NARRATION = {
   spectre: {
-    label: "SPECTRE OSINT dashboard",
+    label: "SPECTRE Event Room",
     voice:
       "You are Kat narrating a live OSINT dashboard. Keep it sharp, observational, and useful. " +
       "React to intelligence workflows, maps, signals, risk, and analyst posture without inventing specific facts.",
@@ -320,7 +322,7 @@ const DASHBOARD_NARRATION = {
     ],
   },
   news: {
-    label: "generative news broadcast",
+    label: "News Situation Room",
     voice:
       "You are Kat narrating a generative news broadcast surface. Keep it cinematic, sharp, and tied to live news " +
       "signals, generated imagery, source fusion, and editorial judgment without inventing specific new facts.",
@@ -380,12 +382,12 @@ const DASHBOARD_NARRATION = {
     ],
   },
   dashboard123: {
-    label: "Dashboard123 markets dashboard",
+    label: "Market Pulse dashboard",
     voice:
       "You are Kat narrating Dashboard123, a professional stocks and markets dashboard with indices, gainers and losers, " +
       "macro indicators, TradingView charts, news, sentiment, technicals, and portfolio workflows. Avoid financial advice.",
     fallback: [
-      "Dashboard123 is the broader market station: indices, movers, macro, news, and technicals in one pass.",
+      "Market Pulse is the broader market station: indices, movers, macro, news, and technicals in one pass.",
       "This is where a portfolio view gets context from macro data and market internals.",
       "I'm reading this like a quant monitor: breadth, factors, sentiment, and headlines before conclusions.",
       "The dashboard is strongest when price action and news context stay side by side.",
@@ -582,6 +584,9 @@ async function proxySpectreDashboard(req, res) {
 
     res.send(body);
   } catch (err) {
+    if (proxyPath === "/" || proxyPath.startsWith("/demo") || req.get("accept")?.includes("text/html")) {
+      return sendPrototypeDashboard(res);
+    }
     res.status(502).send(`SPECTRE proxy failed for ${proxyPath}: ${err.message}`);
   }
 }
@@ -675,6 +680,9 @@ async function proxyNewsDashboard(req, res) {
 
     upstream.body.pipe(res);
   } catch (err) {
+    if (proxyPath === "/" || proxyPath.startsWith("/demo") || req.get("accept")?.includes("text/html")) {
+      return sendPrototypeDashboard(res);
+    }
     res.status(502).send(`News dashboard proxy failed for ${proxyPath}: ${err.message}`);
   }
 }
@@ -1249,7 +1257,7 @@ async function generateDashboardNarration(dashboardId) {
   const dashboard = DASHBOARD_NARRATION[dashboardId];
   if (!dashboard) throw new Error(`unknown dashboard: ${dashboardId}`);
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackNarration(dashboardId);
+  if (!apiKey || !DASHBOARD_NARRATION_REMOTE) return fallbackNarration(dashboardId);
 
   try {
     const resp = await fetch(ANTHROPIC_URL, {
@@ -1476,7 +1484,7 @@ app.get("/api/narration/:dashboard", async (req, res) => {
     const text = await generateDashboardNarration(dashboardId);
     const mute = req.query.mute === "1";
     let audio = "";
-    if (!mute) {
+    if (!mute && DASHBOARD_NARRATION_TTS) {
       try {
         audio = await synthesizeSpeech(text);
       } catch (err) {
