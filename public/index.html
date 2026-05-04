@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Katechon</title>
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js"></script>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
   <style>
     :root {
       --bg: #050608;
@@ -587,6 +587,11 @@
     .card-btn:hover {
       opacity: 0.9;
       box-shadow: 0 0 24px rgba(0,232,123,0.18);
+    }
+    .card-btn:disabled {
+      cursor: wait;
+      opacity: 0.66;
+      box-shadow: none;
     }
     .card-btn:hover::after {
       transform: translateX(110%);
@@ -1176,12 +1181,12 @@
   </style>
 </head>
 <body>
-  <iframe id="desktop-fallback" src="local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true"></iframe>
+  <iframe id="desktop-fallback" src="local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true" loading="eager"></iframe>
   <img id="landing-frame-cache" alt="" aria-hidden="true">
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=5" allow="autoplay"></iframe>
+    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=5" allow="autoplay" loading="eager"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -1512,10 +1517,39 @@
   </button>
 
   <script>
-    const animeApi = window.anime || {};
+    const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
+    const ANIME_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js';
+
+    function loadExternalScript(src) {
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) {
+          existing.addEventListener('load', resolve, { once: true });
+          existing.addEventListener('error', reject, { once: true });
+          if (existing.dataset.loaded === '1') resolve();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => {
+          script.dataset.loaded = '1';
+          resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    let animeApi = window.anime || {};
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const canMotion = !reduceMotion && typeof animeApi.animate === 'function';
-    const canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
+    let canMotion = !reduceMotion && typeof animeApi.animate === 'function';
+    let canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
+    function refreshMotionRuntime() {
+      animeApi = window.anime || {};
+      canMotion = !reduceMotion && typeof animeApi.animate === 'function';
+      canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
+    }
     const staggerMotion = (value, options) =>
       typeof animeApi.stagger === 'function' ? animeApi.stagger(value, options) : 0;
     const animateMotion = (target, params) => {
@@ -1873,8 +1907,28 @@
       });
     }
 
-    runIntroMotion();
-    wireMotionInteractions();
+    function loadMotionRuntime() {
+      if (reduceMotion) return;
+      if (canMotion) {
+        runIntroMotion();
+        wireMotionInteractions();
+        return;
+      }
+      loadExternalScript(ANIME_SCRIPT_SRC)
+        .then(() => {
+          refreshMotionRuntime();
+          runIntroMotion();
+          wireMotionInteractions();
+        })
+        .catch(err => {
+          console.warn('motion runtime unavailable:', err);
+          refreshMotionRuntime();
+          runIntroMotion();
+          wireMotionInteractions();
+        });
+    }
+
+    requestAnimationFrame(loadMotionRuntime);
 
     const pageParams = new URLSearchParams(window.location.search);
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
@@ -2091,6 +2145,7 @@
     ];
     const avatarAudioWaiters = new Map();
     let avatarPlaybackSeq = 0;
+    let welcomeRequestSeq = 0;
     let fallbackSpeechUtterance = null;
     const narration = {
       dashboard: null,
@@ -2115,30 +2170,53 @@
     let streamFallbackActive = false;
     const streamFallbackTimer = setTimeout(() => activateStreamFallback(), 2400);
 
-    if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
-      hls.loadSource(src);
-      hls.attachMedia(v);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        streamFallbackActive = false;
-        clearTimeout(streamFallbackTimer);
-        v.play().catch(() => {});
-        st.textContent = 'LIVE - katechon-desktop';
-      });
-      v.addEventListener('loadeddata', handleStreamLoadedData);
-      hls.on(Hls.Events.ERROR, (_, d) => {
-        if (d.fatal) {
-          v.classList.remove('stream-ready');
-          activateStreamFallback();
-          setTimeout(() => hls.loadSource(src), 2000);
-        }
-      });
-    } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-      v.src = src;
-      v.addEventListener('loadedmetadata', () => v.play().catch(() => {}));
-      v.addEventListener('loadeddata', handleStreamLoadedData);
-      v.addEventListener('error', activateStreamFallback);
+    function startStreamPlayback() {
+      if (window.Hls && window.Hls.isSupported()) {
+        const hls = new window.Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });
+        hls.loadSource(src);
+        hls.attachMedia(v);
+        hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
+          streamFallbackActive = false;
+          clearTimeout(streamFallbackTimer);
+          v.play().catch(() => {});
+          st.textContent = 'LIVE - katechon-desktop';
+        });
+        v.addEventListener('loadeddata', handleStreamLoadedData);
+        hls.on(window.Hls.Events.ERROR, (_, d) => {
+          if (d.fatal) {
+            v.classList.remove('stream-ready');
+            activateStreamFallback();
+            setTimeout(() => hls.loadSource(src), 2000);
+          }
+        });
+        return;
+      }
+
+      if (v.canPlayType('application/vnd.apple.mpegurl')) {
+        v.src = src;
+        v.addEventListener('loadedmetadata', () => v.play().catch(() => {}));
+        v.addEventListener('loadeddata', handleStreamLoadedData);
+        v.addEventListener('error', activateStreamFallback);
+        return;
+      }
+
+      activateStreamFallback();
     }
+
+    function loadStreamRuntime() {
+      if (window.Hls || v.canPlayType('application/vnd.apple.mpegurl')) {
+        startStreamPlayback();
+        return;
+      }
+      loadExternalScript(HLS_SCRIPT_SRC)
+        .then(startStreamPlayback)
+        .catch(err => {
+          console.warn('HLS runtime unavailable:', err);
+          activateStreamFallback();
+        });
+    }
+
+    requestAnimationFrame(loadStreamRuntime);
 
     function activateStreamFallback() {
       if (v.classList.contains('stream-ready')) return;
@@ -2343,6 +2421,53 @@
     function hideKatNarrator() {
       katNarrator.classList.add('hidden');
       katNarrator.classList.remove('speaking');
+    }
+
+    function showWelcomeNarrator(line = '') {
+      katChannel.textContent = 'Katechon Technology';
+      katLine.textContent = line || 'Welcome to the live system.';
+      katNarrator.classList.remove('hidden');
+    }
+
+    function playWelcomeMessage(payload) {
+      if (!payload?.text || payload.pending || currentDashboardId) return;
+      stopDashboardNarration();
+      stopBrowserAvatarAudio();
+      showWelcomeNarrator(payload.text);
+      playThroughBrowserAvatar(payload).catch(err => {
+        console.warn('welcome playback failed:', err);
+        setKatNarrationLine('', false);
+      });
+    }
+
+    function queueWelcomeMessage(payload) {
+      if (!payload?.text) return;
+      if (!payload.pending) {
+        playWelcomeMessage(payload);
+        return;
+      }
+
+      const requestSeq = ++welcomeRequestSeq;
+      const url = appUrl(`/api/welcome?id=${encodeURIComponent(payload.id || '')}`);
+      showWelcomeNarrator(payload.text);
+      fetch(url, { cache: 'no-store' })
+        .then(response => {
+          if (!response.ok) throw new Error(`welcome failed (${response.status})`);
+          return response.json();
+        })
+        .then(welcome => {
+          if (requestSeq !== welcomeRequestSeq || currentDashboardId) return;
+          playWelcomeMessage(welcome);
+        })
+        .catch(err => {
+          console.warn('welcome load failed:', err);
+          if (requestSeq !== welcomeRequestSeq || currentDashboardId) return;
+          playWelcomeMessage({
+            id: `welcome-fallback-${Date.now()}`,
+            text: payload.text,
+            muted: true,
+          });
+        });
     }
 
     async function unlockBrowserAvatarAudio() {
@@ -2664,10 +2789,12 @@
       return Promise.resolve({ ok: true, workspace });
     }
 
-    function enter() {
-      const email = document.getElementById('email-input').value.trim();
+    async function enter() {
+      const input = document.getElementById('email-input');
+      const button = document.querySelector('.card-btn');
+      const email = input.value.trim();
       if (!email || !email.includes('@')) {
-        document.getElementById('email-input').style.borderColor = '#ff4444';
+        input.style.borderColor = '#ff4444';
         animateMotion('#email-input', {
           x: [0, -5, 5, -3, 3, 0],
           duration: 330,
@@ -2675,15 +2802,31 @@
         });
         return;
       }
-      fetch(appUrl('/api/register'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      if (button?.disabled) return;
+      if (button) button.disabled = true;
+      unlockAgentAudio().catch(() => {});
+      let registration = null;
+      try {
+        const response = await fetch(appUrl('/api/register'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        registration = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error('email save failed');
+      } catch (err) {
+        console.warn('email registration failed:', err);
+        input.style.borderColor = '#ff4444';
+        showToast('email save failed', '#ff4444');
+        if (button) button.disabled = false;
+        return;
+      }
       const emailOverlay = document.getElementById('email-overlay');
       if (!canMotion) {
         emailOverlay.classList.add('hidden');
         revealMainOverlay();
+        queueWelcomeMessage(registration?.welcome);
+        if (button) button.disabled = false;
         return;
       }
 
@@ -2702,8 +2845,10 @@
           emailOverlay.style.opacity = '';
           emailOverlay.style.transform = '';
           revealMainOverlay();
+          queueWelcomeMessage(registration?.welcome);
         },
       });
+      if (button) button.disabled = false;
     }
 
     function switchWs(workspace) {

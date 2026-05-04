@@ -13,6 +13,7 @@ RSYNC_EXCLUDES := \
 	--exclude .git \
 	--exclude node_modules \
 	--exclude .env \
+	--exclude data \
 	--exclude logs \
 	--exclude run \
 	--exclude recordings \

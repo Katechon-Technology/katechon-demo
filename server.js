@@ -34,6 +34,10 @@ const VOICES = {
 const VOICE_SOURCE = process.env.KAT_VOICE_SOURCE || "pitch";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOURCE] || VOICES.pitch;
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
+const ELEVENLABS_TIMEOUT_MS = Number(process.env.ELEVENLABS_TIMEOUT_MS || 8000);
+const WELCOME_MESSAGE =
+  process.env.KATECHON_WELCOME_MESSAGE ||
+  "Welcome to Katechon Technology. This is a live software channel for narrated dashboards: intelligence rooms, market surfaces, research tools, and interactive agents you can watch, browse, and command in real time.";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const DASHBOARD_NARRATION_REMOTE = process.env.DASHBOARD_NARRATION_REMOTE === "1";
@@ -44,6 +48,7 @@ const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
+const USER_DB_FILE = path.resolve(__dirname, process.env.USER_DB_FILE || "data/users.json");
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
   process.env.SPECTRE_DASHBOARD_URL,
@@ -191,6 +196,62 @@ for (const dashboard of Object.values(EXTERNAL_DASHBOARDS)) {
     .filter(Boolean)
     .map((url) => String(url).replace(/\/+$/, ""))
     .filter((url, index, all) => all.indexOf(url) === index);
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function emptyUserDb() {
+  return {
+    users: {},
+    events: [],
+  };
+}
+
+function readUserDb() {
+  if (!fs.existsSync(USER_DB_FILE)) return emptyUserDb();
+  const raw = fs.readFileSync(USER_DB_FILE, "utf8").trim();
+  if (!raw) return emptyUserDb();
+  const db = JSON.parse(raw);
+  return {
+    users: db.users && typeof db.users === "object" ? db.users : {},
+    events: Array.isArray(db.events) ? db.events : [],
+  };
+}
+
+function writeUserDb(db) {
+  fs.mkdirSync(path.dirname(USER_DB_FILE), { recursive: true });
+  const tmpFile = `${USER_DB_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpFile, `${JSON.stringify(db, null, 2)}\n`);
+  fs.renameSync(tmpFile, USER_DB_FILE);
+}
+
+function recordUserEmail(email) {
+  const db = readUserDb();
+  const now = new Date().toISOString();
+  const existing = db.users[email];
+  const action = existing ? "login" : "signup";
+
+  db.users[email] = {
+    email,
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+    lastLoginAt: now,
+    loginCount: (existing?.loginCount || 0) + 1,
+  };
+  db.events.push({
+    email,
+    action,
+    at: now,
+  });
+
+  writeUserDb(db);
+  return { action, user: db.users[email] };
 }
 
 async function proxyHls(req, res) {
@@ -1570,6 +1631,7 @@ async function synthesizeSpeech(text) {
         use_speaker_boost: true,
       },
     }),
+    timeout: ELEVENLABS_TIMEOUT_MS,
   });
 
   if (!resp.ok) {
@@ -1578,6 +1640,32 @@ async function synthesizeSpeech(text) {
   }
 
   return (await resp.buffer()).toString("base64");
+}
+
+function buildWelcomeMetadata() {
+  return {
+    type: "audio",
+    id: `welcome-${Date.now()}`,
+    text: WELCOME_MESSAGE,
+    pending: true,
+  };
+}
+
+async function synthesizeWelcomePayload(id) {
+  let audio = "";
+  try {
+    audio = await synthesizeSpeech(WELCOME_MESSAGE);
+  } catch (err) {
+    console.warn("welcome TTS failed:", err.message);
+  }
+
+  return {
+    type: "audio",
+    id: id || `welcome-${Date.now()}`,
+    text: WELCOME_MESSAGE,
+    audio,
+    muted: !audio,
+  };
 }
 
 function cleanSpeech(text) {
@@ -1898,11 +1986,43 @@ app.post("/api/transcribe", express.raw({ type: "*/*", limit: "10mb" }), async (
   }
 });
 
-// POST /api/register — email gate (just records & returns ok)
+// GET /api/welcome — build first-login welcome audio without blocking entry
+app.get("/api/welcome", async (req, res) => {
+  try {
+    const id = String(req.query.id || `welcome-${Date.now()}`);
+    res.json(await synthesizeWelcomePayload(id));
+  } catch (err) {
+    console.error("welcome payload failed:", err.message);
+    res.status(500).json({ ok: false, error: "could not build welcome" });
+  }
+});
+
+// POST /api/register — email gate, signup/login capture
 app.post("/api/register", (req, res) => {
-  const { email } = req.body;
-  console.log("registered:", email);
-  res.json({ ok: true });
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ ok: false, error: "valid email required" });
+  }
+
+  try {
+    const { action, user } = recordUserEmail(email);
+    const welcome = action === "signup" ? buildWelcomeMetadata() : null;
+    console.log(`user ${action}: ${email}`);
+    res.json({
+      ok: true,
+      action,
+      welcome,
+      user: {
+        email: user.email,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+        loginCount: user.loginCount,
+      },
+    });
+  } catch (err) {
+    console.error("user email capture failed:", err.message);
+    res.status(500).json({ ok: false, error: "could not save email" });
+  }
 });
 
 const PORT = process.env.PORT || 4040;

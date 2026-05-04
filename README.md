@@ -80,6 +80,8 @@ Edit `.env` and fill in:
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
+| `ELEVENLABS_TIMEOUT_MS` | No | Defaults to `8000`; caps TTS wait time for welcome and Kat speech |
+| `KATECHON_WELCOME_MESSAGE` | No | Optional override for the first-login spoken welcome |
 | `REPLICATE_API_KEY` | No | Required only when regenerating Dune deck visuals |
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
 | `DASHBOARD_NARRATION_TTS` | No | Set to `1` to use ElevenLabs for dashboard narration; defaults off so the browser narration fallback starts immediately |
@@ -88,6 +90,7 @@ Edit `.env` and fill in:
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
 | `STREAM_AUDIO_ENABLED` | No | Legacy HLS-audio flag. Keep off for the browser-rendered avatar flow |
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
+| `USER_DB_FILE` | No | File-backed email store path. Defaults to `data/users.json` and is ignored by git |
 
 ### 3. Configure SSH
 
@@ -244,7 +247,8 @@ All endpoints are served by `server.js` on port 4040.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/register` | Record email, gate to main UI |
+| `POST` | `/api/register` | Validate, log, and save signup/login email; flags first-login welcome playback |
+| `GET`  | `/api/welcome` | Generate the first-login welcome message with ElevenLabs |
 | `GET`  | `/api/state` | Current workspace + session IDs |
 | `POST` | `/api/switch/:workspace` | Switch active workspace (`spectre`, `minecraft`, `news`, `landing`) |
 | `POST` | `/api/transcribe` | Transcribe audio blob → text (Groq Whisper) |
