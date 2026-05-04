@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Katechon Local Desktop</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0d0d0f;
+    }
+    body {
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+      color: rgba(242,244,247,0.86);
+    }
+    .bg {
+      position: absolute;
+      inset: 0;
+      background: url("/wallpaper.jpg") center/cover no-repeat;
+      filter: brightness(0.55) saturate(0.9);
+      transform: scale(1.01);
+    }
+    .grain {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.4;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    }
+    .vignette {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+    }
+    .content-frame {
+      position: absolute;
+      left: 3.1%;
+      top: 7.4%;
+      width: 57.3%;
+      height: 81.5%;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      background: rgba(13,13,15,0.55);
+      box-shadow: 0 22px 80px rgba(0,0,0,0.28);
+      backdrop-filter: blur(2px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .frame-bar {
+      height: 32px;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      border-radius: 8px 8px 0 0;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #28c941; }
+    .frame-title {
+      min-width: 0;
+      margin-left: 8px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: rgba(255,255,255,0.38);
+      font-family: monospace;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+    }
+    .stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.01));
+    }
+    #ws-iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      visibility: hidden;
+      opacity: 0;
+      background: #050607;
+      transition: opacity 140ms ease;
+    }
+    #ws-iframe.active {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+  <div class="content-frame">
+    <div class="frame-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="frame-title" id="frame-title">// KATECHON - INTELLIGENCE PLATFORM</span>
+    </div>
+    <div class="stage">
+      <iframe id="ws-iframe" title="Local dashboard background"></iframe>
+    </div>
+  </div>
+  <script>
+    const WORKSPACES = {
+      spectre: { url: "/dashboards/spectre/?kiosk=1", title: "// OSINT - SPECTRE INTELLIGENCE" },
+      news: { url: "/dashboards/news/", title: "// NEWS - SITUATION ROOM" },
+      dashboard123: { url: "/dashboards/dashboard123/", title: "// MARKETS - MARKET PULSE" },
+      "world-monitor": { url: "/dashboards/world-monitor/", title: "// GEO - WORLD MONITOR" },
+      arena: { url: "/dashboards/arena/", title: "// ARENA - AI vs AI" },
+      glance: { url: "/dashboards/glance/", title: "// FEEDS - GLANCE" },
+      "crypto-trading": { url: "/dashboards/crypto-trading/", title: "// CRYPTO - TRADING DASHBOARD" },
+      polyrec: { url: "/dashboards/polyrec/", title: "// PREDICTION MARKETS - POLYREC" },
+      biotech: { url: "/dashboards/biotech/", title: "// BIO - CRISPR & PROTEIN" },
+      space: { url: "/dashboards/space/", title: "// SPACE - DEEP FIELD" },
+      iran: { url: "/dashboards/iran/", title: "// IRAN - SIGNAL TRACKER" },
+      "meme-coin": { url: "/dashboards/meme-coin/", title: "// DEGEN - MEME COIN TEMPLE" },
+      quantum: { url: "/dashboards/quantum/", title: "// QUANT - QUANTUM COMPUTING" },
+      "deep-sea": { url: "/dashboards/deep-sea/", title: "// ABYSS - DEEP SEA" },
+      "power-grid": { url: "/dashboards/power-grid/", title: "// GRID - POWER INFRASTRUCTURE" },
+      viral: { url: "/dashboards/viral/", title: "// VIRAL - TRANSMISSION MODEL" },
+      "dark-forest": { url: "/dashboards/dark-forest/", title: "// VOID - DARK FOREST" },
+      "pitch-deck": { url: "/dashboards/pitch-deck/", title: "// DECK - FUNDRAISE" },
+    };
+
+    const iframe = document.getElementById("ws-iframe");
+    const titleEl = document.getElementById("frame-title");
+    let currentWorkspace = null;
+    let currentUrl = "";
+
+    function showWorkspace(workspace) {
+      if (workspace === currentWorkspace) return;
+      currentWorkspace = workspace;
+      const next = WORKSPACES[workspace];
+      if (!next) {
+        iframe.classList.remove("active");
+        titleEl.textContent = "// KATECHON - INTELLIGENCE PLATFORM";
+        return;
+      }
+      if (currentUrl !== next.url) {
+        currentUrl = next.url;
+        iframe.src = next.url;
+      }
+      iframe.classList.add("active");
+      titleEl.textContent = next.title;
+    }
+
+    async function pollWorkspace() {
+      try {
+        const resp = await fetch("/api/state", { cache: "no-store" });
+        if (!resp.ok) return;
+        const state = await resp.json();
+        showWorkspace(state.workspace || "landing");
+      } catch (_) {}
+    }
+
+    pollWorkspace();
+    setInterval(pollWorkspace, 250);
+  </script>
+</body>
+</html>
