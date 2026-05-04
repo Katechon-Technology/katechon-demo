@@ -1009,7 +1009,15 @@
   </main>
 
   <script>
-    const dashboardId = (location.pathname.match(/^\/dashboards\/([^/]+)/) || [])[1] || "world-monitor";
+    const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? "/app" : "";
+    function appUrl(path) {
+      if (!path) return path;
+      if (/^(?:[a-z]+:)?\/\//i.test(path) || path.startsWith("data:") || path.startsWith("blob:")) return path;
+      const normalized = path.startsWith("/") ? path : `/${path}`;
+      return `${APP_BASE_PATH}${normalized}`;
+    }
+
+    const dashboardId = (location.pathname.match(/(?:^|\/)dashboards\/([^/]+)/) || [])[1] || "world-monitor";
 
     const palettes = {
       acid: ["#00e87b", "#7de8ff", "#ffbf5f", "#040609", "#0d1418"],
@@ -1132,7 +1140,7 @@
         metrics: [["Sources", "42", "RSS + social"], ["Unread", "126", "-12"], ["Markets", "18", "widgets"], ["Weather", "NYC", "clear"]],
         feed: [
           ["01m", "Markets card refreshed with index, crypto, oil, and gold context.", "dashboard widget"],
-          ["04m", "News queue grouped world, tech, and finance sources into one scan.", "RSS fused"],
+          ["04m", "News queue grouped world, tech, and finance sources into one scan.", "source triage"],
           ["09m", "Community posts surfaced early discussion around market structure.", "HN and social"],
           ["16m", "Video feed added analyst clips without taking over the layout.", "media source"],
           ["22m", "Weather and calendar context stayed visible beside the news wall.", "daily ops"],
@@ -1509,9 +1517,9 @@
     }
 
     function backdropHtml() {
-      const assetStyle = config.asset ? `style="--asset:url('${escapeHtml(config.asset)}')"` : "";
+      const assetStyle = config.asset ? `style="--asset:url('${escapeHtml(appUrl(config.asset))}')"` : "";
       const asset = config.asset ? `<div class="asset-plane" ${assetStyle}></div>` : "";
-      const video = config.video ? `<video class="texture-video" src="${escapeHtml(config.video)}" autoplay muted loop playsinline preload="metadata"></video>` : "";
+      const video = config.video ? `<video class="texture-video" src="${escapeHtml(appUrl(config.video))}" autoplay muted loop playsinline preload="metadata"></video>` : "";
       return `${asset}${video}<div class="scene-grid"></div><div class="scan-line"></div>`;
     }
 
@@ -1784,7 +1792,7 @@
       }
       $("source-chip").textContent = `loading ${config.api}`;
       try {
-        const resp = await fetch(`/api/live/${config.api}?dashboard=${encodeURIComponent(dashboardId)}`, { cache: "no-store" });
+        const resp = await fetch(appUrl(`/api/live/${config.api}?dashboard=${encodeURIComponent(dashboardId)}`), { cache: "no-store" });
         const payload = await resp.json();
         state.livePayload = payload;
         applyLivePayload(payload);

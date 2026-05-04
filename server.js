@@ -43,6 +43,7 @@ const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPST
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
+const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
   process.env.SPECTRE_DASHBOARD_URL,
@@ -300,9 +301,9 @@ const PANELS = [
     description: "Fermi paradox signal monitor — anomalous stellar event tracking and unexplained astronomical dimming.",
   },
   {
-    id: "pitch-deck",
-    label: "Fundraise Deck",
-    description: "Live-linked slide deck from the sibling katechon-pitch repo and current fundraise deck branch.",
+    id: "dune-deck",
+    label: "Dune Fundraise Deck",
+    description: "Copied Katechon x Dune fundraise deck with per-slide avatar narration and generated visuals.",
   },
 ];
 
@@ -1115,6 +1116,7 @@ function sendPitchDeckSnapshotIndex(req, res) {
 app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
 app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
 app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
+app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
@@ -1420,7 +1422,7 @@ function fallbackAgentDecision(transcript) {
     ["crypto-trading", /\b(crypto\s*trading|trading\s*dashboard|backtest|backtesting|binance|coinbase|kraken)\b/],
     ["polyrec", /\b(polyrec|polymarket|prediction\s*market|order\s*book|btc)\b/],
     ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
-    ["pitch-deck", /\b(pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
+    ["dune-deck", /\b(dune|pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
   ];
 
   if (wantsHome && !/\b(osint|spectre|intel|intelligence)\b/.test(text)) {

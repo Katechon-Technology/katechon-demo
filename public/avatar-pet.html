@@ -11,17 +11,17 @@
 </head>
 <body>
 <canvas id="avatar-canvas"></canvas>
-<script src="/libs/live2dcubismcore.min.js"></script>
-<script src="/libs/live2d.min.js"></script>
-<script src="/libs/pixi.min.js"></script>
-<script src="/libs/pixi-live2d-display.min.js"></script>
+<script src="libs/live2dcubismcore.min.js"></script>
+<script src="libs/live2d.min.js"></script>
+<script src="libs/pixi.min.js"></script>
+<script src="libs/pixi-live2d-display.min.js"></script>
 <script>
 if (typeof PIXI === 'undefined' || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
   console.error('[avatar] PIXI or Live2D not loaded');
 } else {
 
 const MODELS = [
-  { name: 'Zhongxing',  url: '/live2d-models/zhongxingshekongdlc/zhongxingshekong.model3.json', scale: 0.755, yFactor: 1.35, lipParam: 'ParamMouthOpenY' },
+  { name: 'Zhongxing',  url: 'live2d-models/zhongxingshekongdlc/zhongxingshekong.model3.json', scale: 0.755, yFactor: 1.35, lipParam: 'ParamMouthOpenY' },
 ];
 
 const _params = new URLSearchParams(window.location.search);
@@ -95,17 +95,32 @@ function stopAudio() {
   currentMouth = 0;
 }
 
+async function audioDataForPayload(payload) {
+  if (payload.audio) {
+    const raw = atob(payload.audio);
+    const buf = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
+    return buf.buffer;
+  }
+
+  if (payload.audioUrl) {
+    const resp = await fetch(payload.audioUrl, { cache: 'force-cache' });
+    if (!resp.ok) throw new Error(`audio fetch ${resp.status}`);
+    return await resp.arrayBuffer();
+  }
+
+  return null;
+}
+
 async function playPayload(payload) {
   stopAudio();
-  if (!payload.audio) return;
-  await ensureAudioCtx();
-  const raw = atob(payload.audio);
-  const buf = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) buf[i] = raw.charCodeAt(i);
   const id = payload.id || null;
   const mySeq = ++playbackSeq;
   try {
-    const audioBuffer = await audioCtx.decodeAudioData(buf.buffer);
+    const audioData = await audioDataForPayload(payload);
+    if (!audioData) return;
+    await ensureAudioCtx();
+    const audioBuffer = await audioCtx.decodeAudioData(audioData);
     if (mySeq !== playbackSeq) return;
     const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
@@ -120,7 +135,10 @@ async function playPayload(payload) {
       if (naturalEnd) currentSource = null;
       try { window.parent.postMessage({ type: 'audio-ended', id, natural: naturalEnd }, '*'); } catch (e) {}
     };
-  } catch (err) { console.error('[avatar] audio decode error:', err); }
+  } catch (err) {
+    console.error('[avatar] audio decode error:', err);
+    try { window.parent.postMessage({ type: 'audio-ended', id, natural: false, error: err.message }, '*'); } catch (e) {}
+  }
 }
 
 window.addEventListener('message', (e) => {

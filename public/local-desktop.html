@@ -18,7 +18,7 @@
     .bg {
       position: absolute;
       inset: 0;
-      background: url("/wallpaper.jpg") center/cover no-repeat;
+      background: url("wallpaper.jpg") center/cover no-repeat;
       filter: brightness(0.55) saturate(0.9);
       transform: scale(1.01);
     }
@@ -121,25 +121,31 @@
     </div>
   </div>
   <script>
+    const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? "/app" : "";
+    function appUrl(path) {
+      if (!path || !path.startsWith("/")) return path;
+      return `${APP_BASE_PATH}${path}`;
+    }
+
     const WORKSPACES = {
-      spectre: { url: "/dashboards/spectre/?kiosk=1", title: "// OSINT - SPECTRE INTELLIGENCE" },
-      news: { url: "/dashboards/news/", title: "// NEWS - SITUATION ROOM" },
-      dashboard123: { url: "/dashboards/dashboard123/", title: "// MARKETS - MARKET PULSE" },
-      "world-monitor": { url: "/dashboards/world-monitor/", title: "// GEO - WORLD MONITOR" },
-      arena: { url: "/dashboards/arena/", title: "// ARENA - AI vs AI" },
-      glance: { url: "/dashboards/glance/", title: "// FEEDS - GLANCE" },
-      "crypto-trading": { url: "/dashboards/crypto-trading/", title: "// CRYPTO - TRADING DASHBOARD" },
-      polyrec: { url: "/dashboards/polyrec/", title: "// PREDICTION MARKETS - POLYREC" },
-      biotech: { url: "/dashboards/biotech/", title: "// BIO - CRISPR & PROTEIN" },
-      space: { url: "/dashboards/space/", title: "// SPACE - DEEP FIELD" },
-      iran: { url: "/dashboards/iran/", title: "// IRAN - SIGNAL TRACKER" },
-      "meme-coin": { url: "/dashboards/meme-coin/", title: "// DEGEN - MEME COIN TEMPLE" },
-      quantum: { url: "/dashboards/quantum/", title: "// QUANT - QUANTUM COMPUTING" },
-      "deep-sea": { url: "/dashboards/deep-sea/", title: "// ABYSS - DEEP SEA" },
-      "power-grid": { url: "/dashboards/power-grid/", title: "// GRID - POWER INFRASTRUCTURE" },
-      viral: { url: "/dashboards/viral/", title: "// VIRAL - TRANSMISSION MODEL" },
-      "dark-forest": { url: "/dashboards/dark-forest/", title: "// VOID - DARK FOREST" },
-      "pitch-deck": { url: "/dashboards/pitch-deck/", title: "// DECK - FUNDRAISE" },
+      spectre: { url: appUrl("/dashboards/spectre/?kiosk=1"), title: "// OSINT - SPECTRE INTELLIGENCE" },
+      news: { url: appUrl("/dashboards/news/"), title: "// NEWS - SITUATION ROOM" },
+      dashboard123: { url: appUrl("/dashboards/dashboard123/"), title: "// MARKETS - MARKET PULSE" },
+      "world-monitor": { url: appUrl("/dashboards/world-monitor/"), title: "// GEO - WORLD MONITOR" },
+      arena: { url: appUrl("/dashboards/arena/"), title: "// ARENA - AI vs AI" },
+      glance: { url: appUrl("/dashboards/glance/"), title: "// FEEDS - GLANCE" },
+      "crypto-trading": { url: appUrl("/dashboards/crypto-trading/"), title: "// CRYPTO - TRADING DASHBOARD" },
+      polyrec: { url: appUrl("/dashboards/polyrec/"), title: "// PREDICTION MARKETS - POLYREC" },
+      biotech: { url: appUrl("/dashboards/biotech/"), title: "// BIO - CRISPR & PROTEIN" },
+      space: { url: appUrl("/dashboards/space/"), title: "// SPACE - DEEP FIELD" },
+      iran: { url: appUrl("/dashboards/iran/"), title: "// IRAN - SIGNAL TRACKER" },
+      "meme-coin": { url: appUrl("/dashboards/meme-coin/"), title: "// DEGEN - MEME COIN TEMPLE" },
+      quantum: { url: appUrl("/dashboards/quantum/"), title: "// QUANT - QUANTUM COMPUTING" },
+      "deep-sea": { url: appUrl("/dashboards/deep-sea/"), title: "// ABYSS - DEEP SEA" },
+      "power-grid": { url: appUrl("/dashboards/power-grid/"), title: "// GRID - POWER INFRASTRUCTURE" },
+      viral: { url: appUrl("/dashboards/viral/"), title: "// VIRAL - TRANSMISSION MODEL" },
+      "dark-forest": { url: appUrl("/dashboards/dark-forest/"), title: "// VOID - DARK FOREST" },
+      "pitch-deck": { url: appUrl("/dashboards/pitch-deck/"), title: "// DECK - FUNDRAISE" },
     };
 
     const iframe = document.getElementById("ws-iframe");
@@ -166,7 +172,7 @@
 
     async function pollWorkspace() {
       try {
-        const resp = await fetch("/api/state", { cache: "no-store" });
+        const resp = await fetch(appUrl("/api/state"), { cache: "no-store" });
         if (!resp.ok) return;
         const state = await resp.json();
         showWorkspace(state.workspace || "landing");

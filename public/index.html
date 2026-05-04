@@ -37,7 +37,7 @@
       pointer-events: none;
       background:
         linear-gradient(rgba(0,0,0,0.42), rgba(0,0,0,0.42)),
-        url("/wallpaper.jpg") center/cover no-repeat,
+        url("wallpaper.jpg") center/cover no-repeat,
         radial-gradient(ellipse at center, rgba(255,255,255,0.035), transparent 44%),
         linear-gradient(135deg, #111216 0%, #050607 54%, #0a0b0e 100%);
       opacity: 1;
@@ -1164,12 +1164,12 @@
   </style>
 </head>
 <body>
-  <iframe id="desktop-fallback" src="/local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true"></iframe>
+  <iframe id="desktop-fallback" src="local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true"></iframe>
   <img id="landing-frame-cache" alt="" aria-hidden="true">
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="/avatar-pet.html?model=0&w=640&h=1080" allow="autoplay"></iframe>
+    <iframe id="browser-avatar" src="avatar-pet.html?model=0&w=640&h=1080" allow="autoplay"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -1207,7 +1207,7 @@
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
         <div class="main-title">Katechon Technology</div>
-        <div class="main-sub">Live software, built to watch.</div>
+        <div class="main-sub">We turn live software into channels people can watch, scroll, and eventually act inside.</div>
         <div class="layout-control-row">
           <button id="layout-toggle" type="button" title="Change channel layout">
             <span>Layout</span>
@@ -1406,15 +1406,16 @@
             <video src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Dark Forest</div>
           </div>
-          <div class="gif-box channel-preview channel-open" onclick="switchWs('pitch-deck')" aria-label="Fundraise Deck">
-            <div class="tile-kicker">18 / FUNDRAISE</div>
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Dune Fundraise Deck">
+            <div class="tile-kicker">18 / DUNE DECK</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
                 <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="tile-preview-title">pitch deck</div>
+                <div class="tile-preview-title">dune deck</div>
               </div>
             </div>
-            <div class="gif-label">Fundraise Deck</div>
+            <img src="decks/dune/assets/visuals/00-dashboard-header.jpg" alt="" onerror="this.onerror=null; this.src='decks/dune/assets/visuals/01-live-software-channel.jpg';">
+            <div class="gif-label">Dune Fundraise Deck</div>
           </div>
         </div>
       </div>
@@ -1864,6 +1865,12 @@
     wireMotionInteractions();
 
     const pageParams = new URLSearchParams(window.location.search);
+    const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
+    function appUrl(path) {
+      if (!path || !path.startsWith('/')) return path;
+      return `${APP_BASE_PATH}${path}`;
+    }
+
     if (pageParams.get('tools') === '1') document.body.classList.add('debug-tools');
 
     if (pageParams.get('demo') === '1') {
@@ -1879,11 +1886,11 @@
     }
 
     // Reset stream to landing state on every page load
-    fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
+    fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
 
     const v   = document.getElementById('v');
     const st  = document.getElementById('status-text');
-    const src = '/stream.m3u8';
+    const src = appUrl('/stream.m3u8');
     const landingFrameCache = document.getElementById('landing-frame-cache');
     const dashboardOverlay = document.getElementById('dashboard-overlay');
     const dashboardFrameStage = document.getElementById('dashboard-frame-stage');
@@ -1917,127 +1924,128 @@
         label: 'SPECTRE Event Room',
         title: '// OSINT — SPECTRE EVENT ROOM',
         channel: '01 / OSINT',
-        url: () => '/dashboards/spectre/?kiosk=1',
+        url: () => appUrl('/dashboards/spectre/?kiosk=1'),
         narration: true,
       },
       news: {
         label: 'News Situation Room',
         title: '// NEWS — SITUATION ROOM',
         channel: '02 / NEWS',
-        url: () => '/dashboards/news/',
+        url: () => appUrl('/dashboards/news/'),
         narration: true,
       },
       'world-monitor': {
         label: 'World Monitor',
         title: '// GEO — WORLD MONITOR',
         channel: '04 / WORLD',
-        url: () => '/dashboards/world-monitor/',
+        url: () => appUrl('/dashboards/world-monitor/'),
         narration: true,
       },
       glance: {
         label: 'Glance',
         title: '// FEEDS — GLANCE',
         channel: '06 / SOURCE WALL',
-        url: () => '/dashboards/glance/',
+        url: () => appUrl('/dashboards/glance/'),
         narration: true,
       },
       'crypto-trading': {
         label: 'Crypto Trading',
         title: '// CRYPTO — TRADING DASHBOARD',
         channel: '07 / CRYPTO',
-        url: () => '/dashboards/crypto-trading/',
+        url: () => appUrl('/dashboards/crypto-trading/'),
         narration: true,
       },
       polyrec: {
         label: 'Polyrec',
         title: '// PREDICTION MARKETS — POLYREC',
         channel: '08 / CLOCK',
-        url: () => '/dashboards/polyrec/',
+        url: () => appUrl('/dashboards/polyrec/'),
         narration: true,
       },
       dashboard123: {
         label: 'Market Pulse',
         title: '// MARKETS — MARKET PULSE',
         channel: '03 / MARKETS',
-        url: () => '/dashboards/dashboard123/',
+        url: () => appUrl('/dashboards/dashboard123/'),
         narration: true,
       },
       arena: {
         label: 'AI Arena',
         title: '// ARENA — AI vs AI',
         channel: '05 / AGENTS',
-        url: () => '/dashboards/arena/',
+        url: () => appUrl('/dashboards/arena/'),
         narration: true,
       },
       biotech: {
         label: 'Biotech',
         title: '// BIO — CRISPR & PROTEIN',
         channel: '09 / BIO',
-        url: () => '/dashboards/biotech/',
+        url: () => appUrl('/dashboards/biotech/'),
         narration: true,
       },
       space: {
         label: 'Deep Space',
         title: '// SPACE — DEEP FIELD',
         channel: '10 / SPACE',
-        url: () => '/dashboards/space/',
+        url: () => appUrl('/dashboards/space/'),
         narration: true,
       },
       iran: {
         label: 'Iran Signal',
         title: '// IRAN — SIGNAL TRACKER',
         channel: '11 / GEO',
-        url: () => '/dashboards/iran/',
+        url: () => appUrl('/dashboards/iran/'),
         narration: true,
       },
       'meme-coin': {
         label: 'Meme Coin',
         title: '// DEGEN — MEME COIN TEMPLE',
         channel: '12 / SOCIAL',
-        url: () => '/dashboards/meme-coin/',
+        url: () => appUrl('/dashboards/meme-coin/'),
         narration: true,
       },
       quantum: {
         label: 'Quantum States',
         title: '// QUANT — QUANTUM COMPUTING',
         channel: '13 / QUANT',
-        url: () => '/dashboards/quantum/',
+        url: () => appUrl('/dashboards/quantum/'),
         narration: true,
       },
       'deep-sea': {
         label: 'Abyssal Monitor',
         title: '// ABYSS — DEEP SEA',
         channel: '14 / ABYSS',
-        url: () => '/dashboards/deep-sea/',
+        url: () => appUrl('/dashboards/deep-sea/'),
         narration: true,
       },
       'power-grid': {
         label: 'Power Grid',
         title: '// GRID — POWER INFRASTRUCTURE',
         channel: '15 / GRID',
-        url: () => '/dashboards/power-grid/',
+        url: () => appUrl('/dashboards/power-grid/'),
         narration: true,
       },
       viral: {
         label: 'Viral Spread',
         title: '// VIRAL — TRANSMISSION MODEL',
         channel: '16 / VIRAL',
-        url: () => '/dashboards/viral/',
+        url: () => appUrl('/dashboards/viral/'),
         narration: true,
       },
       'dark-forest': {
         label: 'Dark Forest',
         title: '// VOID — DARK FOREST',
         channel: '17 / VOID',
-        url: () => '/dashboards/dark-forest/',
+        url: () => appUrl('/dashboards/dark-forest/'),
         narration: true,
       },
-      'pitch-deck': {
-        label: 'Fundraise Deck',
-        title: '// DECK — FUNDRAISE',
-        channel: '18 / FUNDRAISE',
-        url: () => '/dashboards/pitch-deck/',
+      'dune-deck': {
+        label: 'Dune Fundraise Deck',
+        title: '// DECK — KATECHON x DUNE',
+        channel: '18 / DUNE',
+        url: () => appUrl('/dashboards/dune-deck/?embed=dashboard'),
         narration: false,
+        deckNarration: true,
       },
     };
     const CHANNEL_ORDER = [
@@ -2058,9 +2066,10 @@
       'power-grid',
       'viral',
       'dark-forest',
-      'pitch-deck',
+      'dune-deck',
     ];
     const avatarAudioWaiters = new Map();
+    let avatarPlaybackSeq = 0;
     let fallbackSpeechUtterance = null;
     const narration = {
       dashboard: null,
@@ -2250,6 +2259,12 @@
       if (event.data.type === 'audio-ended' && event.data.id && avatarAudioWaiters.has(event.data.id)) {
         avatarAudioWaiters.get(event.data.id)();
         avatarAudioWaiters.delete(event.data.id);
+        activeDashboardFrame()?.contentWindow?.postMessage({ type: 'deck-narration-ended', id: event.data.id }, window.location.origin);
+        return;
+      }
+      if (event.data.type === 'deck-narration') {
+        if (event.origin !== window.location.origin) return;
+        handleDeckNarration(event.data);
       }
     });
 
@@ -2319,15 +2334,17 @@
     }
 
     async function playThroughBrowserAvatar(payload) {
+      const playbackSeq = ++avatarPlaybackSeq;
       const text = payload.text || payload.speech || payload.reply || '';
       setKatNarrationLine(text, true);
-      if (!payload.audio || payload.muted) {
+      if ((!payload.audio && !payload.audioUrl) || payload.muted) {
         await speakWithBrowserVoice(text);
-        setKatNarrationLine('', false);
+        if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
         return;
       }
 
       await waitForAvatarReady();
+      if (playbackSeq !== avatarPlaybackSeq) return;
       const id = payload.id || `browser-audio-${Date.now()}`;
       await new Promise(resolve => {
         const timeout = setTimeout(resolve, Math.max(9000, readableDelay(text) + 6000));
@@ -2335,12 +2352,13 @@
           clearTimeout(timeout);
           resolve();
         });
-        postToAvatar({ type: 'audio', id, text, audio: payload.audio });
+        postToAvatar({ type: 'audio', id, text, audio: payload.audio, audioUrl: payload.audioUrl });
       });
-      setKatNarrationLine('', false);
+      if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
     }
 
     function stopBrowserAvatarAudio() {
+      avatarPlaybackSeq++;
       avatarAudioWaiters.clear();
       stopBrowserFallbackSpeech();
       postToAvatar({ type: 'stop' });
@@ -2510,7 +2528,7 @@
     async function runDashboardNarration(dashboardId, runId) {
       if (!narration.active || narration.runId !== runId) return;
       try {
-        const resp = await fetch(`/api/narration/${dashboardId}`, { cache: 'no-store' });
+        const resp = await fetch(appUrl(`/api/narration/${dashboardId}`), { cache: 'no-store' });
         const payload = await resp.json();
         if (!resp.ok) throw new Error(payload.error || `narration failed (${resp.status})`);
         if (!narration.active || narration.runId !== runId) return;
@@ -2534,6 +2552,34 @@
       runDashboardNarration(dashboardId, narration.runId);
     }
 
+    function preloadDuneDeckNarration() {
+      ['dune-01', 'dune-02', 'dune-03', 'dune-04'].forEach(slug => {
+        fetch(appUrl(`/dashboards/dune-deck/assets/narration/${slug}.mp3`), { cache: 'force-cache' }).catch(() => {});
+      });
+    }
+
+    function handleDeckNarration(message) {
+      if (currentDashboardId !== 'dune-deck') return;
+      const dashboard = DASHBOARDS['dune-deck'];
+      if (!dashboard?.deckNarration) return;
+
+      const slide = Number(message.slide) || 1;
+      const text = String(message.text || '').trim();
+      const audioUrl = String(message.audioUrl || '');
+      const id = String(message.id || `dune-deck-${slide}-${Date.now()}`);
+      stopBrowserAvatarAudio();
+      showKatNarrator('dune-deck', text || `Narrating slide ${slide}.`);
+      playThroughBrowserAvatar({
+        id,
+        text,
+        audioUrl,
+        muted: !audioUrl,
+      }).catch(err => {
+        console.warn('deck narration playback failed:', err);
+        setKatNarrationLine('', false);
+      });
+    }
+
     function openDashboard(workspace, options = {}) {
       const dashboard = DASHBOARDS[workspace];
       if (!dashboard) {
@@ -2544,7 +2590,7 @@
         currentDashboardId = null;
         updateDashboardPosition();
         hideMainOverlay();
-        return fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(() => {});
+        return fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(() => {});
       }
       landingSwitchRunId++;
       if (!currentDashboardId) captureLandingFrame();
@@ -2552,7 +2598,7 @@
       clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url();
-      fetch(`/api/switch/${workspace}`, { method: 'POST' }).catch(err => {
+      fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(err => {
         console.warn('remote workspace switch failed:', err);
       });
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
@@ -2563,6 +2609,7 @@
       dashboardOverlay.classList.remove('hidden');
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
+      if (workspace === 'dune-deck') preloadDuneDeckNarration();
       loadDashboardFrame(url, options.direction ?? 1);
       startDashboardNarration(workspace);
       showToast(`→ ${dashboard.label}`, '#00e87b');
@@ -2580,7 +2627,7 @@
         });
         return;
       }
-      fetch('/api/register', {
+      fetch(appUrl('/api/register'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -2685,7 +2732,7 @@
       dashboardWheelDelta = 0;
       hideKatNarrator();
       maskStaleDesktopFrame();
-      const req = fetch('/api/switch/landing', { method: 'POST' }).catch(() => {});
+      const req = fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
       revealMainOverlay(true);
       req.finally(() => {
         setTimeout(() => {
@@ -2799,7 +2846,7 @@
 
     async function handleCommand(text) {
       showToast(`"${text}"`, '#e8e8ec');
-      const r = await fetch('/api/agent', {
+      const r = await fetch(appUrl('/api/agent'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ transcript: text }),
@@ -2836,7 +2883,7 @@
         console.log('audio blob:', blob.size, 'bytes, type:', blob.type);
         if (blob.size < 1000) { showToast('too short — hold longer', '#6b6b78'); return; }
         try {
-          const r = await fetch('/api/transcribe', {
+          const r = await fetch(appUrl('/api/transcribe'), {
             method: 'POST',
             headers: { 'Content-Type': blob.type },
             body: blob,

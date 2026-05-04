@@ -1,4 +1,5 @@
 node_modules/
+dist/
 .env
 .codex
 *.log
@@ -6,3 +7,5 @@ public/debug-audio.*
 logs/
 run/
 recordings/
+.vercel
+.env*.local

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "commonjs",
   "scripts": {
+    "build": "node scripts/build-vercel.js",
     "start": "node server.js",
     "dev": "node server.js",
     "pitch:dev": "npm --prefix ../katechon-pitch run dev -- --host 127.0.0.1 --port 5174 --strictPort"

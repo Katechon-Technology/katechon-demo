@@ -80,6 +80,7 @@ Edit `.env` and fill in:
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
+| `REPLICATE_API_KEY` | No | Required only when regenerating Dune deck visuals |
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
 | `DASHBOARD_NARRATION_TTS` | No | Set to `1` to use ElevenLabs for dashboard narration; defaults off so the browser narration fallback starts immediately |
 | `PITCH_DECK_URL` | No | Defaults to `http://127.0.0.1:5174/deck/`; live-linked Vite deck from `../katechon-pitch` |
@@ -153,6 +154,25 @@ Useful operator commands:
 
 YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, which is generated from existing remote secrets and is not committed. The saved YouTube log is redacted after startup, but the running FFmpeg process arguments still contain the RTMP destination, so avoid sharing raw remote `ps` output while the stream is live.
 
+### Vercel `/app` Deployment
+
+This repo can build a static Vercel frontend for `/app/`:
+
+```bash
+npm run build
+```
+
+`vercel.json` serves `dist/` at `/app/`, rewrites dashboard iframe routes to the local prototype dashboard, and proxies `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests to the remote demo backend at `http://176.57.184.142:4040`.
+
+The production `katechon.technology` domain is currently owned by the `katechon-pitch` Vercel project, so that project still needs a rewrite from `/app/:path*` to this demo project's Vercel deployment URL, for example:
+
+```json
+{
+  "source": "/app/:path*",
+  "destination": "https://<katechon-demo-vercel-project>.vercel.app/app/:path*"
+}
+```
+
 ### Browser Avatar + Audio
 
 The demo UI now renders the Live2D avatar directly in the user's browser. The avatar iframe mounts as soon as the page opens, and dashboard-specific narration starts when the user opens a dashboard such as SPECTRE. This keeps iteration fast and avoids coupling avatar rendering to the remote Xvfb/PulseAudio/FFmpeg HLS pipeline.
@@ -172,17 +192,11 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 | Market Pulse | `/dashboards/dashboard123/` | Macro context |
 | World Monitor | `/dashboards/world-monitor/` | Risk correlation |
 | AI Arena | `/dashboards/arena/` | Speed and accuracy |
-| Fundraise Deck | `/dashboards/pitch-deck/` | Deck preview, narration later |
+| Dune Fundraise Deck | `/dashboards/dune-deck/` | Per-slide avatar narration |
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
-The fundraise deck dashboard is linked to the sibling repo rather than copied. For live updates while editing `../katechon-pitch` on its current branch, run this in a second terminal:
-
-```bash
-npm run pitch:dev
-```
-
-`/dashboards/pitch-deck/` will embed that Vite server. If it is not running, the route falls back to the last built `../katechon-pitch/dist` snapshot.
+The Dune fundraise deck is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar. Regenerate the deck visuals with `public/decks/dune/scripts/generate-replicate-visuals.py` and narration with `public/decks/dune/scripts/generate-elevenlabs-narration.sh`.
 
 This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
 

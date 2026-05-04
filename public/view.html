@@ -22,7 +22,8 @@
   <script>
     const v = document.getElementById('v');
     const st = document.getElementById('status');
-    const src = '/stream.m3u8';
+    const appBasePath = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
+    const src = `${appBasePath}/stream.m3u8`;
 
     if (Hls.isSupported()) {
       const hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 15 });

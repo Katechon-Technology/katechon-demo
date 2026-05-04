@@ -1,0 +1,65 @@
+{
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "framework": null,
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/app/",
+      "permanent": false
+    },
+    {
+      "source": "/app",
+      "destination": "/app/",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/app/api/:path*",
+      "destination": "http://176.57.184.142:4040/api/:path*"
+    },
+    {
+      "source": "/app/stream.m3u8",
+      "destination": "http://176.57.184.142:4040/stream.m3u8"
+    },
+    {
+      "source": "/app/:segment(seg[0-9]+\\.ts)",
+      "destination": "http://176.57.184.142:4040/:segment"
+    },
+    {
+      "source": "/app/dashboards/dune-deck",
+      "destination": "/decks/dune/index.html"
+    },
+    {
+      "source": "/app/dashboards/dune-deck/",
+      "destination": "/decks/dune/index.html"
+    },
+    {
+      "source": "/app/dashboards/dune-deck/:path*",
+      "destination": "/decks/dune/:path*"
+    },
+    {
+      "source": "/app/dashboards/:dashboard",
+      "destination": "/prototype-dashboard.html"
+    },
+    {
+      "source": "/app/dashboards/:dashboard/",
+      "destination": "/prototype-dashboard.html"
+    },
+    {
+      "source": "/app/dashboards/:dashboard/:path*",
+      "destination": "/prototype-dashboard.html"
+    },
+    {
+      "source": "/app/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/app/:path*",
+      "destination": "/:path*"
+    }
+  ]
+}
