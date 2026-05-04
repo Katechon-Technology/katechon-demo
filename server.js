@@ -523,8 +523,182 @@ const DASHBOARD_NARRATION = {
 };
 const narrationCursor = {};
 
+const MOBILE_WATCH_ORDER = ["spectre", "news", "dashboard123", "world-monitor", "arena"];
+const MOBILE_WATCH_ALIASES = {
+  osint: "spectre",
+  "event-room": "spectre",
+  "situation-room": "news",
+  "news-situation-room": "news",
+  markets: "dashboard123",
+  market: "dashboard123",
+  "market-pulse": "dashboard123",
+  "dashboard-123": "dashboard123",
+  dashboard123: "dashboard123",
+  "world": "world-monitor",
+  "worldmonitor": "world-monitor",
+  "ai": "arena",
+  "ai-arena": "arena",
+};
+
+const MOBILE_DASHBOARDS = {
+  spectre: {
+    slug: "spectre",
+    label: "SPECTRE",
+    title: "SPECTRE Event Room",
+    channel: "01 / OSINT",
+    host: "Kat on SPECTRE",
+    route: "/dashboards/spectre/?kiosk=1&watch=1",
+    accent: "#00e87b",
+    accent2: "#7de8ff",
+    bg: "#030608",
+    shareTitle: "Watch SPECTRE as a Katechon dashboard channel",
+    description:
+      "A one-minute narrated OSINT dashboard episode with live-feeling maps, source posture, and Kat in the corner.",
+    bumper: "status pulse / signal layer online",
+    tapTitle: "Watch SPECTRE",
+    endTitle: "SPECTRE wrapped.",
+    endCopy: "Replay the OSINT pass or jump to the next Katechon channel.",
+    script: [
+      { atMs: 0, text: "SPECTRE is online. Read the surface like an analyst: map first, signal layer second." },
+      { atMs: 7600, text: "The useful motion is correlation. One marker is noise; a cluster starts to matter." },
+      { atMs: 17400, text: "Source posture stays visible here, so the viewer can see what is strong and what still needs review." },
+      { atMs: 29600, text: "Kat keeps the board cinematic without turning it into a flat video. The software is still inspectable." },
+      { atMs: 42100, text: "The OSINT value is speed with discipline: movement, corroboration, then attention." },
+      { atMs: 53200, text: "That is the shareable object: a live intelligence room compressed into a minute." },
+    ],
+  },
+  news: {
+    slug: "news",
+    label: "News Situation Room",
+    title: "News Situation Room",
+    channel: "02 / NEWS",
+    host: "Kat in the newsroom",
+    route: "/dashboards/news/?watch=1",
+    accent: "#ffbf5f",
+    accent2: "#7de8ff",
+    bg: "#080607",
+    shareTitle: "Watch the Katechon News Situation Room",
+    description:
+      "A one-minute narrated news dashboard episode where source cards, generated context, and editorial state move together.",
+    bumper: "status pulse / source fusion live",
+    tapTitle: "Watch the News Room",
+    endTitle: "News room wrapped.",
+    endCopy: "Replay the editorial pass or swipe into the next dashboard channel.",
+    script: [
+      { atMs: 0, text: "The News Situation Room is live. Source cards lead, visuals support, and the timeline keeps score." },
+      { atMs: 8100, text: "This is not a static news graphic. The dashboard keeps evidence, context, and priority in motion." },
+      { atMs: 18300, text: "Generated media stays subordinate to the source trail, which is why the board remains useful." },
+      { atMs: 30200, text: "Kat reads it like an editor: what changed, what is corroborated, and what deserves the lead slot." },
+      { atMs: 43500, text: "For a VC share, the point lands quickly: software can feel like a broadcast without losing its controls." },
+      { atMs: 54200, text: "The episode ends, but the room itself is still a living surface." },
+    ],
+  },
+  dashboard123: {
+    slug: "market-pulse",
+    label: "Market Pulse",
+    title: "Market Pulse",
+    channel: "03 / MARKETS",
+    host: "Kat on markets",
+    route: "/dashboards/dashboard123/?watch=1",
+    accent: "#00e87b",
+    accent2: "#58d0ff",
+    bg: "#04070a",
+    shareTitle: "Watch Market Pulse as a Katechon dashboard channel",
+    description:
+      "A one-minute narrated market dashboard episode with breadth, macro pressure, sentiment, and watchable motion.",
+    bumper: "status pulse / macro mesh live",
+    tapTitle: "Watch Market Pulse",
+    endTitle: "Market Pulse wrapped.",
+    endCopy: "Replay the market pass or move into the next Katechon channel.",
+    script: [
+      { atMs: 0, text: "Market Pulse is the cross-asset desk: breadth, volatility, macro context, and headlines in one pass." },
+      { atMs: 8200, text: "The viewer should not have to hunt. Price action and context need to sit side by side." },
+      { atMs: 18500, text: "Kat reads this as a pressure surface: internals first, sentiment second, conclusions last." },
+      { atMs: 30800, text: "The dashboard feels alive because the market state changes in public, not behind a PDF." },
+      { atMs: 43300, text: "This is read-only attention routing, not financial advice and not an execution terminal." },
+      { atMs: 54300, text: "In one minute, a portfolio conversation gets a moving surface instead of a static screenshot." },
+    ],
+  },
+  "world-monitor": {
+    slug: "world-monitor",
+    label: "World Monitor",
+    title: "World Monitor",
+    channel: "04 / WORLD",
+    host: "Kat on geopolitics",
+    route: "/dashboards/world-monitor/?watch=1",
+    accent: "#00e87b",
+    accent2: "#7de8ff",
+    bg: "#050608",
+    shareTitle: "Watch World Monitor as a Katechon dashboard channel",
+    description:
+      "A one-minute narrated geopolitical dashboard episode with map movement, risk correlation, and market context.",
+    bumper: "status pulse / global risk layer",
+    tapTitle: "Watch World Monitor",
+    endTitle: "World Monitor wrapped.",
+    endCopy: "Replay the risk pass or continue to the AI Arena.",
+    script: [
+      { atMs: 0, text: "World Monitor is queued. Read the map like a risk surface, not a headline board." },
+      { atMs: 7600, text: "Signals become useful when geography, source confidence, and market pressure converge." },
+      { atMs: 17800, text: "Kat keeps the narration measured. The dashboard shows context without pretending to predict events." },
+      { atMs: 30200, text: "A shareable dashboard needs immediate shape: where attention is moving and why it matters." },
+      { atMs: 42900, text: "The board is a living brief, with map, feed, and risk posture held in the same frame." },
+      { atMs: 53800, text: "That makes geopolitics legible in a minute without flattening the source trail." },
+    ],
+  },
+  arena: {
+    slug: "ai-arena",
+    label: "AI Arena",
+    title: "AI Arena",
+    channel: "05 / AGENTS",
+    host: "Kat calling the match",
+    route: "/dashboards/arena/?watch=1",
+    accent: "#b993ff",
+    accent2: "#65f0ff",
+    bg: "#070611",
+    shareTitle: "Watch AI Arena as a Katechon dashboard channel",
+    description:
+      "A one-minute narrated AI-vs-AI dashboard episode where competing model outputs feel like a live match.",
+    bumper: "status pulse / round starting",
+    tapTitle: "Watch AI Arena",
+    endTitle: "AI Arena wrapped.",
+    endCopy: "Replay the match or cycle back to SPECTRE.",
+    script: [
+      { atMs: 0, text: "Two models, one task. AI Arena turns evaluation into a live match you can actually watch." },
+      { atMs: 7600, text: "Speed matters, but the winner still has to be right. The judge lane keeps that visible." },
+      { atMs: 17900, text: "Reasoning streams make model behavior legible: planning, recovery, evidence, and final answer quality." },
+      { atMs: 30300, text: "This is more entertaining than a benchmark table because the work happens on screen." },
+      { atMs: 43000, text: "Kat calls the round like a sport, while the dashboard keeps the evaluation inspectable." },
+      { atMs: 53900, text: "The pitch is simple: AI software can become a channel people want to share." },
+    ],
+  },
+};
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/watch/:dashboard", (req, res) => {
+  const dashboardId = normalizeMobileDashboardId(req.params.dashboard);
+  if (!dashboardId) return res.status(404).send("Unknown mobile dashboard channel");
+  res.setHeader("Cache-Control", "no-cache");
+  res.send(renderMobileWatchHtml(req, dashboardId));
+});
+
+app.get("/api/mobile-episode/:dashboard", (req, res) => {
+  const dashboardId = normalizeMobileDashboardId(req.params.dashboard);
+  if (!dashboardId) return res.status(404).json({ error: "unknown mobile dashboard channel" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json(mobileDashboardPayload(dashboardId, req));
+});
+
+app.get("/share/:dashboard.png", (req, res) => {
+  const dashboardId = normalizeMobileDashboardId(req.params.dashboard);
+  if (!dashboardId) return res.status(404).send("Unknown mobile dashboard channel");
+  const posterPath = path.join(__dirname, "public", "social", `${MOBILE_DASHBOARDS[dashboardId].slug}.png`);
+  if (!fs.existsSync(posterPath)) return res.status(404).send("Mobile share poster not generated");
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.type("png");
+  res.sendFile(posterPath);
 });
 
 app.get("/stream.m3u8", proxyHls);
@@ -782,6 +956,96 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function normalizeMobileDashboardId(raw) {
+  const cleaned = String(raw || "")
+    .toLowerCase()
+    .replace(/\.png$/i, "")
+    .replace(/[^\w-]/g, "");
+  const id = MOBILE_WATCH_ALIASES[cleaned] || cleaned;
+  return MOBILE_DASHBOARDS[id] ? id : null;
+}
+
+function mobileDashboardNav(id, direction) {
+  const index = MOBILE_WATCH_ORDER.indexOf(id);
+  const target = MOBILE_WATCH_ORDER[(index + direction + MOBILE_WATCH_ORDER.length) % MOBILE_WATCH_ORDER.length];
+  const dashboard = MOBILE_DASHBOARDS[target];
+  return {
+    id: target,
+    slug: dashboard.slug,
+    label: dashboard.label,
+    watchPath: `/watch/${dashboard.slug}`,
+  };
+}
+
+function mobileDashboardPayload(id, req) {
+  const dashboard = MOBILE_DASHBOARDS[id];
+  return {
+    id,
+    slug: dashboard.slug,
+    label: dashboard.label,
+    title: dashboard.title,
+    channel: dashboard.channel,
+    host: dashboard.host,
+    route: dashboard.route,
+    accent: dashboard.accent,
+    accent2: dashboard.accent2,
+    bg: dashboard.bg,
+    shareTitle: dashboard.shareTitle,
+    description: dashboard.description,
+    bumper: dashboard.bumper,
+    tapTitle: dashboard.tapTitle,
+    endTitle: dashboard.endTitle,
+    endCopy: dashboard.endCopy,
+    durationMs: 60000,
+    script: dashboard.script,
+    watchPath: `/watch/${dashboard.slug}`,
+    image: `/share/${dashboard.slug}.png`,
+    canonicalUrl: req ? absoluteUrl(req, `/watch/${dashboard.slug}`) : `/watch/${dashboard.slug}`,
+    imageUrl: req ? absoluteUrl(req, `/share/${dashboard.slug}.png`) : `/share/${dashboard.slug}.png`,
+    previous: mobileDashboardNav(id, -1),
+    next: mobileDashboardNav(id, 1),
+  };
+}
+
+function absoluteUrl(req, pathname) {
+  const forwardedProto = String(req.get("x-forwarded-proto") || "").split(",")[0].trim();
+  const proto = forwardedProto || req.protocol || "http";
+  const host = req.get("host") || `localhost:${PORT}`;
+  return `${proto}://${host}${pathname}`;
+}
+
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+function renderMobileWatchHtml(req, id) {
+  const payload = mobileDashboardPayload(id, req);
+  const template = fs.readFileSync(path.join(__dirname, "public", "mobile-watch.html"), "utf8");
+  const title = `${payload.title} - Katechon Watch`;
+  const meta = [
+    `<title>${escapeHtml(title)}</title>`,
+    `<meta name="description" content="${escapeHtml(payload.description)}">`,
+    `<link rel="canonical" href="${escapeHtml(payload.canonicalUrl)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="Katechon">`,
+    `<meta property="og:title" content="${escapeHtml(payload.shareTitle)}">`,
+    `<meta property="og:description" content="${escapeHtml(payload.description)}">`,
+    `<meta property="og:url" content="${escapeHtml(payload.canonicalUrl)}">`,
+    `<meta property="og:image" content="${escapeHtml(payload.imageUrl)}">`,
+    `<meta property="og:image:width" content="1200">`,
+    `<meta property="og:image:height" content="630">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:title" content="${escapeHtml(payload.shareTitle)}">`,
+    `<meta name="twitter:description" content="${escapeHtml(payload.description)}">`,
+    `<meta name="twitter:image" content="${escapeHtml(payload.imageUrl)}">`,
+    `<meta name="theme-color" content="${escapeHtml(payload.bg)}">`,
+  ].join("\n  ");
+  const bootstrap = `<script>window.__MOBILE_DASHBOARD__ = ${jsonForScript(payload)};</script>`;
+  return template
+    .replace("<!-- MOBILE_WATCH_META -->", meta)
+    .replace("<!-- MOBILE_WATCH_BOOTSTRAP -->", bootstrap);
 }
 
 function appendSearch(url, search) {
