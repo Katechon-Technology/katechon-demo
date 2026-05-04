@@ -83,6 +83,10 @@
 
     #browser-avatar-wrap {
       position: fixed;
+      right: 0;
+      bottom: 0;
+      width: clamp(620px, 36vw, 860px);
+      height: 100svh;
       z-index: 18;
       pointer-events: none;
       overflow: hidden;
@@ -1148,6 +1152,14 @@
         width: 90%;
         grid-template-columns: 64px minmax(0, 1fr);
       }
+      #browser-avatar-wrap {
+        left: 66.666vw;
+        top: 0;
+        right: auto;
+        bottom: auto;
+        width: 33.333vw;
+        height: 100vh;
+      }
       .kat-portrait {
         width: 64px;
         height: 64px;
@@ -1169,7 +1181,7 @@
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="avatar-pet.html?model=0&w=640&h=1080" allow="autoplay"></iframe>
+    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=5" allow="autoplay"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -1206,7 +1218,7 @@
     <div class="main-head">
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
-        <div class="main-title">Katechon Technology</div>
+        <div id="main-title" class="main-title" aria-live="polite">Katechon Technology</div>
         <div class="main-sub">We turn live software into channels people can watch, scroll, and eventually act inside.</div>
         <div class="layout-control-row">
           <button id="layout-toggle" type="button" title="Change channel layout">
@@ -1911,14 +1923,23 @@
     const avatarControls = Object.fromEntries(avatarControlIds.map(id => [id, document.getElementById(`avatar-${id}`)]));
     const avatarValues = Object.fromEntries(avatarControlIds.map(id => [id, document.getElementById(`avatar-${id}-value`)]));
     const AVATAR_DEFAULTS = {
-      x: 66.666,
+      x: 0,
       y: 0,
-      w: 33.333,
+      w: 36,
       h: 100,
       scale: 0.755,
       modelY: 1.35,
     };
-    const AVATAR_STORAGE_KEY = 'katechon.browserAvatarPlacement.v1';
+    const AVATAR_MOBILE_DEFAULTS = {
+      x: 66.666,
+      y: 0,
+      w: 33.333,
+      h: 100,
+    };
+    const AVATAR_STORAGE_KEY = 'katechon.browserAvatarPlacement.v3';
+    const AVATAR_DESKTOP_MIN_WIDTH = 620;
+    const AVATAR_DESKTOP_MAX_WIDTH = 860;
+    const AVATAR_DESKTOP_MEDIA = window.matchMedia('(min-width: 861px)');
     const DASHBOARDS = {
       spectre: {
         label: 'SPECTRE Event Room',
@@ -2203,15 +2224,40 @@
     }
 
     function applyAvatarPlacement() {
-      browserAvatar.parentElement.style.left = `${avatarPlacement.x}vw`;
-      browserAvatar.parentElement.style.top = `${avatarPlacement.y}vh`;
-      browserAvatar.parentElement.style.width = `${avatarPlacement.w}vw`;
-      browserAvatar.parentElement.style.height = `${avatarPlacement.h}vh`;
+      const wrap = browserAvatar.parentElement;
+      if (AVATAR_DESKTOP_MEDIA.matches) {
+        wrap.style.left = 'auto';
+        wrap.style.top = 'auto';
+        wrap.style.right = `${avatarPlacement.x}vw`;
+        wrap.style.bottom = `${avatarPlacement.y}vh`;
+        wrap.style.width = `clamp(${AVATAR_DESKTOP_MIN_WIDTH}px, ${avatarPlacement.w}vw, ${AVATAR_DESKTOP_MAX_WIDTH}px)`;
+        wrap.style.height = `${avatarPlacement.h}svh`;
+      } else {
+        wrap.style.left = `${AVATAR_MOBILE_DEFAULTS.x}vw`;
+        wrap.style.top = `${AVATAR_MOBILE_DEFAULTS.y}vh`;
+        wrap.style.right = 'auto';
+        wrap.style.bottom = 'auto';
+        wrap.style.width = `${AVATAR_MOBILE_DEFAULTS.w}vw`;
+        wrap.style.height = `${AVATAR_MOBILE_DEFAULTS.h}vh`;
+      }
       syncAvatarControls();
       postToAvatar({
         type: 'tune',
         scale: avatarPlacement.scale,
         yFactor: avatarPlacement.modelY,
+      });
+      requestAnimationFrame(() => {
+        const rect = wrap.getBoundingClientRect();
+        postToAvatar({
+          type: 'resize',
+          width: Math.max(1, Math.round(rect.width)),
+          height: Math.max(1, Math.round(rect.height)),
+        });
+        postToAvatar({
+          type: 'tune',
+          scale: avatarPlacement.scale,
+          yFactor: avatarPlacement.modelY,
+        });
       });
     }
 
@@ -2243,6 +2289,8 @@
       applyAvatarPlacement();
       showToast('avatar placement reset', '#00e87b');
     });
+    if (AVATAR_DESKTOP_MEDIA.addEventListener) AVATAR_DESKTOP_MEDIA.addEventListener('change', applyAvatarPlacement);
+    else AVATAR_DESKTOP_MEDIA.addListener?.(applyAvatarPlacement);
     applyAvatarPlacement();
 
     window.addEventListener('message', (event) => {

@@ -6,7 +6,7 @@
 <style>
   * { margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
-  canvas { display: block; }
+  canvas { display: block; width: 100%; height: 100%; }
 </style>
 </head>
 <body>
@@ -27,8 +27,23 @@ const MODELS = [
 const _params = new URLSearchParams(window.location.search);
 const DEFAULT_MODEL = 0;
 const INITIAL_MODEL = Math.min(parseInt(_params.get('model') || String(DEFAULT_MODEL), 10), MODELS.length - 1);
-const W = parseInt(_params.get('w') || '950', 10);
-const H = parseInt(_params.get('h') || String(window.innerHeight), 10);
+const PARAM_W = parseInt(_params.get('w') || '', 10);
+const PARAM_H = parseInt(_params.get('h') || '', 10);
+const REFERENCE_HEIGHT = Math.max(1, parseInt(_params.get('refH') || '1080', 10));
+const X_FACTOR = Number.isFinite(Number(_params.get('xFactor'))) ? Number(_params.get('xFactor')) : 0.8;
+
+function canvasWidth() {
+  if (Number.isFinite(PARAM_W) && PARAM_W > 0) return PARAM_W;
+  return Math.max(1, Math.round(window.innerWidth || 640));
+}
+
+function canvasHeight() {
+  if (Number.isFinite(PARAM_H) && PARAM_H > 0) return PARAM_H;
+  return Math.max(1, Math.round(window.innerHeight || 1080));
+}
+
+let W = canvasWidth();
+let H = canvasHeight();
 
 const app = new PIXI.Application({
   view: document.getElementById('avatar-canvas'),
@@ -57,10 +72,29 @@ function applyTransform(scale, yFactor) {
   if (!currentModel) return;
   currentScale = scale;
   currentYFactor = yFactor;
-  currentModel.scale.set(scale);
-  currentModel.x = W / 2;
+  currentModel.scale.set(scale * (H / REFERENCE_HEIGHT));
+  currentModel.x = W * X_FACTOR;
   currentModel.y = H * yFactor;
 }
+
+function resizeAvatar() {
+  resizeAvatarTo(canvasWidth(), canvasHeight());
+}
+
+function resizeAvatarTo(width, height) {
+  const nextW = Math.max(1, Math.round(Number(width) || 0));
+  const nextH = Math.max(1, Math.round(Number(height) || 0));
+  if (nextW === W && nextH === H) return;
+  W = nextW;
+  H = nextH;
+  app.renderer.resize(W, H);
+  applyTransform(currentScale, currentYFactor);
+}
+
+window.addEventListener('resize', resizeAvatar);
+requestAnimationFrame(resizeAvatar);
+setTimeout(resizeAvatar, 100);
+setTimeout(resizeAvatar, 500);
 
 // --- Audio state ---
 let audioCtx = null, analyser = null, analyserData = null;
@@ -146,6 +180,7 @@ window.addEventListener('message', (e) => {
   if (e.data.type === 'unlock') ensureAudioCtx();
   if (e.data.type === 'audio') playPayload(e.data);
   if (e.data.type === 'stop') stopAudio();
+  if (e.data.type === 'resize') resizeAvatarTo(e.data.width, e.data.height);
   if (e.data.type === 'switch-model') switchModel(e.data.index ?? 0);
   if (e.data.type === 'tune') applyTransform(e.data.scale, e.data.yFactor);
 });
