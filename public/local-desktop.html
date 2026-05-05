@@ -128,7 +128,6 @@
     }
 
     const WORKSPACES = {
-      spectre: { url: appUrl("/dashboards/spectre/?kiosk=1"), title: "// OSINT - SPECTRE INTELLIGENCE" },
       news: { url: appUrl("/dashboards/news/"), title: "// NEWS - SITUATION ROOM" },
       dashboard123: { url: appUrl("/dashboards/dashboard123/"), title: "// MARKETS - MARKET PULSE" },
       "world-monitor": { url: appUrl("/dashboards/world-monitor/"), title: "// GEO - WORLD MONITOR" },
@@ -159,6 +158,8 @@
       const next = WORKSPACES[workspace];
       if (!next) {
         iframe.classList.remove("active");
+        iframe.removeAttribute("src");
+        currentUrl = "";
         titleEl.textContent = "// KATECHON - INTELLIGENCE PLATFORM";
         return;
       }

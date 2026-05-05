@@ -256,13 +256,10 @@ cat > /var/www/avatar/background.html << 'BGEOF'
     <iframe id="ws-iframe"></iframe>
   </div>
   <script>
-    const WORKSPACES = {
-      spectre: { url: 'http://host.docker.internal:3010/?kiosk=1', title: '// OSINT — SPECTRE INTELLIGENCE' },
-    };
+    const WORKSPACES = {};
     let cur = null;
     const iframe = document.getElementById('ws-iframe');
     const titleEl = document.getElementById('frame-title');
-    iframe.src = WORKSPACES.spectre.url;
 
     setInterval(async () => {
       try {
@@ -277,6 +274,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
           titleEl.textContent = ws.title;
         } else {
           iframe.classList.remove('active');
+          iframe.removeAttribute('src');
           titleEl.textContent = '// KATECHON — INTELLIGENCE PLATFORM';
         }
       } catch(e) {}
@@ -392,10 +390,15 @@ def _record_avatar_event(data):
 
 def _workspace_for_action(action):
     if action == "open_spectre":
-        return "spectre"
+        return "landing"
     if action == "go_home":
         return "landing"
     return None
+
+def _remote_workspace(workspace):
+    if workspace == "spectre":
+        return "landing"
+    return workspace
 
 class Handler(SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
@@ -432,11 +435,11 @@ class Handler(SimpleHTTPRequestHandler):
         global _last_agent
         if self.path == '/switch':
             data = _read_json(self)
-            _state['workspace'] = data.get('workspace', 'landing')
+            _state['workspace'] = _remote_workspace(data.get('workspace', 'landing'))
             _json(self, 200, {"ok": True, "workspace": _state["workspace"]})
         elif self.path == '/command':
             data = _read_json(self)
-            workspace = data.get('workspace') or _workspace_for_action(data.get('action'))
+            workspace = _remote_workspace(data.get('workspace') or _workspace_for_action(data.get('action')))
             if workspace:
                 _state['workspace'] = workspace
             _last_agent = {
@@ -449,7 +452,7 @@ class Handler(SimpleHTTPRequestHandler):
             _json(self, 200, {"ok": True, "workspace": _state["workspace"], "voiceSeq": queued and queued["seq"]})
         elif self.path == '/agent':
             data = _read_json(self)
-            workspace = data.get('workspace') or _workspace_for_action(data.get('action'))
+            workspace = _remote_workspace(data.get('workspace') or _workspace_for_action(data.get('action')))
             if workspace:
                 _state['workspace'] = workspace
             _last_agent = {

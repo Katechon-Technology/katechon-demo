@@ -385,6 +385,10 @@ const state = {
   currentWorkspace: "landing",
 };
 
+function remoteWorkspaceFor(workspace) {
+  return workspace === "spectre" ? "landing" : workspace;
+}
+
 const DASHBOARD_NARRATION = {
   spectre: {
     label: "SPECTRE Event Room",
@@ -1397,12 +1401,13 @@ app.get("/api/state", (req, res) => {
 app.post("/api/switch/:workspace", async (req, res) => {
   const { workspace } = req.params;
   state.currentWorkspace = workspace;
+  const remoteWorkspace = remoteWorkspaceFor(workspace);
 
   // Tell the container's background.html to switch workspace
   fetch(`${HLS_CONTROL_URL}/switch`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workspace }),
+    body: JSON.stringify({ workspace: remoteWorkspace }),
   }).catch(() => {});
 
   const sessionId = state.sessions[workspace];
@@ -1795,6 +1800,7 @@ async function postStreamControl(pathname, payload) {
 async function dispatchRemoteCommand(command) {
   const workspace = command.workspace || workspaceForAction(command.action);
   if (workspace) state.currentWorkspace = workspace;
+  const remoteWorkspace = remoteWorkspaceFor(workspace);
 
   try {
     return {
@@ -1805,15 +1811,15 @@ async function dispatchRemoteCommand(command) {
         transcript: command.transcript || "",
         speech: command.speech || command.reply || "",
         reply: command.speech || command.reply || "",
-        workspace,
+        workspace: remoteWorkspace,
       }),
     };
   } catch (err) {
     console.warn("remote command dispatch failed:", err.message);
-    if (!workspace) return { ok: false, error: err.message };
+    if (!remoteWorkspace) return { ok: false, error: err.message };
 
     try {
-      await postStreamControl("/switch", { workspace });
+      await postStreamControl("/switch", { workspace: remoteWorkspace });
       return { ok: true, fallback: "switch" };
     } catch (fallbackErr) {
       console.warn("remote switch fallback failed:", fallbackErr.message);
