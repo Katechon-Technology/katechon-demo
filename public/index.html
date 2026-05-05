@@ -5,6 +5,13 @@
   <title>Katechon</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
+  <link rel="preload" href="libs/live2dcubismcore.min.js" as="script">
+  <link rel="preload" href="libs/live2d.min.js" as="script">
+  <link rel="preload" href="libs/pixi.min.js" as="script">
+  <link rel="preload" href="libs/pixi-live2d-display.min.js" as="script">
+  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.fast.model3.json" as="fetch" type="application/json" crossorigin>
+  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.moc3" as="fetch" crossorigin>
+  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.2048/texture_00.png" as="image" type="image/png" fetchpriority="high">
   <style>
     :root {
       --bg: #050608;
@@ -387,7 +394,7 @@
       mask-image: radial-gradient(circle at center, rgba(0,0,0,0) 0 9%, #000 19%, #000 72%, rgba(0,0,0,0) 82%);
       opacity: 0;
       transform: scale(0.76);
-      transition: opacity 240ms ease, transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 140ms ease, transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .tunnel-aperture {
       background:
@@ -399,7 +406,7 @@
       mix-blend-mode: screen;
       opacity: 0;
       transform: scale(0.7);
-      transition: opacity 200ms ease, transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 130ms ease, transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .tunnel-streaks {
       background:
@@ -415,7 +422,7 @@
       mix-blend-mode: screen;
       opacity: 0;
       transform: translate3d(-6%, 0, 0) scaleX(0.72);
-      transition: opacity 180ms ease, transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 120ms ease, transform 190ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     .tunnel-vignette {
       background:
@@ -458,9 +465,9 @@
       transform-origin: center;
       backface-visibility: hidden;
       transition:
-        opacity 180ms ease,
-        transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
-        filter 500ms ease;
+        opacity 120ms ease,
+        transform 240ms cubic-bezier(0.16, 1, 0.3, 1),
+        filter 240ms ease;
       will-change: opacity, transform, filter;
     }
     .dashboard-frame.active {
@@ -1123,10 +1130,46 @@
       inset: 0;
       z-index: 1;
       background: #050607;
+      opacity: 0;
+      transition: opacity 360ms ease;
     }
     .gif-box video:not([src]),
-    .gif-box video[src=""] {
+    .gif-box video[src=""],
+    .gif-box img:not([src]),
+    .gif-box img[src=""] {
       opacity: 0;
+    }
+    .gif-box.media-ready img,
+    .gif-box.media-ready video {
+      opacity: 1;
+    }
+    .gif-box::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(circle at 24% 18%, rgba(125,232,255,0.16), transparent 30%),
+        radial-gradient(circle at 76% 78%, rgba(0,232,123,0.14), transparent 34%),
+        linear-gradient(135deg, rgba(9,13,17,0.98), rgba(3,6,7,0.98));
+      opacity: 1;
+      transition: opacity 360ms ease;
+    }
+    .gif-box.media-loading::before {
+      background:
+        linear-gradient(110deg, transparent 0 28%, rgba(255,255,255,0.08) 42%, transparent 56%),
+        radial-gradient(circle at 24% 18%, rgba(125,232,255,0.16), transparent 30%),
+        radial-gradient(circle at 76% 78%, rgba(0,232,123,0.14), transparent 34%),
+        linear-gradient(135deg, rgba(9,13,17,0.98), rgba(3,6,7,0.98));
+      background-size: 220% 100%, auto, auto, auto;
+      animation: mediaPreviewSweep 1.4s ease-in-out infinite;
+    }
+    .gif-box.media-ready::before {
+      opacity: 0;
+    }
+    @keyframes mediaPreviewSweep {
+      from { background-position: 120% 0, center, center, center; }
+      to { background-position: -80% 0, center, center, center; }
     }
     .tile-preview {
       position: absolute;
@@ -1421,12 +1464,12 @@
       <div class="mobile-gate-status"><span class="status-dot"></span>Desktop access active</div>
     </div>
   </div>
-  <iframe id="desktop-fallback" src="local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true" loading="eager"></iframe>
+  <iframe id="desktop-fallback" data-src="local-desktop.html" title="Local desktop background" tabindex="-1" aria-hidden="true" loading="eager"></iframe>
   <img id="landing-frame-cache" alt="" aria-hidden="true">
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=6" allow="autoplay" loading="eager"></iframe>
+    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=8" allow="autoplay" loading="eager" fetchpriority="high"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -1485,12 +1528,12 @@
         <div class="gif-row gif-row-primary">
           <div class="gif-box channel-hero" onclick="switchWs('spectre')">
             <div class="tile-kicker">01 / OSINT CHANNEL</div>
-            <video src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="metadata"></video>
+            <video data-src="videos/spectre.mp4" aria-label="SPECTRE" autoplay muted loop playsinline preload="none"></video>
             <div class="gif-label">SPECTRE Event Room</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('news')" aria-label="News Situation Room">
             <div class="tile-kicker">02 / SITUATION ROOM</div>
-            <video src="videos/news.mp4" aria-label="News Situation Room" autoplay muted loop playsinline preload="metadata"></video>
+            <video data-src="videos/news.mp4" aria-label="News Situation Room" autoplay muted loop playsinline preload="none"></video>
             <div class="gif-label">News Situation Room</div>
           </div>
         </div>
@@ -1506,7 +1549,7 @@
                 <div class="tile-preview-title">market pulse</div>
               </div>
             </div>
-            <video src="videos/dashboard123.mp4" aria-label="Market Pulse" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/dashboard123.mp4" aria-label="Market Pulse" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Market Pulse</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('world-monitor')" aria-label="World Monitor">
@@ -1517,7 +1560,7 @@
                 <div class="tile-preview-title">world monitor</div>
               </div>
             </div>
-            <video src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/world-monitor.mp4" aria-label="World Monitor" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">World Monitor</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('arena')" aria-label="AI Arena">
@@ -1528,7 +1571,7 @@
                 <div class="tile-preview-title">ai arena</div>
               </div>
             </div>
-            <video src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/arena.mp4" aria-label="AI Arena" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">AI Arena</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('glance')" aria-label="Glance">
@@ -1539,7 +1582,7 @@
                 <div class="tile-preview-title">glance</div>
               </div>
             </div>
-            <video src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/glance.mp4" aria-label="Glance" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Glance</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('crypto-trading')" aria-label="Crypto Trading">
@@ -1550,7 +1593,7 @@
                 <div class="tile-preview-title">crypto trading</div>
               </div>
             </div>
-            <video src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/crypto-trading.mp4" aria-label="Crypto Trading" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Crypto Trading</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('polyrec')" aria-label="Polyrec">
@@ -1561,7 +1604,7 @@
                 <div class="tile-preview-title">polyrec</div>
               </div>
             </div>
-            <video src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/polyrec.mp4" aria-label="Polyrec" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Polyrec</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('biotech')" aria-label="Biotech">
@@ -1572,7 +1615,7 @@
                 <div class="tile-preview-title">biotech</div>
               </div>
             </div>
-            <video src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/biotech.mp4" aria-label="Biotech" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Biotech</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('space')" aria-label="Deep Space">
@@ -1583,7 +1626,7 @@
                 <div class="tile-preview-title">space</div>
               </div>
             </div>
-            <video src="videos/space.mp4" aria-label="Deep Space" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/space.mp4" aria-label="Deep Space" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Deep Space</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('iran')" aria-label="Iran Signal">
@@ -1594,7 +1637,7 @@
                 <div class="tile-preview-title">iran signal</div>
               </div>
             </div>
-            <video src="videos/iran.mp4" aria-label="Iran Signal" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/iran.mp4" aria-label="Iran Signal" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Iran Signal</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('meme-coin')" aria-label="Meme Coin">
@@ -1605,7 +1648,7 @@
                 <div class="tile-preview-title">meme coin</div>
               </div>
             </div>
-            <video src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Meme Coin</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('quantum')" aria-label="Quantum States">
@@ -1616,7 +1659,7 @@
                 <div class="tile-preview-title">quantum</div>
               </div>
             </div>
-            <video src="videos/quantum.mp4" aria-label="Quantum States" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/quantum.mp4" aria-label="Quantum States" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Quantum States</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('deep-sea')" aria-label="Abyssal Monitor">
@@ -1627,7 +1670,7 @@
                 <div class="tile-preview-title">deep sea</div>
               </div>
             </div>
-            <video src="videos/deep-sea.mp4" aria-label="Abyssal Monitor" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/deep-sea.mp4" aria-label="Abyssal Monitor" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Abyssal Monitor</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('power-grid')" aria-label="Power Grid">
@@ -1638,7 +1681,7 @@
                 <div class="tile-preview-title">power grid</div>
               </div>
             </div>
-            <video src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/power-grid.mp4" aria-label="Power Grid" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Power Grid</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('viral')" aria-label="Viral Spread">
@@ -1649,7 +1692,7 @@
                 <div class="tile-preview-title">viral</div>
               </div>
             </div>
-            <video src="videos/viral.mp4" aria-label="Viral Spread" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/viral.mp4" aria-label="Viral Spread" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Viral Spread</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('dark-forest')" aria-label="Dark Forest">
@@ -1660,7 +1703,7 @@
                 <div class="tile-preview-title">dark forest</div>
               </div>
             </div>
-            <video src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="metadata" onerror="this.removeAttribute('src'); this.load();"></video>
+            <video data-src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Dark Forest</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Dune Fundraise Deck">
@@ -1671,7 +1714,7 @@
                 <div class="tile-preview-title">dune deck</div>
               </div>
             </div>
-            <img src="decks/dune/assets/visuals/00-dashboard-header.jpg" alt="" onerror="this.onerror=null; this.src='decks/dune/assets/visuals/01-live-software-channel.jpg';">
+            <img data-src="decks/dune/assets/visuals/00-dashboard-header.jpg" data-fallback-src="decks/dune/assets/visuals/01-live-software-channel.jpg" alt="">
             <div class="gif-label">Dune Fundraise Deck</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('rosadelmar-deck')" aria-label="Rosadelmar Deck">
@@ -1682,7 +1725,7 @@
                 <div class="tile-preview-title">alpha search</div>
               </div>
             </div>
-            <img src="decks/rosadelmar/assets/pages/pitch-1.jpg" alt="">
+            <img data-src="decks/rosadelmar/assets/pages/pitch-1.jpg" alt="">
             <div class="gif-label">Rosadelmar Deck</div>
           </div>
         </div>
@@ -1808,6 +1851,20 @@
         script.onerror = reject;
         document.head.appendChild(script);
       });
+    }
+
+    function afterNextPaint(fn, delay = 0) {
+      requestAnimationFrame(() => {
+        setTimeout(fn, delay);
+      });
+    }
+
+    function whenIdle(fn, timeout = 1200) {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(fn, { timeout });
+        return;
+      }
+      setTimeout(fn, Math.min(timeout, 600));
     }
 
     let animeApi = window.anime || {};
@@ -2055,6 +2112,7 @@
       main.classList.remove('hidden');
       main.style.opacity = '';
       main.style.transform = '';
+      loadChannelPreviewMedia({ immediate });
 
       if (immediate) {
         main.style.opacity = '1';
@@ -2199,7 +2257,7 @@
         });
     }
 
-    requestAnimationFrame(loadMotionRuntime);
+    afterNextPaint(() => whenIdle(loadMotionRuntime, 1400), 240);
 
     const pageParams = new URLSearchParams(window.location.search);
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
@@ -2207,6 +2265,109 @@
       if (!path || !path.startsWith('/')) return path;
       return `${APP_BASE_PATH}${path}`;
     }
+
+    let channelPreviewMediaStarted = false;
+    let channelPreviewMediaObserver = null;
+    const channelPreviewHydrated = new WeakSet();
+
+    function previewTileForMedia(el) {
+      return el.closest?.('.gif-box') || null;
+    }
+
+    function markPreviewMediaReady(el) {
+      const tile = previewTileForMedia(el);
+      if (!tile) return;
+      tile.classList.add('media-ready');
+      tile.classList.remove('media-loading', 'media-error');
+    }
+
+    function markPreviewMediaError(el) {
+      const tile = previewTileForMedia(el);
+      if (!tile) return;
+      tile.classList.add('media-error');
+      tile.classList.remove('media-loading');
+    }
+
+    function hydratePreviewMediaElement(el, options = {}) {
+      const src = el.dataset?.src;
+      if (!src || channelPreviewHydrated.has(el)) return;
+      channelPreviewHydrated.add(el);
+      const tile = previewTileForMedia(el);
+      tile?.classList.add('media-loading');
+      if (options.priority) el.setAttribute('fetchpriority', 'high');
+      if (el.tagName === 'IMG') {
+        const fallback = el.dataset.fallbackSrc || '';
+        const ready = () => {
+          if (typeof el.decode === 'function') {
+            el.decode().catch(() => {}).finally(() => markPreviewMediaReady(el));
+            return;
+          }
+          markPreviewMediaReady(el);
+        };
+        el.addEventListener('load', ready, { once: true });
+        el.addEventListener('error', () => markPreviewMediaError(el), { once: true });
+        if (fallback) {
+          el.onerror = () => {
+            el.onerror = null;
+            el.src = fallback;
+          };
+        }
+        el.src = src;
+        if (el.complete && el.naturalWidth) ready();
+        return;
+      }
+      if (el.tagName === 'VIDEO') {
+        const ready = () => markPreviewMediaReady(el);
+        const checkReady = () => {
+          if (el.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) ready();
+        };
+        el.addEventListener('loadeddata', ready, { once: true });
+        el.addEventListener('canplay', ready, { once: true });
+        el.addEventListener('error', () => markPreviewMediaError(el), { once: true });
+        el.preload = options.priority ? 'auto' : 'metadata';
+        el.src = src;
+        el.load();
+        if (el.autoplay) requestAnimationFrame(() => el.play().catch(() => {}));
+        setTimeout(checkReady, options.priority ? 700 : 1400);
+      }
+    }
+
+    function warmChannelPreviewMedia() {
+      const media = Array.from(document.querySelectorAll('#main-overlay video[data-src], #main-overlay img[data-src]'));
+      media.slice(0, 4).forEach((el, index) => {
+        setTimeout(() => hydratePreviewMediaElement(el, { priority: index < 2 }), index * 90);
+      });
+    }
+
+    function loadChannelPreviewMedia(options = {}) {
+      if (channelPreviewMediaStarted) return;
+      channelPreviewMediaStarted = true;
+      const media = Array.from(document.querySelectorAll('#main-overlay video[data-src], #main-overlay img[data-src]'));
+      const visibleFirst = options.immediate ? 8 : 6;
+      media.slice(0, visibleFirst).forEach((el, index) => {
+        setTimeout(() => hydratePreviewMediaElement(el, { priority: index < 2 }), index * 45);
+      });
+
+      const rest = media.slice(visibleFirst);
+      if ('IntersectionObserver' in window) {
+        const root = document.getElementById('main-overlay');
+        channelPreviewMediaObserver = new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            channelPreviewMediaObserver.unobserve(entry.target);
+            hydratePreviewMediaElement(entry.target);
+          });
+        }, { root, rootMargin: '320px 0px', threshold: 0.01 });
+        rest.forEach(el => channelPreviewMediaObserver.observe(el));
+        return;
+      }
+
+      rest.forEach((el, index) => {
+        setTimeout(() => hydratePreviewMediaElement(el), visibleFirst * 35 + index * 120);
+      });
+    }
+
+    afterNextPaint(() => whenIdle(warmChannelPreviewMedia, 900), 360);
 
     if (pageParams.get('tools') === '1') document.body.classList.add('debug-tools');
 
@@ -2220,11 +2381,15 @@
         el.style.opacity = '1';
         el.style.transform = 'none';
       });
+      afterNextPaint(() => loadChannelPreviewMedia({ immediate: true }), 120);
     }
 
-    // Reset stream to landing state on every desktop page load.
-    if (!isMobileGated()) fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
+    // Reset stream to landing state after the first frame has had a chance to paint.
+    afterNextPaint(() => {
+      if (!isMobileGated()) fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
+    });
 
+    const desktopFallback = document.getElementById('desktop-fallback');
     const v   = document.getElementById('v');
     const st  = document.getElementById('status-text');
     const src = appUrl('/stream.m3u8');
@@ -2261,6 +2426,19 @@
       w: 33.333,
       h: 100,
     };
+
+    function loadDeferredFrame(frame) {
+      const frameSrc = frame?.dataset?.src;
+      if (!frameSrc || frame.getAttribute('src')) return;
+      frame.src = frameSrc;
+    }
+
+    function loadDesktopFallbackFrame() {
+      if (isMobileGated()) return;
+      loadDeferredFrame(desktopFallback);
+    }
+
+    afterNextPaint(() => whenIdle(loadDesktopFallbackFrame, 1600), 180);
     const AVATAR_STORAGE_KEY = 'katechon.browserAvatarPlacement.v3';
     const AVATAR_DESKTOP_MIN_WIDTH = 620;
     const AVATAR_DESKTOP_MAX_WIDTH = 860;
@@ -2445,14 +2623,32 @@
     let landingCaptureTimer = null;
     let landingSwitchRunId = 0;
     let currentDashboardId = null;
-    let dashboardScrollLocked = false;
-    let dashboardScrollReleaseTimer = null;
     let dashboardWheelDelta = 0;
     let dashboardFrameAnimationTimer = null;
-    const DASHBOARD_TUNNEL_DURATION = 500;
-    const DASHBOARD_TUNNEL_LOAD_TIMEOUT = 320;
-    const DASHBOARD_TUNNEL_SETTLE_DELAY = 90;
-    const DASHBOARD_TUNNEL_SCROLL_LOCK = DASHBOARD_TUNNEL_DURATION + DASHBOARD_TUNNEL_SETTLE_DELAY;
+    let dashboardTunnelAnimation = null;
+    let dashboardPendingStepCount = 0;
+    let dashboardNavPumpTimer = null;
+    let dashboardLastNavAt = 0;
+    let dashboardInputBurstTimer = null;
+    let dashboardKeyHoldTimer = null;
+    let dashboardHeldKey = '';
+    let dashboardHeldDirection = 0;
+    let dashboardRemoteSwitchTimer = null;
+    let dashboardNarrationStartTimer = null;
+    let dashboardPrefetchTimer = null;
+    const prefetchedDashboardUrls = new Set();
+    const DASHBOARD_TUNNEL_DURATION = 240;
+    const DASHBOARD_TUNNEL_LOAD_TIMEOUT = 60;
+    const DASHBOARD_TUNNEL_SETTLE_DELAY = 28;
+    const DASHBOARD_NAV_STEP_MS = 82;
+    const DASHBOARD_KEY_HOLD_START_MS = 180;
+    const DASHBOARD_NAV_MAX_PENDING_STEPS = 10;
+    const DASHBOARD_WHEEL_STEP_DELTA = 96;
+    const DASHBOARD_INPUT_BURST_MS = 220;
+    const DASHBOARD_REMOTE_SWITCH_DEBOUNCE = 150;
+    const DASHBOARD_NARRATION_DEBOUNCE = 360;
+    const DASHBOARD_PREFETCH_DELAY = 260;
+    const DASHBOARD_PREFETCH_RADIUS = 2;
     const dashboardTunnelLayers = {
       grid: dashboardFrameStage.querySelector('.tunnel-grid'),
       aperture: dashboardFrameStage.querySelector('.tunnel-aperture'),
@@ -2511,13 +2707,14 @@
         });
     }
 
-    requestAnimationFrame(loadStreamRuntime);
+    afterNextPaint(() => whenIdle(loadStreamRuntime, 1800), 560);
 
     function handleMobileGateChange() {
       syncMobileGate();
       if (!isMobileGated()) {
-        requestAnimationFrame(loadMotionRuntime);
-        requestAnimationFrame(loadStreamRuntime);
+        afterNextPaint(() => whenIdle(loadDesktopFallbackFrame, 1600), 180);
+        afterNextPaint(() => whenIdle(loadMotionRuntime, 1400), 240);
+        afterNextPaint(() => whenIdle(loadStreamRuntime, 1800), 560);
       }
     }
 
@@ -2897,6 +3094,8 @@
     }
 
     function stopDashboardNarration() {
+      if (dashboardNarrationStartTimer) clearTimeout(dashboardNarrationStartTimer);
+      dashboardNarrationStartTimer = null;
       narration.active = false;
       narration.dashboard = null;
       narration.runId++;
@@ -2964,13 +3163,45 @@
       return `translate3d(0, 0, 220px) scale(1.16) rotateY(${tilt}deg)`;
     }
 
-    function scheduleDashboardScrollUnlock(delay = DASHBOARD_TUNNEL_SCROLL_LOCK) {
-      if (!dashboardScrollLocked) return;
-      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
-      dashboardScrollReleaseTimer = setTimeout(() => {
-        dashboardScrollLocked = false;
-        dashboardScrollReleaseTimer = null;
-      }, delay);
+    function stopDashboardTunnelAnimation() {
+      const animation = dashboardTunnelAnimation;
+      dashboardTunnelAnimation = null;
+      if (!animation) return;
+      try {
+        if (typeof animation.pause === 'function') animation.pause();
+        else if (typeof animation.cancel === 'function') animation.cancel();
+      } catch (_) {}
+    }
+
+    function markDashboardInputBurst() {
+      if (dashboardInputBurstTimer) clearTimeout(dashboardInputBurstTimer);
+      dashboardInputBurstTimer = setTimeout(() => {
+        dashboardInputBurstTimer = null;
+      }, DASHBOARD_INPUT_BURST_MS);
+    }
+
+    function stopDashboardKeyHold(key = '') {
+      if (key && dashboardHeldKey && key !== dashboardHeldKey) return;
+      if (dashboardKeyHoldTimer) clearInterval(dashboardKeyHoldTimer);
+      dashboardKeyHoldTimer = null;
+      dashboardHeldKey = '';
+      dashboardHeldDirection = 0;
+    }
+
+    function clearDashboardNavigationTimers() {
+      if (dashboardNavPumpTimer) clearTimeout(dashboardNavPumpTimer);
+      dashboardNavPumpTimer = null;
+      dashboardPendingStepCount = 0;
+      dashboardWheelDelta = 0;
+      stopDashboardKeyHold();
+      if (dashboardInputBurstTimer) clearTimeout(dashboardInputBurstTimer);
+      dashboardInputBurstTimer = null;
+      if (dashboardRemoteSwitchTimer) clearTimeout(dashboardRemoteSwitchTimer);
+      dashboardRemoteSwitchTimer = null;
+      if (dashboardNarrationStartTimer) clearTimeout(dashboardNarrationStartTimer);
+      dashboardNarrationStartTimer = null;
+      if (dashboardPrefetchTimer) clearTimeout(dashboardPrefetchTimer);
+      dashboardPrefetchTimer = null;
     }
 
     function prepareDashboardTunnelFrames(nextFrame, previousFrame, direction) {
@@ -2991,9 +3222,21 @@
         : 'brightness(0.58) blur(0.7px) saturate(0.94)';
     }
 
+    function normalizeActiveDashboardFrame(frame) {
+      if (!frame) return;
+      frame.className = 'dashboard-frame active';
+      frame.style.opacity = '1';
+      frame.style.transform = 'translate3d(0, 0, 0) scale(1) rotateY(0deg)';
+      frame.style.filter = 'none';
+      frame.style.transition = '';
+      frame.style.zIndex = '';
+      frame.style.pointerEvents = '';
+    }
+
     function finishDashboardFrameReveal(token, nextFrame, previousFrame) {
       if (token !== dashboardFrameLoadToken) return;
       dashboardFrameAnimationTimer = null;
+      dashboardTunnelAnimation = null;
       clearDashboardTunnelStage();
 
       nextFrame.className = 'dashboard-frame active';
@@ -3034,8 +3277,10 @@
       try {
         const exitTilt = direction >= 0 ? -1.4 : 1.4;
         const enterTilt = direction >= 0 ? 1.8 : -1.8;
+        stopDashboardTunnelAnimation();
         disableDashboardTunnelTransitions();
         const tunnel = animeApi.createTimeline({ defaults: { ease: 'out(3)' } });
+        dashboardTunnelAnimation = tunnel;
         tunnel
           .add(previousFrame, {
             opacity: [1, 0],
@@ -3043,7 +3288,7 @@
             z: [0, 220],
             rotateY: [0, exitTilt],
             filter: ['brightness(1) blur(0px)', 'brightness(0.62) blur(1.1px)'],
-            duration: 460,
+            duration: Math.max(180, DASHBOARD_TUNNEL_DURATION - 20),
           }, 0)
           .add(nextFrame, {
             opacity: [0.16, 1],
@@ -3061,13 +3306,13 @@
         addTunnelStep(tunnel, dashboardTunnelLayers.aperture, {
           opacity: [0, 0.88, 0],
           scale: [0.64, 1.24, 1.52],
-          duration: 430,
+          duration: Math.max(180, DASHBOARD_TUNNEL_DURATION - 30),
         }, 20);
         addTunnelStep(tunnel, dashboardTunnelLayers.streaks, {
           opacity: [0, 0.54, 0],
           x: direction >= 0 ? [-56, 70] : [56, -70],
           scaleX: [0.62, 1.28],
-          duration: 330,
+          duration: Math.max(150, DASHBOARD_TUNNEL_DURATION - 70),
         }, 70);
         addTunnelStep(tunnel, dashboardTunnelLayers.vignette, {
           opacity: [0.42, 0.66, 0.42],
@@ -3076,6 +3321,7 @@
         return true;
       } catch (err) {
         console.warn('dashboard tunnel animation unavailable:', err);
+        dashboardTunnelAnimation = null;
         restoreDashboardTunnelTransitions();
         refreshMotionRuntime();
         return false;
@@ -3108,9 +3354,8 @@
       dashboardFrameRevealTimer = null;
       if (dashboardFrameAnimationTimer) clearTimeout(dashboardFrameAnimationTimer);
       dashboardFrameAnimationTimer = null;
-      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
-      dashboardScrollReleaseTimer = null;
-      dashboardScrollLocked = false;
+      stopDashboardTunnelAnimation();
+      clearDashboardNavigationTimers();
       clearDashboardTunnelStage();
       currentDashboardUrl = '';
       activeDashboardFrameIndex = 0;
@@ -3118,7 +3363,7 @@
       dashboardFrames[0].classList.add('active');
     }
 
-    function revealDashboardFrame(token, nextFrame, previousFrame, direction) {
+    function revealDashboardFrame(token, nextFrame, previousFrame, direction, options = {}) {
       if (token !== dashboardFrameLoadToken) return;
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
@@ -3128,7 +3373,6 @@
       prepareDashboardTunnelFrames(nextFrame, previousFrame, direction);
       activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
       currentDashboardUrl = nextFrame.getAttribute('src') || '';
-      scheduleDashboardScrollUnlock();
 
       if (reduceMotion) {
         nextFrame.style.opacity = '1';
@@ -3137,13 +3381,11 @@
         return;
       }
 
-      if (!runDashboardTunnelTimeline(nextFrame, previousFrame, direction)) {
-        runDashboardTunnelCssFallback(token, nextFrame, previousFrame, direction);
-      }
+      runDashboardTunnelCssFallback(token, nextFrame, previousFrame, direction);
       scheduleDashboardRevealFinish(token, nextFrame, previousFrame, DASHBOARD_TUNNEL_DURATION + DASHBOARD_TUNNEL_SETTLE_DELAY);
     }
 
-    function loadDashboardFrame(url, direction = 1) {
+    function loadDashboardFrame(url, direction = 1, options = {}) {
       if (currentDashboardUrl === url || activeDashboardFrame().getAttribute('src') === url) {
         currentDashboardUrl = url;
         activeDashboardFrame().classList.add('active');
@@ -3162,8 +3404,10 @@
       dashboardFrameRevealTimer = null;
       if (dashboardFrameAnimationTimer) clearTimeout(dashboardFrameAnimationTimer);
       dashboardFrameAnimationTimer = null;
+      stopDashboardTunnelAnimation();
       restoreDashboardTunnelTransitions();
       clearDashboardTunnelStage();
+      normalizeActiveDashboardFrame(previousFrame);
 
       nextFrame.className = 'dashboard-frame incoming';
       nextFrame.title = previousFrame.title || 'Live dashboard';
@@ -3178,7 +3422,7 @@
       const finish = () => {
         if (revealed || token !== dashboardFrameLoadToken) return;
         revealed = true;
-        revealDashboardFrame(token, nextFrame, previousFrame, direction);
+        revealDashboardFrame(token, nextFrame, previousFrame, direction, options);
       };
 
       nextFrame.addEventListener('load', finish, { once: true });
@@ -3201,6 +3445,51 @@
         : `-- / ${ids.length}`;
     }
 
+    function postRemoteWorkspaceSwitch(workspace) {
+      return fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(err => {
+        console.warn('remote workspace switch failed:', err);
+      });
+    }
+
+    function scheduleRemoteWorkspaceSwitch(workspace, debounce = false) {
+      if (dashboardRemoteSwitchTimer) clearTimeout(dashboardRemoteSwitchTimer);
+      dashboardRemoteSwitchTimer = null;
+      if (!debounce) return postRemoteWorkspaceSwitch(workspace);
+      dashboardRemoteSwitchTimer = setTimeout(() => {
+        dashboardRemoteSwitchTimer = null;
+        if (currentDashboardId === workspace) postRemoteWorkspaceSwitch(workspace);
+      }, DASHBOARD_REMOTE_SWITCH_DEBOUNCE);
+      return Promise.resolve();
+    }
+
+    function prefetchDashboardUrl(url) {
+      if (!url || prefetchedDashboardUrls.has(url)) return;
+      prefetchedDashboardUrls.add(url);
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'document';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+
+    function scheduleDashboardNeighborPrefetch(dashboardId) {
+      if (dashboardPrefetchTimer) clearTimeout(dashboardPrefetchTimer);
+      dashboardPrefetchTimer = setTimeout(() => {
+        dashboardPrefetchTimer = null;
+        if (currentDashboardId !== dashboardId) return;
+        const ids = channelIds();
+        const index = ids.indexOf(dashboardId);
+        if (index < 0 || ids.length < 2) return;
+        for (let offset = 1; offset <= DASHBOARD_PREFETCH_RADIUS; offset++) {
+          [index + offset, index - offset].forEach(candidateIndex => {
+            const id = ids[(candidateIndex + ids.length) % ids.length];
+            const dashboard = DASHBOARDS[id];
+            if (dashboard) prefetchDashboardUrl(dashboard.url());
+          });
+        }
+      }, DASHBOARD_PREFETCH_DELAY);
+    }
+
     function syncFullscreenButton() {
       const fullscreen = document.body.classList.contains('dashboard-fullscreen');
       fullscreenButton.classList.toggle('is-fullscreen', fullscreen);
@@ -3220,17 +3509,68 @@
       }
     }
 
+    function normalizeDashboardDirection(direction) {
+      return direction >= 0 ? 1 : -1;
+    }
+
+    function clampDashboardPendingSteps(value) {
+      return Math.max(-DASHBOARD_NAV_MAX_PENDING_STEPS, Math.min(DASHBOARD_NAV_MAX_PENDING_STEPS, value));
+    }
+
+    function pumpDashboardNavigation() {
+      if (dashboardNavPumpTimer || !dashboardPendingStepCount) return;
+      const elapsed = performance.now() - dashboardLastNavAt;
+      const delay = Math.max(0, DASHBOARD_NAV_STEP_MS - elapsed);
+      dashboardNavPumpTimer = setTimeout(() => {
+        dashboardNavPumpTimer = null;
+        if (dashboardOverlay.classList.contains('hidden')) {
+          dashboardPendingStepCount = 0;
+          return;
+        }
+        const direction = dashboardPendingStepCount > 0 ? 1 : -1;
+        dashboardPendingStepCount -= direction;
+        dashboardLastNavAt = performance.now();
+        scrollDashboard(direction);
+        if (dashboardPendingStepCount) pumpDashboardNavigation();
+      }, delay);
+    }
+
+    function enqueueDashboardSteps(direction, count = 1) {
+      if (dashboardOverlay.classList.contains('hidden')) return false;
+      const normalizedDirection = normalizeDashboardDirection(direction);
+      const stepCount = Math.max(1, Math.min(DASHBOARD_NAV_MAX_PENDING_STEPS, Math.floor(Math.abs(count))));
+      dashboardPendingStepCount = clampDashboardPendingSteps(dashboardPendingStepCount + normalizedDirection * stepCount);
+      markDashboardInputBurst();
+      pumpDashboardNavigation();
+      return true;
+    }
+
+    function startDashboardKeyHold(key, direction) {
+      const normalizedDirection = normalizeDashboardDirection(direction);
+      if (dashboardHeldKey === key && dashboardHeldDirection === normalizedDirection) return;
+      stopDashboardKeyHold();
+      dashboardHeldKey = key;
+      dashboardHeldDirection = normalizedDirection;
+      enqueueDashboardSteps(normalizedDirection);
+      dashboardKeyHoldTimer = setTimeout(() => {
+        if (!dashboardHeldDirection) return;
+        enqueueDashboardSteps(dashboardHeldDirection);
+        dashboardKeyHoldTimer = setInterval(() => {
+          enqueueDashboardSteps(dashboardHeldDirection);
+        }, DASHBOARD_NAV_STEP_MS);
+      }, DASHBOARD_KEY_HOLD_START_MS);
+    }
+
     function scrollDashboard(direction) {
-      if (dashboardOverlay.classList.contains('hidden') || dashboardScrollLocked) return false;
+      if (dashboardOverlay.classList.contains('hidden')) return false;
+      const normalizedDirection = normalizeDashboardDirection(direction);
       const ids = channelIds();
       if (!ids.length) return false;
       const index = ids.indexOf(currentDashboardId);
       if (index < 0) return false;
-      const nextIndex = (index + direction + ids.length) % ids.length;
+      const nextIndex = (index + normalizedDirection + ids.length) % ids.length;
       if (nextIndex === index) return false;
-      dashboardScrollLocked = true;
-      openDashboard(ids[nextIndex], { direction });
-      scheduleDashboardScrollUnlock(DASHBOARD_TUNNEL_LOAD_TIMEOUT + DASHBOARD_TUNNEL_SCROLL_LOCK);
+      openDashboard(ids[nextIndex], { direction: normalizedDirection, rapid: true });
       return true;
     }
 
@@ -3259,6 +3599,18 @@
       narration.dashboard = dashboardId;
       narration.runId++;
       runDashboardNarration(dashboardId, narration.runId);
+    }
+
+    function scheduleDashboardNarrationStart(dashboardId, delay = 0) {
+      stopDashboardNarration();
+      if (delay <= 0) {
+        startDashboardNarration(dashboardId);
+        return;
+      }
+      dashboardNarrationStartTimer = setTimeout(() => {
+        dashboardNarrationStartTimer = null;
+        if (currentDashboardId === dashboardId) startDashboardNarration(dashboardId);
+      }, delay);
     }
 
     const DECK_NARRATION_FILES = {
@@ -3325,9 +3677,8 @@
       clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url();
-      fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(err => {
-        console.warn('remote workspace switch failed:', err);
-      });
+      const rapidNavigation = options.rapid === true;
+      scheduleRemoteWorkspaceSwitch(workspace, rapidNavigation);
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
       dashboardFrames.forEach(frame => {
         frame.title = dashboard.label;
@@ -3337,9 +3688,10 @@
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
       if (dashboard.deckNarration) preloadDeckNarration(workspace);
-      loadDashboardFrame(url, options.direction ?? 1);
-      startDashboardNarration(workspace);
-      showToast(`→ ${dashboard.label}`, '#00e87b');
+      loadDashboardFrame(url, options.direction ?? 1, { rapid: rapidNavigation });
+      scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0);
+      scheduleDashboardNeighborPrefetch(workspace);
+      if (!rapidNavigation || !dashboardPendingStepCount) showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
     }
 
@@ -3437,14 +3789,23 @@
     window.addEventListener('wheel', (event) => {
       if (dashboardOverlay.classList.contains('hidden') || event.ctrlKey) return;
       event.preventDefault();
-      dashboardWheelDelta += event.deltaY;
-      if (Math.abs(dashboardWheelDelta) < 24) return;
-      scrollDashboard(dashboardWheelDelta > 0 ? 1 : -1);
-      dashboardWheelDelta = 0;
+      const deltaScale = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+        ? 16
+        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+          ? window.innerHeight
+          : 1;
+      const delta = event.deltaY * deltaScale;
+      if (!delta) return;
+      if (dashboardWheelDelta && Math.sign(dashboardWheelDelta) !== Math.sign(delta)) dashboardWheelDelta = 0;
+      dashboardWheelDelta += delta;
+      const steps = Math.min(1, Math.floor(Math.abs(dashboardWheelDelta) / DASHBOARD_WHEEL_STEP_DELTA));
+      if (!steps) return;
+      const direction = dashboardWheelDelta > 0 ? 1 : -1;
+      dashboardWheelDelta -= direction * steps * DASHBOARD_WHEEL_STEP_DELTA;
+      enqueueDashboardSteps(direction, steps);
     }, { passive: false });
 
-    window.addEventListener('keydown', (event) => {
-      if (dashboardOverlay.classList.contains('hidden')) return;
+    function dashboardDirectionForKey(event) {
       const keys = {
         ArrowDown: 1,
         PageDown: 1,
@@ -3452,9 +3813,23 @@
         ArrowUp: -1,
         PageUp: -1,
       };
-      if (!(event.code in keys) && !(event.key in keys)) return;
+      return keys[event.code] ?? keys[event.key] ?? 0;
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (dashboardOverlay.classList.contains('hidden')) return;
+      const direction = dashboardDirectionForKey(event);
+      if (!direction) return;
       event.preventDefault();
-      scrollDashboard(keys[event.code] ?? keys[event.key]);
+      startDashboardKeyHold(event.code || event.key, direction);
+    });
+
+    window.addEventListener('keyup', (event) => {
+      stopDashboardKeyHold(event.code || event.key);
+    });
+
+    window.addEventListener('blur', () => {
+      stopDashboardKeyHold();
     });
 
     // ── VOICE / PUSH-TO-TALK ──────────────────────────────────────────────────
@@ -3474,10 +3849,7 @@
       dashboardOverlay.classList.add('hidden');
       currentDashboardId = null;
       updateDashboardPosition();
-      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
-      dashboardScrollReleaseTimer = null;
-      dashboardScrollLocked = false;
-      dashboardWheelDelta = 0;
+      clearDashboardNavigationTimers();
       hideKatNarrator();
       maskStaleDesktopFrame();
       const req = fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});

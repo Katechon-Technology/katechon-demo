@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <title>Avatar Pet</title>
+<link rel="preload" href="libs/live2dcubismcore.min.js" as="script">
+<link rel="preload" href="libs/live2d.min.js" as="script">
+<link rel="preload" href="libs/pixi.min.js" as="script">
+<link rel="preload" href="libs/pixi-live2d-display.min.js" as="script">
+<link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.fast.model3.json" as="fetch" type="application/json" crossorigin>
+<link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.moc3" as="fetch" crossorigin>
+<link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.2048/texture_00.png" as="image" type="image/png" fetchpriority="high">
 <style>
   * { margin: 0; padding: 0; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
@@ -21,7 +28,15 @@ if (typeof PIXI === 'undefined' || !PIXI.live2d || !PIXI.live2d.Live2DModel) {
 } else {
 
 const MODELS = [
-  { name: 'Zhongxing',  url: 'live2d-models/zhongxingshekongdlc/zhongxingshekong.model3.json', scale: 0.755, yFactor: 1.35, lipParam: 'ParamMouthOpenY' },
+  {
+    name: 'Zhongxing',
+    url: 'live2d-models/zhongxingshekongdlc/zhongxingshekong.fast.model3.json',
+    fallbackUrl: 'live2d-models/zhongxingshekongdlc/zhongxingshekong.model3.json',
+    fallbackAfterMs: 2400,
+    scale: 0.755,
+    yFactor: 1.35,
+    lipParam: 'ParamMouthOpenY',
+  },
 ];
 
 const _params = new URLSearchParams(window.location.search);
@@ -196,7 +211,31 @@ window.addEventListener('message', (e) => {
 });
 
 async function loadModel(cfg, index, mySeq) {
-  const model = await PIXI.live2d.Live2DModel.from(cfg.url, { autoInteract: false, autoUpdate: true });
+  let model;
+  const loadOptions = { autoInteract: false, autoUpdate: true };
+  try {
+    const fastModel = PIXI.live2d.Live2DModel.from(cfg.url, loadOptions);
+    if (cfg.fallbackUrl && cfg.fallbackAfterMs) {
+      let useFastModel = false;
+      const fastWinner = fastModel.then(nextModel => {
+        useFastModel = true;
+        return nextModel;
+      });
+      fastModel.then(lateModel => {
+        if (!useFastModel && lateModel !== model) lateModel.destroy();
+      }).catch(() => {});
+      model = await Promise.race([
+        fastWinner,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('optimized model timed out')), cfg.fallbackAfterMs)),
+      ]);
+    } else {
+      model = await fastModel;
+    }
+  } catch (err) {
+    if (!cfg.fallbackUrl) throw err;
+    console.warn('[avatar] optimized model failed, loading fallback:', err);
+    model = await PIXI.live2d.Live2DModel.from(cfg.fallbackUrl, loadOptions);
+  }
   if (mySeq !== loadSeq) {
     model.destroy();
     return;
