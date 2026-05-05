@@ -44,7 +44,9 @@ const VOICE_SOURCE = process.env.KAT_VOICE_SOURCE || "pitch";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOURCE] || VOICES.pitch;
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 const ELEVENLABS_TIMEOUT_MS = Number(process.env.ELEVENLABS_TIMEOUT_MS || 8000);
-const KATECHON_TTS_PRONUNCIATION = process.env.KATECHON_TTS_PRONUNCIATION || "Kat-eh-kon";
+const KATECHON_TTS_PRONUNCIATION =
+  process.env.KATECHON_TTS_PRONUNCIATION ||
+  '<phoneme alphabet="ipa" ph="ˈkætəkɒn">Katechon</phoneme>';
 const WELCOME_MESSAGE =
   process.env.KATECHON_WELCOME_MESSAGE ||
   "Welcome to Katechon Technology. This is a live software channel for narrated dashboards: intelligence rooms, market surfaces, research tools, and interactive agents you can watch, browse, and command in real time.";
@@ -1660,6 +1662,12 @@ function speechTextForTts(text) {
   return String(text || "").replace(/\bKatechon\b/g, KATECHON_TTS_PRONUNCIATION);
 }
 
+const ELEVENLABS_VOICE_SETTINGS = {
+  stability: 0.42,
+  similarity_boost: 0.26,
+  speed: 1.2,
+};
+
 async function synthesizeSpeech(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
@@ -1678,12 +1686,7 @@ async function synthesizeSpeech(text) {
       text: ttsText,
       model_id: ELEVENLABS_MODEL_ID,
       output_format: "mp3_44100_128",
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
-        style: 0.0,
-        use_speaker_boost: true,
-      },
+      voice_settings: ELEVENLABS_VOICE_SETTINGS,
     }),
     timeout: ELEVENLABS_TIMEOUT_MS,
   });

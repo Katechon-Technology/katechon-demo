@@ -8,6 +8,7 @@ MANIFEST="${DUNE_DECK_MANIFEST:-$ROOT/deck.json}"
 MODEL_ID="${ELEVENLABS_MODEL_ID:-eleven_turbo_v2}"
 # Default to the standard Katechon pitch voice used by this demo.
 VOICE_ID="${ELEVENLABS_VOICE_ID:-jqcCZkN6Knx8BJ5TBdYR}"
+KATECHON_PHONEME='<phoneme alphabet="ipa" ph="ˈkætəkɒn">Katechon</phoneme>'
 API_KEY="${ELEVENLABS_API_KEY:-}"
 SELECTORS=()
 
@@ -93,15 +94,15 @@ while IFS=$'\t' read -r SLUG AUDIO TEXT; do
     -d "$(jq -n \
       --arg text "$TEXT" \
       --arg model "$MODEL_ID" \
+      --arg katechon "$KATECHON_PHONEME" \
       '{
-        text: $text,
+        text: ($text | gsub("\\bKatechon\\b"; $katechon)),
         model_id: $model,
         output_format: "mp3_44100_128",
         voice_settings: {
-          stability: 0.48,
-          similarity_boost: 0.78,
-          style: 0.08,
-          use_speaker_boost: true
+          stability: 0.42,
+          similarity_boost: 0.26,
+          speed: 1.2
         }
       }')" \
     --output "$TMP_FILE" \

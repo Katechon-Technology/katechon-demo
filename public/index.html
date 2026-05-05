@@ -3193,7 +3193,7 @@
     }
 
     function speechTextForVoice(text) {
-      return String(text || '').replace(/\bKatechon\b/g, 'Kat-eh-kon');
+      return String(text || '').replace(/\bKatechon\b/g, 'KAT-uh-kon');
     }
 
     function speakWithBrowserVoice(text) {
@@ -3204,7 +3204,7 @@
       return new Promise(resolve => {
         const spokenText = speechTextForVoice(text);
         const utterance = new SpeechSynthesisUtterance(spokenText);
-        utterance.rate = 0.96;
+        utterance.rate = 1.2;
         utterance.pitch = 1.04;
         utterance.volume = 0.9;
         fallbackSpeechUtterance = utterance;

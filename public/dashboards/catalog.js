@@ -664,7 +664,7 @@
       path: "/dashboards/dune-deck/?embed=dashboard",
       narration: false,
       deckNarration: true,
-      deckNarrationFiles: ["dune-01", "dune-02", "dune-03", "dune-04-discovery"],
+      deckNarrationFiles: ["dune-01-v2", "dune-02-v2", "dune-03-v2", "dune-04-discovery-v2"],
       tile: {
         group: "dashboard",
         kicker: "18 / KATECHON TECHNOLOGY",
