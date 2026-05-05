@@ -115,7 +115,7 @@ This will:
 1. Upload `entrypoint-hls.sh` to the remote host
 2. Restart the `katechon-desktop` Docker container
 3. Wait for the HLS stream to be ready (~15s)
-4. Open SSH tunnels on ports 9091–9095
+4. Open the avatar, Minecraft, and HLS SSH tunnels. The SPECTRE tunnel stays off by default so the local HTML fallback is used.
 5. Start the local Express server on `http://localhost:4040`
 
 ### 5. Open the demo
@@ -161,22 +161,22 @@ YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, wh
 
 ### Vercel `/app` Deployment
 
-This repo can build a static Vercel frontend for `/app/`:
+This repo owns the deployable `/app/` frontend. Build it locally before previewing or deploying:
 
 ```bash
 npm run build
+vercel deploy
 ```
 
-`vercel.json` serves `dist/` at `/app/`, rewrites dashboard iframe routes to the local prototype dashboard, and proxies `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests to the remote demo backend at `http://176.57.184.142:4040`.
+`vercel.json` serves `dist/` at `/app/`, redirects `/` to `/app/`, rewrites dashboard iframe routes to the local prototype dashboard, and proxies `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests to the remote demo backend at `http://176.57.184.142:4040`.
 
-The production `katechon.technology` domain is currently owned by the `katechon-pitch` Vercel project, so that project still needs a rewrite from `/app/:path*` to this demo project's Vercel deployment URL, for example:
+Production should be deployed directly from this repo:
 
-```json
-{
-  "source": "/app/:path*",
-  "destination": "https://<katechon-demo-vercel-project>.vercel.app/app/:path*"
-}
+```bash
+vercel deploy --prod
 ```
+
+For production builds, generated share/canonical URLs default to `https://katechon.technology/app/...`. Preview builds default to the deployment URL that Vercel provides. Set `KATECHON_PUBLIC_URL` only when you need to override that behavior.
 
 ### Browser Avatar + Audio
 
@@ -184,7 +184,7 @@ The demo UI now renders the Live2D avatar directly in the user's browser. The av
 
 The remote compositor defaults to `REMOTE_AVATAR_ENABLED=0` and `ENABLE_HLS_AUDIO=0`; it should be treated as a passive desktop/backdrop stream for this flow.
 
-SPECTRE is embedded through the same-origin `/dashboards/spectre/` proxy so viewers do not need direct browser access to port `3010`. The proxy tries `SPECTRE_DASHBOARD_URL`, `SPECTRE_URL`, `http://127.0.0.1:3010`, then the local tunnel `http://127.0.0.1:9092`.
+SPECTRE is embedded through the same-origin `/dashboards/spectre/` proxy. When no remote upstream is reachable, it serves the local `public/prototype-dashboard.html` fallback with SPECTRE-specific data and assets. The optional remote proxy tries `SPECTRE_DASHBOARD_URL`, `SPECTRE_URL`, `http://127.0.0.1:3010`, then the local tunnel `http://127.0.0.1:9092`; set `ENABLE_SPECTRE_TUNNEL=1` before running `start.sh` only when that remote dashboard is needed.
 
 ### Prototype Dashboards
 
@@ -243,7 +243,7 @@ The UI will show "reconnecting…" for the video but all API endpoints work. Use
 | 5174 | — | Optional local Vite server for `../katechon-pitch` (`npm run pitch:dev`) |
 | 9095 | remote:3100 | Vtuber desktop HLS stream |
 | 9091 | 172.20.0.2:12393 | Open-LLM-VTuber avatar + WS |
-| 9092 | remote:3010 | SPECTRE Flask dashboard |
+| 9092 | remote:3010 | Optional SPECTRE Flask dashboard tunnel (`ENABLE_SPECTRE_TUNNEL=1`) |
 | 9093 | remote:3003 | Minecraft HLS stream |
 
 ## API reference

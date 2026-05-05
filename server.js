@@ -19,6 +19,15 @@ loadEnvKeyFromFile(katechonAppEnv, "ANTHROPIC_API_KEY");
 const express = require("express");
 const fetch = require("node-fetch");
 const FormData = require("form-data");
+const {
+  absoluteUrl,
+  dashboardImagePath,
+  dashboardLaunchPath,
+  dashboardShareMetadata,
+  dashboardSharePath,
+  normalizeDashboardId,
+  renderDashboardShareHtml,
+} = require("./dashboard-share");
 
 const app = express();
 app.use(express.json());
@@ -598,6 +607,35 @@ const DASHBOARD_NARRATION = {
 const narrationCursor = {};
 const speechCache = new Map();
 
+function requestOrigin(req) {
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const forwardedHost = req.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const proto = forwardedProto || req.protocol || "http";
+  const host = forwardedHost || req.get("host") || `localhost:${PORT}`;
+  return `${proto}://${host}`;
+}
+
+function requestBasePath(req) {
+  return req.path === "/app" || req.path.startsWith("/app/") ? "/app" : "";
+}
+
+function sendDashboardSharePage(req, res) {
+  const dashboardId = normalizeDashboardId(req.params.dashboard);
+  const metadata = dashboardShareMetadata(dashboardId);
+  if (!metadata) return res.status(404).send("Unknown dashboard share link");
+
+  const basePath = requestBasePath(req);
+  const origin = requestOrigin(req);
+  const targetUrl = absoluteUrl(origin, dashboardLaunchPath(metadata.id, basePath));
+  const shareUrl = absoluteUrl(origin, dashboardSharePath(metadata.id, basePath));
+  const imageUrl = absoluteUrl(origin, dashboardImagePath(metadata.id, basePath));
+
+  res.setHeader("Cache-Control", "public, max-age=300, s-maxage=86400");
+  res.send(renderDashboardShareHtml({ metadata, shareUrl, targetUrl, imageUrl }));
+}
+
+app.get(["/share/:dashboard", "/app/share/:dashboard"], sendDashboardSharePage);
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -666,7 +704,8 @@ async function proxySpectreDashboard(req, res) {
 
     res.send(body);
   } catch (err) {
-    if (proxyPath === "/" || proxyPath.startsWith("/demo") || req.get("accept")?.includes("text/html")) {
+    const proxyPathname = new URL(proxyPath, "http://katechon.local").pathname;
+    if (proxyPathname === "/" || proxyPathname.startsWith("/demo") || req.get("accept")?.includes("text/html")) {
       return sendPrototypeDashboard(res);
     }
     res.status(502).send(`SPECTRE proxy failed for ${proxyPath}: ${err.message}`);

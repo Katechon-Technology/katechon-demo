@@ -52,12 +52,19 @@ done
 ssh -fN -L 9095:localhost:${HOST_HLS_PORT} "${REMOTE}"
 # Open-LLM-VTuber avatar + WS
 ssh -fN -L 9091:172.20.0.2:12393 "${REMOTE}"
-# SPECTRE Flask dashboard
-ssh -fN -L 9092:localhost:3010 "${REMOTE}"
+# SPECTRE Flask dashboard. Disabled by default so /dashboards/spectre/ uses
+# the local prototype fallback unless remote SPECTRE is explicitly needed.
+if [ "${ENABLE_SPECTRE_TUNNEL:-0}" = "1" ]; then
+  ssh -fN -L 9092:localhost:3010 "${REMOTE}"
+  SPECTRE_TUNNEL_STATUS="9092 (spectre) | "
+else
+  SPECTRE_TUNNEL_STATUS=""
+  log "SPECTRE tunnel disabled; using local fallback. Set ENABLE_SPECTRE_TUNNEL=1 to enable it."
+fi
 # Minecraft HLS
 ssh -fN -L 9093:localhost:3003 "${REMOTE}"
 
-log "Tunnels open: 9091 (avatar) | 9092 (spectre) | 9093 (minecraft) | 9095 (vtuber HLS)"
+log "Tunnels open: 9091 (avatar) | ${SPECTRE_TUNNEL_STATUS}9093 (minecraft) | 9095 (vtuber HLS)"
 
 # ── 5. Local Express server ────────────────────────────────────────
 log "Starting local server on :4040..."

@@ -1032,6 +1032,30 @@
     };
 
     const dashboards = {
+      spectre: {
+        palette: "acid",
+        scene: "command-map",
+        api: null,
+        video: "videos/spectre.mp4",
+        asset: "share-thumbnails/spectre.jpg",
+        kicker: "osint / event correlation",
+        title: "SPECTRE Event Room",
+        subtitle: "A local intelligence-room fallback with event clusters, source confidence, regional pressure, and operator-ready incident context.",
+        visualLabel: "signal correlation map",
+        visualCopy: "Event nodes, confidence paths, and source-weighted updates stay visible while the room keeps moving without the remote dashboard.",
+        feedLabel: "event queue",
+        lens: "correlation",
+        tabs: ["Overview", "Events", "Sources", "Confidence"],
+        metrics: [["Events", "42", "tracked"], ["Sources", "18", "weighted"], ["Confidence", "84%", "fused"], ["Alerts", "7", "review"]],
+        feed: [
+          ["now", "Cross-source event cluster promoted from watchlist to active review.", "source fusion"],
+          ["03m", "Regional pressure score moved after two independent reports aligned.", "confidence shift"],
+          ["07m", "Anomaly filter suppressed repeated headline churn from the operator queue.", "deduped"],
+          ["12m", "Incident timeline linked field reports, public signals, and market context.", "correlation"],
+          ["18m", "Review state held steady while the next source family awaits confirmation.", "pending"],
+        ],
+        caption: "Kat reads SPECTRE as an OSINT event room: what changed, which sources agree, and what deserves operator attention.",
+      },
       news: {
         palette: "newsroom",
         scene: "newsroom",

@@ -143,6 +143,7 @@ async function ensureAudioCtx() {
   if (audioCtx.state === 'suspended') {
     try { await audioCtx.resume(); } catch (e) { console.warn('[avatar] resume failed:', e); }
   }
+  if (audioCtx.state !== 'running') throw new Error('audio autoplay blocked');
 }
 
 function stopAudio() {

@@ -199,6 +199,72 @@
       background: var(--green);
       box-shadow: 0 0 12px rgba(0,232,123,0.7);
     }
+    #startup-audio {
+      position: fixed;
+      inset: 0;
+      z-index: 96;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 14px;
+      padding: 24px;
+      border: 0;
+      background: rgba(0, 0, 0, 0.44);
+      color: rgba(242,244,247,0.94);
+      backdrop-filter: blur(12px);
+      cursor: pointer;
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+      text-align: center;
+    }
+    #startup-audio.visible {
+      display: flex;
+    }
+    #startup-audio:hover,
+    #startup-audio:focus-visible {
+      outline: none;
+    }
+    .startup-play-ring {
+      width: 74px;
+      height: 74px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,232,123,0.5);
+      background: rgba(5, 8, 9, 0.72);
+      box-shadow: 0 18px 58px rgba(0,0,0,0.36), 0 0 28px rgba(0,232,123,0.18), inset 0 1px 0 rgba(255,255,255,0.08);
+      display: inline-grid;
+      place-items: center;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+    #startup-audio:hover .startup-play-ring,
+    #startup-audio:focus-visible .startup-play-ring {
+      transform: scale(1.04);
+      border-color: rgba(0,232,123,0.82);
+      background: rgba(9, 16, 15, 0.84);
+    }
+    .startup-play-triangle {
+      width: 0;
+      height: 0;
+      margin-left: 5px;
+      border-top: 13px solid transparent;
+      border-bottom: 13px solid transparent;
+      border-left: 20px solid var(--green);
+      filter: drop-shadow(0 0 12px rgba(0,232,123,0.58));
+    }
+    .startup-play-label {
+      display: grid;
+      gap: 6px;
+    }
+    .startup-play-label strong {
+      font-size: 14px;
+      line-height: 1;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .startup-play-label span {
+      color: rgba(242,244,247,0.62);
+      font-size: 12px;
+      line-height: 1.35;
+    }
 
     .overlay {
       position: fixed;
@@ -347,6 +413,41 @@
     #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(2) { transform: translate(-4px, 4px); }
     #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(3) { transform: translate(4px, -4px); }
     #dashboard-fullscreen.is-fullscreen .fullscreen-icon span:nth-child(4) { transform: translate(-4px, -4px); }
+    .share-icon {
+      position: relative;
+      width: 15px;
+      height: 15px;
+      display: block;
+    }
+    .share-icon::before,
+    .share-icon::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      width: 8px;
+      height: 1px;
+      background: currentColor;
+      transform-origin: left center;
+    }
+    .share-icon::before {
+      top: 4px;
+      transform: rotate(28deg);
+    }
+    .share-icon::after {
+      bottom: 4px;
+      transform: rotate(-28deg);
+    }
+    .share-icon span {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      border: 1px solid currentColor;
+      background: rgba(5, 6, 8, 0.94);
+    }
+    .share-icon span:nth-child(1) { left: 0; top: 5px; }
+    .share-icon span:nth-child(2) { right: 0; top: 1px; }
+    .share-icon span:nth-child(3) { right: 0; bottom: 1px; }
     #dashboard-frame-stage {
       width: 100%;
       flex: 1;
@@ -1348,6 +1449,7 @@
     body.mobile-gated #kat-narrator,
     body.mobile-gated .overlay,
     body.mobile-gated #transcript,
+    body.mobile-gated #startup-audio,
     body.mobile-gated #avatar-tools,
     body.mobile-gated #speech-btn {
       display: none !important;
@@ -1422,6 +1524,9 @@
       #mobile-gate {
         display: flex;
       }
+    }
+    body.shared-dashboard-launch #mobile-gate {
+      display: none !important;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1741,6 +1846,9 @@
       <span id="dashboard-title">// KATECHON — INTELLIGENCE PLATFORM</span>
       <span id="dashboard-position">01 / 19</span>
       <button id="dashboard-back" class="frame-action frame-action-text" type="button" title="Back to channels" aria-label="Back to channels">Back</button>
+      <button id="dashboard-share" class="frame-action" type="button" title="Share dashboard" aria-label="Share dashboard">
+        <span class="share-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
       <button id="dashboard-fullscreen" class="frame-action" type="button" title="Fullscreen dashboard" aria-label="Fullscreen dashboard" aria-pressed="false">
         <span class="fullscreen-icon" aria-hidden="true">
           <span></span><span></span><span></span><span></span>
@@ -1760,6 +1868,13 @@
   </div>
 
   <div id="transcript"></div>
+  <button id="startup-audio" type="button" aria-label="Play dashboard audio">
+    <span class="startup-play-ring" aria-hidden="true"><span class="startup-play-triangle"></span></span>
+    <span class="startup-play-label">
+      <strong>Play audio</strong>
+      <span>Start the dashboard narration</span>
+    </span>
+  </button>
 
   <div id="avatar-tools" class="collapsed">
     <button id="avatar-tools-toggle" type="button">Avatar</button>
@@ -1821,12 +1936,19 @@
     const ANIME_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js';
     const MOBILE_GATE_QUERY = '(max-width: 860px), (pointer: coarse) and (max-width: 1024px)';
     const mobileGateMedia = window.matchMedia(MOBILE_GATE_QUERY);
+    const pageParams = new URLSearchParams(window.location.search);
+    const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
+
+    function hasSharedDashboardLaunch() {
+      return Boolean(pageParams.get('dashboard') || pageParams.get('channel') || pageParams.get('watch'));
+    }
 
     function isMobileGated() {
-      return mobileGateMedia.matches;
+      return mobileGateMedia.matches && !hasSharedDashboardLaunch();
     }
 
     function syncMobileGate() {
+      document.body.classList.toggle('shared-dashboard-launch', hasSharedDashboardLaunch());
       document.body.classList.toggle('mobile-gated', isMobileGated());
     }
 
@@ -2259,8 +2381,6 @@
 
     afterNextPaint(() => whenIdle(loadMotionRuntime, 1400), 240);
 
-    const pageParams = new URLSearchParams(window.location.search);
-    const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
     function appUrl(path) {
       if (!path || !path.startsWith('/')) return path;
       return `${APP_BASE_PATH}${path}`;
@@ -2403,7 +2523,9 @@
     const dashboardTitle = document.getElementById('dashboard-title');
     const dashboardPosition = document.getElementById('dashboard-position');
     const backButton = document.getElementById('dashboard-back');
+    const shareButton = document.getElementById('dashboard-share');
     const fullscreenButton = document.getElementById('dashboard-fullscreen');
+    const startupAudioButton = document.getElementById('startup-audio');
     const browserAvatar = document.getElementById('browser-avatar');
     const katNarrator = document.getElementById('kat-narrator');
     const katChannel = document.getElementById('kat-channel');
@@ -2601,6 +2723,126 @@
       'dune-deck',
       'rosadelmar-deck',
     ];
+    const DASHBOARD_LAUNCH_PARAM_KEYS = ['dashboard', 'channel', 'watch'];
+
+    function requestedDashboardId() {
+      for (const key of DASHBOARD_LAUNCH_PARAM_KEYS) {
+        const id = String(pageParams.get(key) || '').toLowerCase().replace(/[^\w-]/g, '');
+        if (id && DASHBOARDS[id]) return id;
+      }
+      return null;
+    }
+
+    function paramEnabled(name) {
+      return /^(1|true|yes)$/i.test(String(pageParams.get(name) || ''));
+    }
+
+    function dashboardShareUrl(dashboardId) {
+      const id = String(dashboardId || '').toLowerCase().replace(/[^\w-]/g, '');
+      const path = `${APP_BASE_PATH}/share/${encodeURIComponent(id)}`;
+      return new URL(path || '/', window.location.origin).href;
+    }
+
+    function dashboardSharePayload(dashboardId) {
+      const dashboard = DASHBOARDS[dashboardId];
+      const label = dashboard?.label || 'Katechon dashboard';
+      return {
+        title: `${label} | Katechon`,
+        text: `Watch ${label} on Katechon. Opens directly in fullscreen channel mode.`,
+        url: dashboardShareUrl(dashboardId),
+      };
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      const field = document.createElement('textarea');
+      field.value = value;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.left = '-9999px';
+      document.body.appendChild(field);
+      field.select();
+      document.execCommand('copy');
+      field.remove();
+    }
+
+    async function shareCurrentDashboard() {
+      if (!currentDashboardId || !DASHBOARDS[currentDashboardId]) return;
+      const payload = dashboardSharePayload(currentDashboardId);
+      try {
+        if (navigator.share) {
+          await navigator.share(payload);
+          return;
+        }
+        await copyText(payload.url);
+        showToast('share link copied', '#00e87b');
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        console.warn('dashboard share failed:', err);
+        try {
+          await copyText(payload.url);
+          showToast('share link copied', '#00e87b');
+        } catch (_) {
+          showToast(payload.url, '#e8e8ec');
+        }
+      }
+    }
+
+    function isAudioAutoplayBlocked(err) {
+      return /autoplay|audio|gesture|notallowed|suspended/i.test(String(err?.message || err || ''));
+    }
+
+    function hideStartupAudioPrompt() {
+      startupAudioDashboardId = null;
+      startupAudioPayload = null;
+      startupAudioButton.classList.remove('visible');
+    }
+
+    function showStartupAudioPrompt(dashboardId, payload) {
+      startupAudioDashboardId = dashboardId;
+      startupAudioPayload = payload || null;
+      startupAudioButton.classList.add('visible');
+    }
+
+    async function playStartupAudioPrompt() {
+      const dashboardId = startupAudioDashboardId || currentDashboardId;
+      const payload = startupAudioPayload;
+      hideStartupAudioPrompt();
+      try {
+        await unlockAgentAudio();
+      } catch (err) {
+        console.warn('startup audio unlock failed:', err);
+      }
+      if (!dashboardId || currentDashboardId !== dashboardId) return;
+      try {
+        if (payload) await playAvatarSpeech(payload, { preferParentAudio: true });
+        else startDashboardNarration(dashboardId, { preferParentAudio: true });
+      } catch (err) {
+        console.warn('startup audio prompt playback failed:', err);
+        startDashboardNarration(dashboardId);
+      }
+    }
+
+    function hideEntryGateForDashboardLaunch() {
+      document.getElementById('email-overlay')?.classList.add('hidden');
+      document.body.classList.add('shared-dashboard-launch');
+    }
+
+    function launchRequestedDashboard() {
+      const dashboardId = requestedDashboardId();
+      if (!dashboardId) return;
+      hideEntryGateForDashboardLaunch();
+      openDashboard(dashboardId, {
+        fullscreen: paramEnabled('fullscreen') || paramEnabled('autoplay'),
+        autoplayAudio: paramEnabled('audio') || paramEnabled('autoplay'),
+        sharedLaunch: true,
+      }).then(result => {
+        if (result?.blocked) showToast('desktop viewport required', '#6b6b78');
+      });
+    }
     const avatarAudioWaiters = new Map();
     const avatarAudioStarters = new Map();
     let avatarPlaybackSeq = 0;
@@ -2636,6 +2878,8 @@
     let dashboardRemoteSwitchTimer = null;
     let dashboardNarrationStartTimer = null;
     let dashboardPrefetchTimer = null;
+    let startupAudioDashboardId = null;
+    let startupAudioPayload = null;
     const prefetchedDashboardUrls = new Set();
     const DASHBOARD_TUNNEL_DURATION = 240;
     const DASHBOARD_TUNNEL_LOAD_TIMEOUT = 60;
@@ -3101,6 +3345,7 @@
       narration.runId++;
       if (narration.timer) clearTimeout(narration.timer);
       narration.timer = null;
+      hideStartupAudioPrompt();
       stopBrowserAvatarAudio();
     }
 
@@ -3574,42 +3819,47 @@
       return true;
     }
 
-    async function runDashboardNarration(dashboardId, runId) {
+    async function runDashboardNarration(dashboardId, runId, options = {}) {
       if (!narration.active || narration.runId !== runId) return;
+      let payload = null;
       try {
         const resp = await fetch(appUrl(`/api/narration/${dashboardId}`), { cache: 'no-store' });
-        const payload = await resp.json();
+        payload = await resp.json();
         if (!resp.ok) throw new Error(payload.error || `narration failed (${resp.status})`);
         if (!narration.active || narration.runId !== runId) return;
-        await playAvatarSpeech(payload);
+        await playAvatarSpeech(payload, { preferParentAudio: options.preferParentAudio === true });
         if (!narration.active || narration.runId !== runId) return;
+        hideStartupAudioPrompt();
         narration.timer = setTimeout(() => runDashboardNarration(dashboardId, runId), 1200);
       } catch (err) {
         console.warn('dashboard narration failed:', err);
         if (!narration.active || narration.runId !== runId) return;
+        if (options.showAudioPrompt && payload && isAudioAutoplayBlocked(err)) {
+          showStartupAudioPrompt(dashboardId, payload);
+        }
         narration.timer = setTimeout(() => runDashboardNarration(dashboardId, runId), 8000);
       }
     }
 
-    function startDashboardNarration(dashboardId) {
+    function startDashboardNarration(dashboardId, options = {}) {
       const dashboard = DASHBOARDS[dashboardId];
       stopDashboardNarration();
       if (dashboard?.narration === false || dashboard?.deckNarration) return;
       narration.active = true;
       narration.dashboard = dashboardId;
       narration.runId++;
-      runDashboardNarration(dashboardId, narration.runId);
+      runDashboardNarration(dashboardId, narration.runId, options);
     }
 
-    function scheduleDashboardNarrationStart(dashboardId, delay = 0) {
+    function scheduleDashboardNarrationStart(dashboardId, delay = 0, options = {}) {
       stopDashboardNarration();
       if (delay <= 0) {
-        startDashboardNarration(dashboardId);
+        startDashboardNarration(dashboardId, options);
         return;
       }
       dashboardNarrationStartTimer = setTimeout(() => {
         dashboardNarrationStartTimer = null;
-        if (currentDashboardId === dashboardId) startDashboardNarration(dashboardId);
+        if (currentDashboardId === dashboardId) startDashboardNarration(dashboardId, options);
       }, delay);
     }
 
@@ -3671,6 +3921,7 @@
         hideMainOverlay();
         return fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(() => {});
       }
+      if (options.sharedLaunch) hideEntryGateForDashboardLaunch();
       landingSwitchRunId++;
       if (!currentDashboardId) captureLandingFrame();
       currentDashboardId = workspace;
@@ -3685,11 +3936,17 @@
       });
       updateDashboardPosition();
       dashboardOverlay.classList.remove('hidden');
+      if (options.fullscreen) setDashboardFullscreen(true, false);
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
       if (dashboard.deckNarration) preloadDeckNarration(workspace);
       loadDashboardFrame(url, options.direction ?? 1, { rapid: rapidNavigation });
-      scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0);
+      const autoplayAudio = options.autoplayAudio === true || options.sharedLaunch === true;
+      scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0, {
+        preferParentAudio: autoplayAudio,
+        showAudioPrompt: autoplayAudio,
+      });
+      if (options.sharedLaunch) showStartupAudioPrompt(workspace);
       scheduleDashboardNeighborPrefetch(workspace);
       if (!rapidNavigation || !dashboardPendingStepCount) showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
@@ -3776,9 +4033,11 @@
     backButton.addEventListener('click', () => {
       goHome();
     });
+    shareButton.addEventListener('click', shareCurrentDashboard);
     fullscreenButton.addEventListener('click', () => {
       setDashboardFullscreen(!document.body.classList.contains('dashboard-fullscreen'));
     });
+    startupAudioButton.addEventListener('click', playStartupAudioPrompt);
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && document.body.classList.contains('dashboard-fullscreen')) {
         setDashboardFullscreen(false, false);
@@ -3890,6 +4149,7 @@
       await unlockBrowserAvatarAudio();
       const ctx = getReplyAudioContext();
       if (ctx.state === 'suspended') await ctx.resume();
+      if (ctx.state !== 'running') throw new Error('audio autoplay blocked');
       const buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
       const source = ctx.createBufferSource();
       source.buffer = buffer;
@@ -3900,6 +4160,7 @@
     async function playBase64Audio(base64) {
       const ctx = getReplyAudioContext();
       if (ctx.state === 'suspended') await ctx.resume();
+      if (ctx.state !== 'running') throw new Error('audio autoplay blocked');
       if (replySource) {
         try { replySource.stop(); } catch (_) {}
         replySource = null;
@@ -4059,6 +4320,7 @@
       startRecording().catch(() => showToast('mic access denied', '#ff4444'));
     });
     micBtn.addEventListener('touchend',   () => stopRecording());
+    afterNextPaint(launchRequestedDashboard, 80);
   </script>
 </body>
 </html>

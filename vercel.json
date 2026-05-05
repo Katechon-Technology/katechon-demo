@@ -4,7 +4,55 @@
   "outputDirectory": "dist",
   "framework": null,
   "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/share/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    },
+    {
+      "source": "/app/share/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    },
+    {
+      "source": "/share-thumbnails/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    },
+    {
+      "source": "/app/share-thumbnails/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "index, follow"
+        }
+      ]
+    }
+  ],
   "redirects": [
+    {
+      "source": "/share/:dashboard/",
+      "destination": "/share/:dashboard",
+      "permanent": false
+    },
+    {
+      "source": "/app/share/:dashboard/",
+      "destination": "/app/share/:dashboard",
+      "permanent": false
+    },
     {
       "source": "/",
       "destination": "/app/",
