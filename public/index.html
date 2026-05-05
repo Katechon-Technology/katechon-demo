@@ -346,7 +346,103 @@
       min-height: 0;
       position: relative;
       overflow: hidden;
-      background: #050607;
+      background:
+        radial-gradient(circle at center, rgba(0,232,123,0.055), rgba(5,6,7,0) 48%),
+        #050607;
+      perspective: 1400px;
+      transform-style: preserve-3d;
+      isolation: isolate;
+      contain: paint;
+    }
+    #dashboard-tunnel-effects {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      pointer-events: none;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+    .dashboard-tunnel-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      transform: translate3d(0, 0, 0);
+      will-change: opacity, transform;
+    }
+    .tunnel-grid {
+      background:
+        repeating-radial-gradient(circle at center,
+          rgba(0,232,123,0) 0,
+          rgba(0,232,123,0) 38px,
+          rgba(0,232,123,0.16) 39px,
+          rgba(0,232,123,0.16) 40px,
+          rgba(0,232,123,0) 43px),
+        conic-gradient(from 0deg at center,
+          rgba(0,232,123,0) 0deg,
+          rgba(0,232,123,0) 13deg,
+          rgba(0,232,123,0.17) 13.5deg,
+          rgba(0,232,123,0) 14.5deg,
+          rgba(0,232,123,0) 30deg);
+      mask-image: radial-gradient(circle at center, rgba(0,0,0,0) 0 9%, #000 19%, #000 72%, rgba(0,0,0,0) 82%);
+      opacity: 0;
+      transform: scale(0.76);
+      transition: opacity 240ms ease, transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tunnel-aperture {
+      background:
+        radial-gradient(circle at center,
+          rgba(242,244,247,0.28) 0 2%,
+          rgba(0,232,123,0.24) 4%,
+          rgba(0,232,123,0.08) 17%,
+          rgba(0,0,0,0) 36%);
+      mix-blend-mode: screen;
+      opacity: 0;
+      transform: scale(0.7);
+      transition: opacity 200ms ease, transform 480ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tunnel-streaks {
+      background:
+        linear-gradient(90deg,
+          rgba(0,0,0,0) 0%,
+          rgba(0,232,123,0) 16%,
+          rgba(0,232,123,0.22) 18%,
+          rgba(0,232,123,0) 20%,
+          rgba(0,0,0,0) 48%,
+          rgba(242,244,247,0.18) 50%,
+          rgba(0,0,0,0) 52%,
+          rgba(0,0,0,0) 100%);
+      mix-blend-mode: screen;
+      opacity: 0;
+      transform: translate3d(-6%, 0, 0) scaleX(0.72);
+      transition: opacity 180ms ease, transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .tunnel-vignette {
+      background:
+        radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(0,0,0,0.46) 100%),
+        linear-gradient(90deg, rgba(0,0,0,0.42), rgba(0,0,0,0) 16%, rgba(0,0,0,0) 84%, rgba(0,0,0,0.42));
+      opacity: 0.42;
+    }
+    #dashboard-frame-stage.tunnel-active #dashboard-tunnel-effects {
+      opacity: 1;
+    }
+    #dashboard-frame-stage.tunnel-active .tunnel-grid {
+      opacity: 0.36;
+      transform: scale(1.08);
+    }
+    #dashboard-frame-stage.tunnel-active .tunnel-aperture {
+      opacity: 0.82;
+      transform: scale(1.18);
+    }
+    #dashboard-frame-stage.tunnel-active .tunnel-streaks {
+      opacity: 0.48;
+      transform: translate3d(6%, 0, 0) scaleX(1.18);
+    }
+    #dashboard-frame-stage.tunnel-backward .tunnel-streaks {
+      transform: translate3d(6%, 0, 0) scaleX(0.72);
+    }
+    #dashboard-frame-stage.tunnel-active.tunnel-backward .tunnel-streaks {
+      transform: translate3d(-6%, 0, 0) scaleX(1.18);
     }
     .dashboard-frame {
       position: absolute;
@@ -358,12 +454,14 @@
       background: #050607;
       pointer-events: none;
       opacity: 0;
-      transform: translate3d(0, 0, 0) scale(1);
+      transform: translate3d(0, 0, -280px) scale(0.72) rotateY(0deg);
+      transform-origin: center;
+      backface-visibility: hidden;
       transition:
         opacity 180ms ease,
-        transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
-        filter 300ms ease;
-      will-change: opacity, transform;
+        transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+        filter 500ms ease;
+      will-change: opacity, transform, filter;
     }
     .dashboard-frame.active {
       opacity: 1;
@@ -373,14 +471,16 @@
       z-index: 2;
     }
     .dashboard-frame.incoming {
-      opacity: 0;
-      z-index: 3;
-      filter: brightness(0.94);
+      opacity: 0.16;
+      z-index: 1;
+      filter: brightness(0.58) blur(0.7px) saturate(0.94);
+      transform: translate3d(0, 0, -280px) scale(0.72) rotateY(0deg);
     }
     .dashboard-frame.outgoing {
       opacity: 0;
-      z-index: 1;
-      filter: brightness(0.78);
+      z-index: 3;
+      filter: brightness(0.62) blur(1.1px);
+      transform: translate3d(0, 0, 220px) scale(1.16) rotateY(0deg);
     }
     #dashboard-position {
       flex-shrink: 0;
@@ -1287,6 +1387,21 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
       }
+      #dashboard-frame-stage {
+        perspective: none;
+      }
+      #dashboard-tunnel-effects,
+      .dashboard-tunnel-layer {
+        opacity: 0 !important;
+        transform: none !important;
+      }
+      .dashboard-frame,
+      .dashboard-frame.incoming,
+      .dashboard-frame.outgoing,
+      .dashboard-frame.active {
+        transform: translate3d(0, 0, 0) scale(1) !important;
+        filter: none !important;
+      }
     }
   </style>
 </head>
@@ -1579,6 +1694,12 @@
       </button>
     </div>
     <div id="dashboard-frame-stage">
+      <div id="dashboard-tunnel-effects" aria-hidden="true">
+        <div class="dashboard-tunnel-layer tunnel-grid"></div>
+        <div class="dashboard-tunnel-layer tunnel-aperture"></div>
+        <div class="dashboard-tunnel-layer tunnel-streaks"></div>
+        <div class="dashboard-tunnel-layer tunnel-vignette"></div>
+      </div>
       <iframe id="dashboard-frame-a" class="dashboard-frame active" title="Live dashboard"></iframe>
       <iframe id="dashboard-frame-b" class="dashboard-frame" title="Live dashboard"></iframe>
     </div>
@@ -2306,6 +2427,17 @@
     let dashboardScrollLocked = false;
     let dashboardScrollReleaseTimer = null;
     let dashboardWheelDelta = 0;
+    let dashboardFrameAnimationTimer = null;
+    const DASHBOARD_TUNNEL_DURATION = 500;
+    const DASHBOARD_TUNNEL_LOAD_TIMEOUT = 320;
+    const DASHBOARD_TUNNEL_SETTLE_DELAY = 90;
+    const DASHBOARD_TUNNEL_SCROLL_LOCK = DASHBOARD_TUNNEL_DURATION + DASHBOARD_TUNNEL_SETTLE_DELAY;
+    const dashboardTunnelLayers = {
+      grid: dashboardFrameStage.querySelector('.tunnel-grid'),
+      aperture: dashboardFrameStage.querySelector('.tunnel-aperture'),
+      streaks: dashboardFrameStage.querySelector('.tunnel-streaks'),
+      vignette: dashboardFrameStage.querySelector('.tunnel-vignette'),
+    };
     let streamFallbackActive = false;
     const streamFallbackTimer = setTimeout(() => activateStreamFallback(), 2400);
 
@@ -2726,14 +2858,187 @@
       frame.style.opacity = '';
       frame.style.transform = '';
       frame.style.filter = '';
+      frame.style.transition = '';
+      frame.style.zIndex = '';
+      frame.style.pointerEvents = '';
       frame.src = 'about:blank';
       frame.removeAttribute('src');
+    }
+
+    function clearDashboardTunnelStage() {
+      dashboardFrameStage.classList.remove('tunnel-active', 'tunnel-forward', 'tunnel-backward');
+      Object.values(dashboardTunnelLayers).forEach(layer => {
+        if (!layer) return;
+        layer.style.opacity = '';
+        layer.style.transform = '';
+        layer.style.filter = '';
+        layer.style.transition = '';
+      });
+    }
+
+    function setDashboardTunnelStage(direction) {
+      clearDashboardTunnelStage();
+      dashboardFrameStage.classList.add('tunnel-active', direction >= 0 ? 'tunnel-forward' : 'tunnel-backward');
+    }
+
+    function dashboardTunnelIncomingTransform(direction) {
+      const tilt = direction >= 0 ? 1.8 : -1.8;
+      return `translate3d(0, 0, -280px) scale(0.72) rotateY(${tilt}deg)`;
+    }
+
+    function dashboardTunnelOutgoingTransform(direction) {
+      const tilt = direction >= 0 ? -1.4 : 1.4;
+      return `translate3d(0, 0, 220px) scale(1.16) rotateY(${tilt}deg)`;
+    }
+
+    function scheduleDashboardScrollUnlock(delay = DASHBOARD_TUNNEL_SCROLL_LOCK) {
+      if (!dashboardScrollLocked) return;
+      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
+      dashboardScrollReleaseTimer = setTimeout(() => {
+        dashboardScrollLocked = false;
+        dashboardScrollReleaseTimer = null;
+      }, delay);
+    }
+
+    function prepareDashboardTunnelFrames(nextFrame, previousFrame, direction) {
+      previousFrame.classList.remove('incoming');
+      previousFrame.classList.add('outgoing');
+      previousFrame.style.opacity = '1';
+      previousFrame.style.transform = 'translate3d(0, 0, 0) scale(1) rotateY(0deg)';
+      previousFrame.style.filter = 'brightness(1) blur(0px)';
+
+      nextFrame.classList.remove('outgoing');
+      nextFrame.classList.add('incoming', 'active');
+      nextFrame.style.opacity = reduceMotion ? '0' : '0.16';
+      nextFrame.style.transform = reduceMotion
+        ? 'translate3d(0, 0, 0) scale(1) rotateY(0deg)'
+        : dashboardTunnelIncomingTransform(direction);
+      nextFrame.style.filter = reduceMotion
+        ? 'none'
+        : 'brightness(0.58) blur(0.7px) saturate(0.94)';
+    }
+
+    function finishDashboardFrameReveal(token, nextFrame, previousFrame) {
+      if (token !== dashboardFrameLoadToken) return;
+      dashboardFrameAnimationTimer = null;
+      clearDashboardTunnelStage();
+
+      nextFrame.className = 'dashboard-frame active';
+      nextFrame.style.opacity = '1';
+      nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1) rotateY(0deg)';
+      nextFrame.style.filter = 'none';
+      nextFrame.style.transition = '';
+
+      if (activeDashboardFrame() !== previousFrame) resetDashboardFrame(previousFrame);
+    }
+
+    function disableDashboardTunnelTransitions() {
+      [
+        ...dashboardFrames,
+        ...Object.values(dashboardTunnelLayers).filter(Boolean),
+      ].forEach(el => {
+        el.style.transition = 'none';
+      });
+    }
+
+    function restoreDashboardTunnelTransitions() {
+      [
+        ...dashboardFrames,
+        ...Object.values(dashboardTunnelLayers).filter(Boolean),
+      ].forEach(el => {
+        el.style.transition = '';
+      });
+    }
+
+    function addTunnelStep(timeline, target, params, offset) {
+      if (target) timeline.add(target, params, offset);
+      return timeline;
+    }
+
+    function runDashboardTunnelTimeline(nextFrame, previousFrame, direction) {
+      refreshMotionRuntime();
+      if (!canTimeline) return false;
+      try {
+        const exitTilt = direction >= 0 ? -1.4 : 1.4;
+        const enterTilt = direction >= 0 ? 1.8 : -1.8;
+        disableDashboardTunnelTransitions();
+        const tunnel = animeApi.createTimeline({ defaults: { ease: 'out(3)' } });
+        tunnel
+          .add(previousFrame, {
+            opacity: [1, 0],
+            scale: [1, 1.16],
+            z: [0, 220],
+            rotateY: [0, exitTilt],
+            filter: ['brightness(1) blur(0px)', 'brightness(0.62) blur(1.1px)'],
+            duration: 460,
+          }, 0)
+          .add(nextFrame, {
+            opacity: [0.16, 1],
+            scale: [0.72, 1],
+            z: [-280, 0],
+            rotateY: [enterTilt, 0],
+            filter: ['brightness(0.58) blur(0.7px) saturate(0.94)', 'brightness(1) blur(0px) saturate(1)'],
+            duration: DASHBOARD_TUNNEL_DURATION,
+          }, 35);
+        addTunnelStep(tunnel, dashboardTunnelLayers.grid, {
+          opacity: [0, 0.4, 0.08],
+          scale: [0.72, 1.18, 1.03],
+          duration: DASHBOARD_TUNNEL_DURATION,
+        }, 0);
+        addTunnelStep(tunnel, dashboardTunnelLayers.aperture, {
+          opacity: [0, 0.88, 0],
+          scale: [0.64, 1.24, 1.52],
+          duration: 430,
+        }, 20);
+        addTunnelStep(tunnel, dashboardTunnelLayers.streaks, {
+          opacity: [0, 0.54, 0],
+          x: direction >= 0 ? [-56, 70] : [56, -70],
+          scaleX: [0.62, 1.28],
+          duration: 330,
+        }, 70);
+        addTunnelStep(tunnel, dashboardTunnelLayers.vignette, {
+          opacity: [0.42, 0.66, 0.42],
+          duration: DASHBOARD_TUNNEL_DURATION,
+        }, 0);
+        return true;
+      } catch (err) {
+        console.warn('dashboard tunnel animation unavailable:', err);
+        restoreDashboardTunnelTransitions();
+        refreshMotionRuntime();
+        return false;
+      }
+    }
+
+    function runDashboardTunnelCssFallback(token, nextFrame, previousFrame, direction) {
+      requestAnimationFrame(() => {
+        if (token !== dashboardFrameLoadToken) return;
+        previousFrame.style.opacity = '0';
+        previousFrame.style.transform = dashboardTunnelOutgoingTransform(direction);
+        previousFrame.style.filter = 'brightness(0.62) blur(1.1px)';
+
+        nextFrame.style.opacity = '1';
+        nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1) rotateY(0deg)';
+        nextFrame.style.filter = 'brightness(1) blur(0px) saturate(1)';
+      });
+    }
+
+    function scheduleDashboardRevealFinish(token, nextFrame, previousFrame, delay) {
+      if (dashboardFrameAnimationTimer) clearTimeout(dashboardFrameAnimationTimer);
+      dashboardFrameAnimationTimer = setTimeout(() => {
+        finishDashboardFrameReveal(token, nextFrame, previousFrame);
+      }, delay);
     }
 
     function unloadDashboardFrame() {
       dashboardFrameLoadToken++;
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
+      if (dashboardFrameAnimationTimer) clearTimeout(dashboardFrameAnimationTimer);
+      dashboardFrameAnimationTimer = null;
+      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
+      dashboardScrollReleaseTimer = null;
+      dashboardScrollLocked = false;
+      clearDashboardTunnelStage();
       currentDashboardUrl = '';
       activeDashboardFrameIndex = 0;
       dashboardFrames.forEach(resetDashboardFrame);
@@ -2745,23 +3050,24 @@
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
 
-      const exitOffset = direction >= 0 ? -24 : 24;
-      nextFrame.classList.remove('incoming');
-      nextFrame.classList.add('active');
-      nextFrame.style.opacity = '1';
-      nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1)';
-      nextFrame.style.filter = 'none';
-
       previousFrame.classList.remove('active');
-      previousFrame.classList.add('outgoing');
-      previousFrame.style.opacity = '0';
-      previousFrame.style.transform = `translate3d(0, ${exitOffset}px, 0) scale(0.992)`;
-
+      setDashboardTunnelStage(direction);
+      prepareDashboardTunnelFrames(nextFrame, previousFrame, direction);
       activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
       currentDashboardUrl = nextFrame.getAttribute('src') || '';
-      setTimeout(() => {
-        if (activeDashboardFrame() !== previousFrame) resetDashboardFrame(previousFrame);
-      }, 340);
+      scheduleDashboardScrollUnlock();
+
+      if (reduceMotion) {
+        nextFrame.style.opacity = '1';
+        previousFrame.style.opacity = '0';
+        scheduleDashboardRevealFinish(token, nextFrame, previousFrame, 90);
+        return;
+      }
+
+      if (!runDashboardTunnelTimeline(nextFrame, previousFrame, direction)) {
+        runDashboardTunnelCssFallback(token, nextFrame, previousFrame, direction);
+      }
+      scheduleDashboardRevealFinish(token, nextFrame, previousFrame, DASHBOARD_TUNNEL_DURATION + DASHBOARD_TUNNEL_SETTLE_DELAY);
     }
 
     function loadDashboardFrame(url, direction = 1) {
@@ -2770,6 +3076,7 @@
         activeDashboardFrame().classList.add('active');
         activeDashboardFrame().style.opacity = '';
         activeDashboardFrame().style.transform = '';
+        activeDashboardFrame().style.filter = '';
         return;
       }
 
@@ -2777,16 +3084,23 @@
       const previousFrame = activeDashboardFrame();
       const nextFrame = bufferDashboardFrame();
       let revealed = false;
-      const enterOffset = direction >= 0 ? 24 : -24;
 
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
+      if (dashboardFrameAnimationTimer) clearTimeout(dashboardFrameAnimationTimer);
+      dashboardFrameAnimationTimer = null;
+      restoreDashboardTunnelTransitions();
+      clearDashboardTunnelStage();
 
       nextFrame.className = 'dashboard-frame incoming';
       nextFrame.title = previousFrame.title || 'Live dashboard';
-      nextFrame.style.opacity = '0';
-      nextFrame.style.transform = `translate3d(0, ${enterOffset}px, 0) scale(0.992)`;
-      nextFrame.style.filter = 'brightness(0.94)';
+      nextFrame.style.opacity = reduceMotion ? '0' : '0.16';
+      nextFrame.style.transform = reduceMotion
+        ? 'translate3d(0, 0, 0) scale(1) rotateY(0deg)'
+        : dashboardTunnelIncomingTransform(direction);
+      nextFrame.style.filter = reduceMotion
+        ? 'none'
+        : 'brightness(0.58) blur(0.7px) saturate(0.94)';
 
       const finish = () => {
         if (revealed || token !== dashboardFrameLoadToken) return;
@@ -2798,7 +3112,7 @@
       requestAnimationFrame(() => {
         if (token !== dashboardFrameLoadToken) return;
         nextFrame.src = url;
-        dashboardFrameRevealTimer = setTimeout(finish, 360);
+        dashboardFrameRevealTimer = setTimeout(finish, DASHBOARD_TUNNEL_LOAD_TIMEOUT);
       });
     }
 
@@ -2843,11 +3157,7 @@
       if (nextIndex === index) return false;
       dashboardScrollLocked = true;
       openDashboard(ids[nextIndex], { direction });
-      if (dashboardScrollReleaseTimer) clearTimeout(dashboardScrollReleaseTimer);
-      dashboardScrollReleaseTimer = setTimeout(() => {
-        dashboardScrollLocked = false;
-        dashboardScrollReleaseTimer = null;
-      }, 260);
+      scheduleDashboardScrollUnlock(DASHBOARD_TUNNEL_LOAD_TIMEOUT + DASHBOARD_TUNNEL_SCROLL_LOCK);
       return true;
     }
 
