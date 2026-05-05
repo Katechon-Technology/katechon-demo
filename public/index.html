@@ -3836,7 +3836,7 @@
     function preloadDeckNarration(dashboardId) {
       const files = DECK_NARRATION_FILES[dashboardId] || [];
       files.forEach(slug => {
-        fetch(appUrl(`/dashboards/${dashboardId}/assets/narration/${slug}.mp3`), { cache: 'force-cache' }).catch(() => {});
+        fetch(appUrl(`/dashboards/${dashboardId}/assets/narration/${slug}.mp3`), { cache: 'reload' }).catch(() => {});
       });
     }
 

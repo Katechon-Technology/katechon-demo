@@ -163,7 +163,7 @@ async function audioDataForPayload(payload) {
   }
 
   if (payload.audioUrl) {
-    const resp = await fetch(payload.audioUrl, { cache: 'force-cache' });
+    const resp = await fetch(payload.audioUrl, { cache: 'reload' });
     if (!resp.ok) throw new Error(`audio fetch ${resp.status}`);
     return await resp.arrayBuffer();
   }

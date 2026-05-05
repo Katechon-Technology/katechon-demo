@@ -16,7 +16,7 @@
       "headline": "Live software becomes the next media object.",
       "line": "Channels people can watch, scroll, and eventually act inside.",
       "image": "assets/visuals/01-live-software-channel.jpg",
-      "audio": "assets/narration/dune-01-v2.mp3",
+      "audio": "assets/narration/dune-01-v3.mp3",
       "narration": "AI is making software surfaces abundant. Katechon turns live state into channels people can watch, scroll, and eventually act inside.",
       "visualPrompt": "Cinematic investor deck hero image for a new media format: a dark full-bleed live software feed floating in space, multiple luminous application dashboards as channels, maps, event rooms, agent timelines, market pulse panels, game-state overlays, elegant red and green signal accents, premium interactive media aesthetic, deep black background, sharp glass UI, no readable text, no logos, no watermark, 16:9 composition"
     },
@@ -26,7 +26,7 @@
       "headline": "A dashboard with the grammar of interactive media.",
       "copyClass": "compact",
       "image": "assets/visuals/02-interactive-media.jpg",
-      "audio": "assets/narration/dune-02-v2.mp3",
+      "audio": "assets/narration/dune-02-v3.mp3",
       "narration": "This is not dashboard SaaS. A live surface has state like a game, a narrator like a streamer, and a feed like consumer media.",
       "visualPrompt": "A high-end interactive media cockpit that feels half dashboard, half game spectator mode: live map surface, avatar narration presence represented as an abstract glowing voice core, feed tiles, game-like state indicators, cinematic dark interface, red orange accent, emerald signal lights, premium venture deck visual, no readable text, no logos, no watermark, 16:9"
     },
@@ -35,7 +35,7 @@
       "eyebrow": "State, not pixels",
       "headline": "YouTube streams video. Katechon streams software state.",
       "image": "assets/visuals/03-state-not-pixels.jpg",
-      "audio": "assets/narration/dune-03-v2.mp3",
+      "audio": "assets/narration/dune-03-v3.mp3",
       "narration": "Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable.",
       "stateRail": [
         "inspectable",
@@ -53,7 +53,7 @@
       "copyClass": "end",
       "image": "assets/visuals/04-software-feed.jpg",
       "imageAlt": "A cinematic software feed control plane connecting frontier model cores to live software channels and audience signals.",
-      "audio": "assets/narration/dune-04-discovery-v2.mp3",
+      "audio": "assets/narration/dune-04-discovery-v3.mp3",
       "narration": "Every new content format created the same prize. Google owned discovery for websites. Instagram owned discovery for photos. TikTok owned discovery for short-form video. As people use Katechon, we learn which models, prompts, tools, state, and user intents combine into software worth watching and using. Own that discovery graph, and we become the way the world finds software.",
       "stateRail": [
         "discovery",
