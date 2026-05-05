@@ -90,6 +90,18 @@
       "destination": "/decks/dune/:path*"
     },
     {
+      "source": "/app/dashboards/catalog.js",
+      "destination": "/dashboards/catalog.js"
+    },
+    {
+      "source": "/app/dashboards/prototype.js",
+      "destination": "/dashboards/prototype.js"
+    },
+    {
+      "source": "/app/dashboards/identities/:path*",
+      "destination": "/dashboards/identities/:path*"
+    },
+    {
       "source": "/app/dashboards/:dashboard",
       "destination": "/prototype-dashboard.html"
     },

@@ -1811,16 +1811,16 @@
             <video data-src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Dark Forest</div>
           </div>
-          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Katechon x Dune Dashboard">
-            <div class="tile-kicker">18 / KATECHON x DUNE</div>
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Katechon Technology">
+            <div class="tile-kicker">18 / KATECHON TECHNOLOGY</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
                 <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="tile-preview-title">katechon x dune</div>
+                <div class="tile-preview-title">katechon technology</div>
               </div>
             </div>
             <img data-src="decks/dune/assets/visuals/00-dashboard-header.jpg" data-fallback-src="decks/dune/assets/visuals/01-live-software-channel.jpg" alt="">
-            <div class="gif-label">Katechon x Dune Dashboard</div>
+            <div class="gif-label">Katechon Technology</div>
           </div>
         </div>
       </div>
@@ -1918,6 +1918,7 @@
     <span>hold</span>
   </button>
 
+  <script src="dashboards/catalog.js"></script>
   <script>
     const HLS_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js';
     const ANIME_SCRIPT_SRC = 'https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js';
@@ -2556,155 +2557,99 @@
       return appUrl(`/dashboards/${id}/?${query.toString()}`);
     }
 
-    const DASHBOARDS = {
-      spectre: {
-        label: 'SPECTRE Event Room',
-        title: '// OSINT — SPECTRE EVENT ROOM',
-        channel: '01 / OSINT',
-        url: () => dashboardPrototypeUrl('spectre', { kiosk: '1' }),
-        narration: true,
-      },
-      news: {
-        label: 'News Situation Room',
-        title: '// NEWS — SITUATION ROOM',
-        channel: '02 / NEWS',
-        url: () => dashboardPrototypeUrl('news'),
-        narration: true,
-      },
-      'world-monitor': {
-        label: 'World Monitor',
-        title: '// GEO — WORLD MONITOR',
-        channel: '04 / WORLD',
-        url: () => dashboardPrototypeUrl('world-monitor'),
-        narration: true,
-      },
-      glance: {
-        label: 'Glance',
-        title: '// FEEDS — GLANCE',
-        channel: '06 / SOURCE WALL',
-        url: () => dashboardPrototypeUrl('glance'),
-        narration: true,
-      },
-      'crypto-trading': {
-        label: 'Crypto Trading',
-        title: '// CRYPTO — TRADING DASHBOARD',
-        channel: '07 / CRYPTO',
-        url: () => dashboardPrototypeUrl('crypto-trading'),
-        narration: true,
-      },
-      polyrec: {
-        label: 'Polyrec',
-        title: '// PREDICTION MARKETS — POLYREC',
-        channel: '08 / CLOCK',
-        url: () => dashboardPrototypeUrl('polyrec'),
-        narration: true,
-      },
-      dashboard123: {
-        label: 'Market Pulse',
-        title: '// MARKETS — MARKET PULSE',
-        channel: '03 / MARKETS',
-        url: () => dashboardPrototypeUrl('dashboard123'),
-        narration: true,
-      },
-      arena: {
-        label: 'AI Arena',
-        title: '// ARENA — AI vs AI',
-        channel: '05 / AGENTS',
-        url: () => dashboardPrototypeUrl('arena'),
-        narration: true,
-      },
-      biotech: {
-        label: 'Biotech',
-        title: '// BIO — CRISPR & PROTEIN',
-        channel: '09 / BIO',
-        url: () => dashboardPrototypeUrl('biotech'),
-        narration: true,
-      },
-      space: {
-        label: 'Deep Space',
-        title: '// SPACE — DEEP FIELD',
-        channel: '10 / SPACE',
-        url: () => dashboardPrototypeUrl('space'),
-        narration: true,
-      },
-      iran: {
-        label: 'Iran Signal',
-        title: '// IRAN — SIGNAL TRACKER',
-        channel: '11 / GEO',
-        url: () => dashboardPrototypeUrl('iran'),
-        narration: true,
-      },
-      'meme-coin': {
-        label: 'Meme Coin',
-        title: '// DEGEN — MEME COIN TEMPLE',
-        channel: '12 / SOCIAL',
-        url: () => dashboardPrototypeUrl('meme-coin'),
-        narration: true,
-      },
-      quantum: {
-        label: 'Quantum States',
-        title: '// QUANT — QUANTUM COMPUTING',
-        channel: '13 / QUANT',
-        url: () => dashboardPrototypeUrl('quantum'),
-        narration: true,
-      },
-      'deep-sea': {
-        label: 'Abyssal Monitor',
-        title: '// ABYSS — DEEP SEA',
-        channel: '14 / ABYSS',
-        url: () => dashboardPrototypeUrl('deep-sea'),
-        narration: true,
-      },
-      'power-grid': {
-        label: 'Power Grid',
-        title: '// GRID — POWER INFRASTRUCTURE',
-        channel: '15 / GRID',
-        url: () => dashboardPrototypeUrl('power-grid'),
-        narration: true,
-      },
-      viral: {
-        label: 'Viral Spread',
-        title: '// VIRAL — TRANSMISSION MODEL',
-        channel: '16 / VIRAL',
-        url: () => dashboardPrototypeUrl('viral'),
-        narration: true,
-      },
-      'dark-forest': {
-        label: 'Dark Forest',
-        title: '// VOID — DARK FOREST',
-        channel: '17 / VOID',
-        url: () => dashboardPrototypeUrl('dark-forest'),
-        narration: true,
-      },
-      'dune-deck': {
-        label: 'Katechon x Dune Dashboard',
-        title: '// DECK — KATECHON x DUNE',
-        channel: '18 / DUNE',
-        url: () => appUrl('/dashboards/dune-deck/?embed=dashboard'),
-        narration: false,
-        deckNarration: true,
-      },
-    };
-    const CHANNEL_ORDER = [
-      'spectre',
-      'news',
-      'dashboard123',
-      'world-monitor',
-      'arena',
-      'glance',
-      'crypto-trading',
-      'polyrec',
-      'biotech',
-      'space',
-      'iran',
-      'meme-coin',
-      'quantum',
-      'deep-sea',
-      'power-grid',
-      'viral',
-      'dark-forest',
-      'dune-deck',
-    ];
+    const DASHBOARD_CATALOG = window.KATECHON_DASHBOARD_CATALOG || {};
+    const CHANNELS = DASHBOARD_CATALOG.channels || {};
+    const CHANNEL_ORDER = Array.isArray(DASHBOARD_CATALOG.channelOrder)
+      ? DASHBOARD_CATALOG.channelOrder
+      : Object.keys(CHANNELS);
+
+    function channelUrl(id, channel) {
+      if (channel.route === 'static') return appUrl(channel.path || `/dashboards/${id}/`);
+      return dashboardPrototypeUrl(id, channel.params || {});
+    }
+
+    const DASHBOARDS = Object.fromEntries(CHANNEL_ORDER
+      .filter(id => CHANNELS[id])
+      .map(id => {
+        const channel = CHANNELS[id];
+        return [id, {
+          ...channel,
+          url: () => channelUrl(id, channel),
+        }];
+      }));
+
+    function escapePickerHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+      })[char]);
+    }
+
+    function pickerPreviewHtml(previewTitle) {
+      if (!previewTitle) return '';
+      return `
+        <div class="tile-preview" aria-hidden="true">
+          <div class="tile-preview-inner">
+            <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="tile-preview-title">${escapePickerHtml(previewTitle)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function pickerMediaHtml(media = {}, label = '') {
+      const src = escapePickerHtml(media.src || '');
+      const aria = escapePickerHtml(media.ariaLabel || label);
+      if (!src) return '';
+      if (media.type === 'image') {
+        const fallback = media.fallbackSrc ? ` data-fallback-src="${escapePickerHtml(media.fallbackSrc)}"` : '';
+        return `<img data-src="${src}"${fallback} alt="">`;
+      }
+      return `<video data-src="${src}" aria-label="${aria}" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>`;
+    }
+
+    function pickerTileHtml(id, channel) {
+      const tile = channel.tile || {};
+      const label = channel.label || id;
+      const classes = tile.variant === 'hero'
+        ? 'gif-box channel-hero'
+        : 'gif-box channel-preview channel-open';
+      return `
+        <div class="${classes}" data-channel-id="${escapePickerHtml(id)}" aria-label="${escapePickerHtml(tile.ariaLabel || label)}">
+          <div class="tile-kicker">${escapePickerHtml(tile.kicker || channel.channel || label)}</div>
+          ${pickerPreviewHtml(tile.previewTitle)}
+          ${pickerMediaHtml(tile.media, label)}
+          <div class="gif-label">${escapePickerHtml(label)}</div>
+        </div>
+      `;
+    }
+
+    function renderChannelPicker() {
+      if (!Object.keys(CHANNELS).length) return;
+      const primaryRow = document.querySelector('.gif-row-primary');
+      const dashboardRow = document.querySelector('.gif-row-dashboard');
+      if (!primaryRow || !dashboardRow) return;
+
+      const primary = [];
+      const dashboard = [];
+      CHANNEL_ORDER.forEach(id => {
+        const channel = CHANNELS[id];
+        if (!channel) return;
+        const target = channel.tile?.group === 'primary' ? primary : dashboard;
+        target.push(pickerTileHtml(id, channel));
+      });
+
+      primaryRow.innerHTML = primary.join('');
+      dashboardRow.innerHTML = dashboard.join('');
+      document.querySelectorAll('[data-channel-id]').forEach(tile => {
+        tile.addEventListener('click', () => switchWs(tile.dataset.channelId));
+      });
+    }
+
+    renderChannelPicker();
     const DASHBOARD_LAUNCH_PARAM_KEYS = ['dashboard', 'channel', 'watch'];
 
     function requestedDashboardId() {
@@ -3872,9 +3817,9 @@
       }, delay);
     }
 
-    const DECK_NARRATION_FILES = {
-      'dune-deck': ['dune-01', 'dune-02', 'dune-03', 'dune-04'],
-    };
+    const DECK_NARRATION_FILES = Object.fromEntries(Object.entries(CHANNELS)
+      .filter(([, channel]) => Array.isArray(channel.deckNarrationFiles))
+      .map(([id, channel]) => [id, channel.deckNarrationFiles]));
 
     function preloadDeckNarration(dashboardId) {
       const files = DECK_NARRATION_FILES[dashboardId] || [];

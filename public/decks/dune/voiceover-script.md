@@ -1,6 +1,8 @@
-# Katechon x Dune Voiceover
+# Katechon Technology Voiceover
 
-Target runtime: 34-38 seconds total.
+Source of truth: `deck.json`. Run `npm run dune:voiceover` after changing narration copy.
+
+Target runtime: 25-29 seconds total
 
 ## Slide 1
 
@@ -13,7 +15,3 @@ This is not dashboard SaaS. A live surface has state like a game, a narrator lik
 ## Slide 3
 
 Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable.
-
-## Slide 4
-
-Dune backs interactive primitives before they are obvious. Katechon is live software becoming a feed, starting with narrated dashboards.

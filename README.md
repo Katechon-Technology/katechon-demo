@@ -201,7 +201,17 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
-The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar. Regenerate the deck visuals with `public/decks/dune/scripts/generate-replicate-visuals.py` and narration with `public/decks/dune/scripts/generate-elevenlabs-narration.sh`.
+The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar.
+
+For fast edits, use `public/decks/dune/deck.json` as the source of truth for slide copy, narration, audio paths, visual paths, and generation prompts. Useful iteration commands:
+
+```bash
+npm run dune:voiceover
+npm run dune:audio -- dune-02
+npm run dune:visuals -- --force dune-02
+```
+
+The other dashboard channels use a shared shell in `public/prototype-dashboard.html`, shared runtime in `public/dashboards/prototype.js`, and editable dashboard/channel definitions in `public/dashboards/catalog.js`. The main channel picker reads tile labels, media, order, and routes from the same catalog. For dashboard-specific visual identity, add CSS or a custom stage renderer under `public/dashboards/identities/` and reference it from that dashboard's `identity` block in the catalog.
 
 This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
 

@@ -1,4 +1,4 @@
-const slides = Array.from(document.querySelectorAll('.slide'));
+const deck = document.getElementById('deck');
 const progress = document.getElementById('progress');
 const prev = document.getElementById('prev');
 const next = document.getElementById('next');
@@ -16,38 +16,116 @@ const animateMotion = (target, params) => {
   return animeApi.animate(target, params);
 };
 
-const narration = [
-  {
-    audio: './assets/narration/dune-01.mp3',
-    text: 'AI is making software surfaces abundant. Katechon turns live state into channels people can watch, scroll, and eventually act inside.',
-  },
-  {
-    audio: './assets/narration/dune-02.mp3',
-    text: 'This is not dashboard SaaS. A live surface has state like a game, a narrator like a streamer, and a feed like consumer media.',
-  },
-  {
-    audio: './assets/narration/dune-03.mp3',
-    text: 'Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable.',
-  },
-  {
-    audio: './assets/narration/dune-04.mp3',
-    text: 'Dune backs interactive primitives before they are obvious. Katechon is live software becoming a feed, starting with narrated dashboards.',
-  },
-];
-
-const requestedSlide = Number.parseInt(params.get('slide') || '1', 10);
-let current = Number.isFinite(requestedSlide)
-  ? Math.max(0, Math.min(slides.length - 1, requestedSlide - 1))
-  : 0;
+let slides = [];
+let narration = [];
+let current = 0;
 let speechUtterance = null;
 let parentNarrationId = '';
 let narrationWaveAnimation = null;
+
+function deckAssetPath(value) {
+  if (!value) return '';
+  if (/^(?:https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./')) return value;
+  return `./${value}`;
+}
+
+function setTextElement(parent, tagName, className, text) {
+  if (!text) return null;
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  element.textContent = text;
+  parent.appendChild(element);
+  return element;
+}
+
+function renderSlides(config) {
+  deck.querySelectorAll('.slide').forEach((slide) => slide.remove());
+
+  const slideConfig = Array.isArray(config.slides) ? config.slides : [];
+  slideConfig.forEach((item, index) => {
+    const slide = document.createElement('section');
+    slide.className = ['slide', `slide-${index + 1}`, index === 0 ? 'active' : ''].filter(Boolean).join(' ');
+    slide.dataset.slide = String(index);
+    if (item.slug) slide.dataset.slug = item.slug;
+
+    const image = document.createElement('img');
+    image.className = 'slide-visual';
+    image.src = deckAssetPath(item.image);
+    image.alt = item.imageAlt || '';
+    slide.appendChild(image);
+
+    const shade = document.createElement('div');
+    shade.className = 'shade';
+    slide.appendChild(shade);
+
+    const grain = document.createElement('div');
+    grain.className = 'grain';
+    slide.appendChild(grain);
+
+    const copy = document.createElement('div');
+    copy.className = ['copy', item.copyClass || ''].filter(Boolean).join(' ');
+    setTextElement(copy, 'p', 'eyebrow', item.eyebrow);
+    setTextElement(copy, 'h1', '', item.headline);
+    setTextElement(copy, 'p', 'line', item.line);
+    slide.appendChild(copy);
+
+    if (Array.isArray(item.stateRail) && item.stateRail.length) {
+      const rail = document.createElement('div');
+      rail.className = 'state-rail';
+      rail.setAttribute('aria-hidden', 'true');
+      item.stateRail.forEach((label) => setTextElement(rail, 'span', '', label));
+      slide.appendChild(rail);
+    }
+
+    deck.appendChild(slide);
+  });
+
+  slides = Array.from(document.querySelectorAll('.slide'));
+  narration = slideConfig.map((item) => ({
+    audio: deckAssetPath(item.audio),
+    text: item.narration || '',
+  }));
+}
+
+function renderManifestError(error) {
+  deck.querySelectorAll('.slide').forEach((slide) => slide.remove());
+
+  const slide = document.createElement('section');
+  slide.className = 'slide active';
+  slide.dataset.slide = '0';
+
+  const shade = document.createElement('div');
+  shade.className = 'shade';
+  slide.appendChild(shade);
+
+  const grain = document.createElement('div');
+  grain.className = 'grain';
+  slide.appendChild(grain);
+
+  const copy = document.createElement('div');
+  copy.className = 'copy';
+  setTextElement(copy, 'p', 'eyebrow', 'Deck error');
+  setTextElement(copy, 'h1', '', 'Deck manifest did not load.');
+  setTextElement(copy, 'p', 'line', error && error.message ? error.message : String(error));
+  slide.appendChild(copy);
+
+  deck.appendChild(slide);
+  slides = [slide];
+  narration = [];
+  update({ animate: false });
+}
+
+async function loadDeckConfig() {
+  const response = await fetch('./deck.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error(`deck.json returned HTTP ${response.status}`);
+  return response.json();
+}
 
 function update(options = {}) {
   const { animate = true, direction = 1 } = options;
   slides.forEach((slide, index) => slide.classList.toggle('active', index === current));
   document.body.dataset.slide = String(current + 1);
-  const progressWidth = `${((current + 1) / slides.length) * 100}%`;
+  const progressWidth = slides.length ? `${((current + 1) / slides.length) * 100}%` : '0%';
   if (canMotion && animate) {
     animateMotion(progress, {
       width: progressWidth,
@@ -153,7 +231,6 @@ function animateSlide(index, direction = 1) {
     delay: staggerMotion(64),
     ease: 'out(3)',
   });
-
 }
 
 function parentAudioUrl(item) {
@@ -163,7 +240,7 @@ function parentAudioUrl(item) {
 
 function narrateWithParentAvatar(index) {
   const item = narration[index];
-  if (!item) return;
+  if (!item || !item.text) return;
 
   parentNarrationId = `dune-deck-${index + 1}-${Date.now()}`;
   document.body.classList.add('narrating');
@@ -180,7 +257,7 @@ function narrateWithParentAvatar(index) {
 }
 
 function speakFallback(text) {
-  if (!('speechSynthesis' in window)) return;
+  if (!text || !('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   speechUtterance = new SpeechSynthesisUtterance(text);
   speechUtterance.rate = 0.95;
@@ -203,7 +280,7 @@ function speakFallback(text) {
 
 async function playNarration(index) {
   const item = narration[index];
-  if (!item) return;
+  if (!item || !item.text) return;
 
   stopNarration();
   if (useParentAvatar) {
@@ -226,7 +303,7 @@ narrator.addEventListener('ended', () => {
   document.body.classList.remove('narrating');
   stopNarrationMotion();
 });
-narrator.addEventListener('error', () => speakFallback(narration[current].text));
+narrator.addEventListener('error', () => speakFallback(narration[current] && narration[current].text));
 
 window.addEventListener('message', (event) => {
   if (event.origin !== window.location.origin || !event.data) return;
@@ -237,6 +314,7 @@ window.addEventListener('message', (event) => {
 });
 
 function goTo(index) {
+  if (!slides.length) return;
   const nextIndex = Math.max(0, Math.min(slides.length - 1, index));
   if (nextIndex === current) {
     playNarration(current);
@@ -274,9 +352,25 @@ document.addEventListener('touchend', (event) => {
   goTo(current + (dx < 0 ? 1 : -1));
 }, { passive: true });
 
-update({ animate: false });
-startAmbientMotion();
-window.setTimeout(() => animateSlide(current, 1), 80);
-window.addEventListener('load', () => {
-  window.setTimeout(() => playNarration(0), 180);
-});
+async function init() {
+  try {
+    const config = await loadDeckConfig();
+    if (config.title) document.title = config.title;
+    renderSlides(config);
+  } catch (error) {
+    renderManifestError(error);
+    return;
+  }
+
+  const requestedSlide = Number.parseInt(params.get('slide') || '1', 10);
+  current = Number.isFinite(requestedSlide)
+    ? Math.max(0, Math.min(slides.length - 1, requestedSlide - 1))
+    : 0;
+
+  update({ animate: false });
+  startAmbientMotion();
+  window.setTimeout(() => animateSlide(current, 1), 80);
+  window.setTimeout(() => playNarration(current), 180);
+}
+
+init();

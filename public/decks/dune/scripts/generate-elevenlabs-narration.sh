@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
-# Generate the four Katechon x Dune narration MP3s with ElevenLabs.
+# Generate Katechon Technology narration MP3s with ElevenLabs.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT_DIR="$ROOT/assets/narration"
+MANIFEST="${DUNE_DECK_MANIFEST:-$ROOT/deck.json}"
 MODEL_ID="${ELEVENLABS_MODEL_ID:-eleven_turbo_v2}"
 # Default to the standard Katechon pitch voice used by this demo.
 VOICE_ID="${ELEVENLABS_VOICE_ID:-jqcCZkN6Knx8BJ5TBdYR}"
 API_KEY="${ELEVENLABS_API_KEY:-}"
+SELECTORS=()
+
+if [ -n "${DUNE_SLIDES:-}" ]; then
+  read -r -a env_selectors <<< "$(printf '%s' "$DUNE_SLIDES" | tr ',' ' ')"
+  SELECTORS+=("${env_selectors[@]}")
+fi
+
+if [ "$#" -gt 0 ]; then
+  SELECTORS+=("$@")
+fi
 
 load_api_key() {
   local env_file="$1"
@@ -33,20 +43,47 @@ if [ -z "$API_KEY" ]; then
   exit 1
 fi
 
-mkdir -p "$OUT_DIR"
+should_generate() {
+  local slug="$1"
+  local audio="$2"
+  local audio_stem
+  audio_stem="$(basename "$audio" .mp3)"
 
-NARRATIONS=(
-  "dune-01|AI is making software surfaces abundant. Katechon turns live state into channels people can watch, scroll, and eventually act inside."
-  "dune-02|This is not dashboard SaaS. A live surface has state like a game, a narrator like a streamer, and a feed like consumer media."
-  "dune-03|Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable."
-  "dune-04|Dune backs interactive primitives before they are obvious. Katechon is live software becoming a feed, starting with narrated dashboards."
-)
+  if [ "${#SELECTORS[@]}" -eq 0 ]; then
+    return 0
+  fi
 
-for entry in "${NARRATIONS[@]}"; do
-  SLUG="${entry%%|*}"
-  TEXT="${entry#*|}"
-  MP3_FILE="$OUT_DIR/${SLUG}.mp3"
-  TMP_FILE="$OUT_DIR/${SLUG}.tmp"
+  local selector
+  for selector in "${SELECTORS[@]}"; do
+    if [ -z "$selector" ]; then
+      continue
+    fi
+    if [ "$selector" = "$slug" ] || [ "$selector" = "$audio" ] || [ "$selector" = "$audio_stem" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+audio_path() {
+  local audio="$1"
+  audio="${audio#./}"
+  if [[ "$audio" == /* ]]; then
+    printf '%s\n' "$audio"
+    return
+  fi
+  printf '%s/%s\n' "$ROOT" "$audio"
+}
+
+while IFS=$'\t' read -r SLUG AUDIO TEXT; do
+  if ! should_generate "$SLUG" "$AUDIO"; then
+    continue
+  fi
+
+  MP3_FILE="$(audio_path "$AUDIO")"
+  TMP_FILE="${MP3_FILE%.mp3}.tmp"
+  mkdir -p "$(dirname "$MP3_FILE")"
 
   echo "generating $SLUG"
   HTTP_STATUS="$(curl -sS -X POST \
@@ -78,6 +115,6 @@ for entry in "${NARRATIONS[@]}"; do
   fi
 
   mv "$TMP_FILE" "$MP3_FILE"
-done
+done < <(jq -r '.slides[] | select((.narration // "") != "" and (.audio // "") != "") | [(.slug // (.audio | split("/")[-1] | sub("\\.mp3$"; ""))), .audio, .narration] | @tsv' "$MANIFEST")
 
-echo "wrote $OUT_DIR"
+echo "wrote narration assets from $MANIFEST"

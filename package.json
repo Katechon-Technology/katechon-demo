@@ -6,6 +6,9 @@
     "build": "node scripts/build-vercel.js",
     "start": "node server.js",
     "dev": "node server.js",
+    "dune:audio": "public/decks/dune/scripts/generate-elevenlabs-narration.sh",
+    "dune:visuals": "python3 public/decks/dune/scripts/generate-replicate-visuals.py",
+    "dune:voiceover": "node public/decks/dune/scripts/write-voiceover-script.js",
     "pitch:dev": "npm --prefix ../katechon-pitch run dev -- --host 127.0.0.1 --port 5174 --strictPort"
   },
   "dependencies": {

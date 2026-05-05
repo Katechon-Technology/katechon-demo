@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Generate Dune deck visuals through Replicate.
 
-Reads REPLICATE_API_KEY from the environment, this directory's parent .env.local,
-or the existing Katechon pitch repo .env.local. The key is never printed.
+Reads prompts from deck.json. REPLICATE_API_KEY can come from the environment,
+this deck's .env.local, or the existing Katechon pitch/app env files.
 """
 
+import argparse
 import json
 import os
 import time
@@ -13,33 +14,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_DIR = ROOT / "assets" / "visuals"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
-
+MANIFEST = Path(os.environ.get("DUNE_DECK_MANIFEST", ROOT / "deck.json"))
 MODEL = os.environ.get("REPLICATE_MODEL", "black-forest-labs/flux-schnell")
-
-VISUALS = [
-    (
-        "00-dashboard-header.jpg",
-        "Cinematic 16:9 dashboard header for the Katechon x Dune fundraise deck: live software channels arranged like a premium media control room, luminous application surfaces, avatar narration energy suggested through abstract signal waves, dark full-bleed investor demo aesthetic, refined red ember and emerald signal accents, no readable text, no logos, no watermark",
-    ),
-    (
-        "01-live-software-channel.jpg",
-        "Cinematic investor deck hero image for a new media format: a dark full-bleed live software feed floating in space, multiple luminous application dashboards as channels, maps, event rooms, agent timelines, market pulse panels, game-state overlays, elegant red and green signal accents, premium interactive media aesthetic, deep black background, sharp glass UI, no readable text, no logos, no watermark, 16:9 composition",
-    ),
-    (
-        "02-interactive-media.jpg",
-        "A high-end interactive media cockpit that feels half dashboard, half game spectator mode: live map surface, avatar narration presence represented as an abstract glowing voice core, feed tiles, game-like state indicators, cinematic dark interface, red orange accent, emerald signal lights, premium venture deck visual, no readable text, no logos, no watermark, 16:9",
-    ),
-    (
-        "03-state-not-pixels.jpg",
-        "Abstract split between flat video pixels and structured software state: left side dissolving into video scanlines, right side clean inspectable data objects, nodes, panels, live application state layers, cinematic black environment, crisp technical realism, red blue green accents, sophisticated investor presentation visual, no readable text, no logos, no watermark, 16:9",
-    ),
-    (
-        "04-dune-fit.jpg",
-        "Futuristic network of live application channels becoming a consumer feed: strange beautiful frontier interface, games, simulations, event rooms, agent dashboards connected as glowing surfaces, ambitious interactive media platform energy, dark premium cinematic lighting, red ember highlights, green signal paths, no readable text, no logos, no watermark, 16:9",
-    ),
-]
 
 
 def read_key() -> str:
@@ -60,23 +36,25 @@ def read_key() -> str:
     for path in candidates:
         if not path.exists():
             continue
-        for line in path.read_text().splitlines():
-            if line.startswith("REPLICATE_API_TOKEN="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
-        for line in path.read_text().splitlines():
-            if line.startswith("REPLICATE_API_KEY="):
-                return line.split("=", 1)[1].strip().strip('"').strip("'")
+        lines = path.read_text().splitlines()
+        for key_name in ("REPLICATE_API_TOKEN", "REPLICATE_API_KEY"):
+            for line in lines:
+                if line.startswith(f"{key_name}="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
     return ""
 
 
-API_KEY = read_key()
-if not API_KEY:
-    raise SystemExit("REPLICATE_API_KEY not found. Set it in env or dune-deck/.env.local.")
+HEADERS = {}
 
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}",
-    "Content-Type": "application/json",
-}
+
+def configure_api():
+    api_key = read_key()
+    if not api_key:
+        raise SystemExit("REPLICATE_API_KEY not found. Set it in env or public/decks/dune/.env.local.")
+    HEADERS.update({
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    })
 
 
 def request_json(method: str, url: str, payload=None, prefer_wait=False):
@@ -92,6 +70,7 @@ def request_json(method: str, url: str, payload=None, prefer_wait=False):
 
 def download(url: str, dest: Path):
     req = urllib.request.Request(url, method="GET")
+    dest.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(req, timeout=180) as response:
         dest.write_bytes(response.read())
 
@@ -133,13 +112,48 @@ def output_url(output):
     raise RuntimeError(f"Unsupported Replicate output: {output!r}")
 
 
-def generate(filename: str, prompt: str):
-    dest = OUT_DIR / filename
-    if dest.exists() and dest.stat().st_size > 24_000:
-        print(f"skip {filename}")
+def deck_asset_path(value: str) -> Path:
+    clean = value.removeprefix("./")
+    path = (ROOT / clean).resolve()
+    if ROOT not in path.parents and path != ROOT:
+        raise ValueError(f"Refusing to write outside deck root: {value}")
+    return path
+
+
+def load_visuals():
+    manifest = json.loads(MANIFEST.read_text())
+
+    for visual in manifest.get("visuals", []):
+        file_path = visual.get("file") or visual.get("image")
+        prompt = visual.get("prompt")
+        if file_path and prompt:
+            slug = visual.get("slug") or Path(file_path).stem
+            yield slug, file_path, prompt
+
+    for index, slide in enumerate(manifest.get("slides", []), start=1):
+        image = slide.get("image")
+        prompt = slide.get("visualPrompt")
+        if image and prompt:
+            slug = slide.get("slug") or f"slide-{index:02d}"
+            yield slug, image, prompt
+
+
+def matches(selectors, slug: str, file_path: str) -> bool:
+    if not selectors:
+        return True
+
+    path = Path(file_path)
+    aliases = {slug, file_path, path.name, path.stem}
+    return any(selector in aliases for selector in selectors)
+
+
+def generate(slug: str, file_path: str, prompt: str, force: bool):
+    dest = deck_asset_path(file_path)
+    if dest.exists() and dest.stat().st_size > 24_000 and not force:
+        print(f"skip {slug} ({dest.relative_to(ROOT)})")
         return
 
-    print(f"generate {filename}", flush=True)
+    print(f"generate {slug} ({dest.relative_to(ROOT)})", flush=True)
     try:
         prediction = request_json(
             "POST",
@@ -156,16 +170,35 @@ def generate(filename: str, prompt: str):
         prediction = request_json("GET", f"https://api.replicate.com/v1/predictions/{prediction['id']}")
 
     if prediction.get("status") != "succeeded":
-        raise RuntimeError(f"Replicate failed for {filename}: {prediction.get('error')}")
+        raise RuntimeError(f"Replicate failed for {slug}: {prediction.get('error')}")
 
     download(output_url(prediction["output"]), dest)
     print(f"wrote {dest.relative_to(ROOT)}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate Dune deck visuals from deck.json.")
+    parser.add_argument("selectors", nargs="*", help="Slide slug, visual slug, filename, or asset path to generate.")
+    parser.add_argument("--force", action="store_true", help="Regenerate even if the asset already exists.")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     print(f"model {MODEL}")
-    for filename, prompt in VISUALS:
-        generate(filename, prompt)
+    print(f"manifest {MANIFEST}")
+    selected = [
+        (slug, file_path, prompt)
+        for slug, file_path, prompt in load_visuals()
+        if matches(set(args.selectors), slug, file_path)
+    ]
+    if not selected:
+        print("no matching visuals")
+        return
+
+    configure_api()
+    for slug, file_path, prompt in selected:
+        generate(slug, file_path, prompt, args.force)
 
 
 if __name__ == "__main__":

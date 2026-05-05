@@ -1,0 +1,49 @@
+{
+  "title": "Katechon Technology",
+  "description": "Katechon Technology pitch cut for Dune Ventures.",
+  "targetRuntime": "25-29 seconds total",
+  "visuals": [
+    {
+      "slug": "header",
+      "file": "assets/visuals/00-dashboard-header.jpg",
+      "prompt": "Cinematic 16:9 dashboard header for the Katechon Technology fundraise deck: live software channels arranged like a premium media control room, luminous application surfaces, avatar narration energy suggested through abstract signal waves, dark full-bleed investor demo aesthetic, refined red ember and emerald signal accents, no readable text, no logos, no watermark"
+    }
+  ],
+  "slides": [
+    {
+      "slug": "dune-01",
+      "eyebrow": "Katechon Technology",
+      "headline": "Live software becomes the next media object.",
+      "line": "Channels people can watch, scroll, and eventually act inside.",
+      "image": "assets/visuals/01-live-software-channel.jpg",
+      "audio": "assets/narration/dune-01.mp3",
+      "narration": "AI is making software surfaces abundant. Katechon turns live state into channels people can watch, scroll, and eventually act inside.",
+      "visualPrompt": "Cinematic investor deck hero image for a new media format: a dark full-bleed live software feed floating in space, multiple luminous application dashboards as channels, maps, event rooms, agent timelines, market pulse panels, game-state overlays, elegant red and green signal accents, premium interactive media aesthetic, deep black background, sharp glass UI, no readable text, no logos, no watermark, 16:9 composition"
+    },
+    {
+      "slug": "dune-02",
+      "eyebrow": "Not SaaS",
+      "headline": "A dashboard with the grammar of interactive media.",
+      "copyClass": "compact",
+      "image": "assets/visuals/02-interactive-media.jpg",
+      "audio": "assets/narration/dune-02.mp3",
+      "narration": "This is not dashboard SaaS. A live surface has state like a game, a narrator like a streamer, and a feed like consumer media.",
+      "visualPrompt": "A high-end interactive media cockpit that feels half dashboard, half game spectator mode: live map surface, avatar narration presence represented as an abstract glowing voice core, feed tiles, game-like state indicators, cinematic dark interface, red orange accent, emerald signal lights, premium venture deck visual, no readable text, no logos, no watermark, 16:9"
+    },
+    {
+      "slug": "dune-03",
+      "eyebrow": "State, not pixels",
+      "headline": "YouTube streams video. Katechon streams software state.",
+      "image": "assets/visuals/03-state-not-pixels.jpg",
+      "audio": "assets/narration/dune-03.mp3",
+      "narration": "Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable.",
+      "stateRail": [
+        "inspectable",
+        "personalized",
+        "recomposable",
+        "actionable"
+      ],
+      "visualPrompt": "Abstract split between flat video pixels and structured software state: left side dissolving into video scanlines, right side clean inspectable data objects, nodes, panels, live application state layers, cinematic black environment, crisp technical realism, red blue green accents, sophisticated investor presentation visual, no readable text, no logos, no watermark, 16:9"
+    }
+  ]
+}
