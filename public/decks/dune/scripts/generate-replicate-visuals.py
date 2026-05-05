@@ -88,6 +88,15 @@ def model_input(prompt: str):
             "num_inference_steps": 4,
         }
 
+    if MODEL == "bytedance/seedream-4.5":
+        return {
+            "prompt": prompt,
+            "size": "2K",
+            "aspect_ratio": "16:9",
+            "sequential_image_generation": "disabled",
+            "max_images": 1,
+        }
+
     return {
         "prompt": prompt,
         "width": 1536,

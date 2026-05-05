@@ -1,7 +1,7 @@
 {
   "title": "Katechon Technology",
   "description": "Katechon Technology pitch cut for Dune Ventures.",
-  "targetRuntime": "25-29 seconds total",
+  "targetRuntime": "36-42 seconds total",
   "visuals": [
     {
       "slug": "header",
@@ -44,6 +44,24 @@
         "actionable"
       ],
       "visualPrompt": "Abstract split between flat video pixels and structured software state: left side dissolving into video scanlines, right side clean inspectable data objects, nodes, panels, live application state layers, cinematic black environment, crisp technical realism, red blue green accents, sophisticated investor presentation visual, no readable text, no logos, no watermark, 16:9"
+    },
+    {
+      "slug": "dune-04",
+      "eyebrow": "Discovery captures value",
+      "headline": "Own the software feed.",
+      "line": "Websites, photos, and short-form video made their biggest fortunes at discovery. Katechon learns which model, prompt, state, and intent combinations become software channels people want.",
+      "copyClass": "end",
+      "image": "assets/visuals/04-software-feed.jpg",
+      "imageAlt": "A cinematic software feed control plane connecting frontier model cores to live software channels and audience signals.",
+      "audio": "assets/narration/dune-04-discovery.mp3",
+      "narration": "Every new content format created the same prize. Google owned discovery for websites. Instagram owned discovery for photos. TikTok owned discovery for short-form video. As people use Katechon, we learn which models, prompts, tools, state, and user intents combine into software worth watching and using. Own that discovery graph, and we become the way the world finds software.",
+      "stateRail": [
+        "discovery",
+        "intent graph",
+        "model mix",
+        "value capture"
+      ],
+      "visualPrompt": "Wide cinematic investor deck background, not an infographic. A colossal black-glass recommendation engine floats in deep space, routing luminous streams from frontier-model energy cores into thousands of live software-channel constellations. Abstract feed-era motifs appear only as unlabeled energy shapes: a red link mesh, a blue tile cloud, and amber vertical light columns. The whole scene feels like owning the algorithmic layer between models and users. Deep scale, crisp technical realism, premium dark environment, refined red ember, emerald signal, blue intelligence, amber opportunity accents. No captions, no typography, no readable UI, no logos, no people, no faces, 16:9 composition"
     }
   ]
 }

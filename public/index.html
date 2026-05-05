@@ -2563,8 +2563,20 @@
       ? DASHBOARD_CATALOG.channelOrder
       : Object.keys(CHANNELS);
 
+    function staticChannelUrl(id, channel) {
+      const base = channel.path || `/dashboards/${id}/`;
+      const [pathname, search = ''] = base.split('?');
+      const query = new URLSearchParams(search);
+      ['slide', 'avatar'].forEach(key => {
+        const value = pageParams.get(key);
+        if (value && !query.has(key)) query.set(key, value);
+      });
+      const suffix = query.toString();
+      return appUrl(`${pathname}${suffix ? `?${suffix}` : ''}`);
+    }
+
     function channelUrl(id, channel) {
-      if (channel.route === 'static') return appUrl(channel.path || `/dashboards/${id}/`);
+      if (channel.route === 'static') return staticChannelUrl(id, channel);
       return dashboardPrototypeUrl(id, channel.params || {});
     }
 
