@@ -1017,7 +1017,12 @@
       return `${APP_BASE_PATH}${normalized}`;
     }
 
-    const dashboardId = (location.pathname.match(/(?:^|\/)dashboards\/([^/]+)/) || [])[1] || "world-monitor";
+    const dashboardParams = new URLSearchParams(location.search);
+    const dashboardId = String(
+      dashboardParams.get("dashboard") ||
+      (location.pathname.match(/(?:^|\/)dashboards\/([^/]+)/) || [])[1] ||
+      "world-monitor"
+    ).toLowerCase().replace(/[^\w-]/g, "");
 
     const palettes = {
       acid: ["#00e87b", "#7de8ff", "#ffbf5f", "#040609", "#0d1418"],
@@ -1061,7 +1066,7 @@
         scene: "newsroom",
         api: null,
         video: "videos/news.mp4",
-        asset: "generated/dashboards/newsroom-evidence.jpg",
+        asset: "share-thumbnails/news.jpg",
         kicker: "situation room / source fusion",
         title: "News Situation Room",
         subtitle: "Source cards, timeline updates, generated visual evidence, and editorial state arranged as a watchable news channel.",
@@ -1107,7 +1112,7 @@
         scene: "command-map",
         api: null,
         video: "videos/world-monitor.mp4",
-        asset: "generated/dashboards/world-risk-map.jpg",
+        asset: "share-thumbnails/world-monitor.jpg",
         kicker: "geopolitical intelligence / risk correlation",
         title: "World Monitor",
         subtitle: "Conflict signals, instability markers, market pressure, and source-fused regional briefs in one operator surface.",
@@ -1220,7 +1225,7 @@
         scene: "bio-lab",
         api: null,
         video: "videos/biotech.mp4",
-        asset: "generated/dashboards/biotech-protein-field.jpg",
+        asset: "share-thumbnails/biotech.jpg",
         kicker: "biotech intelligence / living research graph",
         title: "Biotech",
         subtitle: "CRISPR, protein folding, drug pipeline, and nanoscale biology signals in one narrated research surface.",
@@ -1244,7 +1249,7 @@
         scene: "observatory",
         api: null,
         video: "videos/space.mp4",
-        asset: "generated/dashboards/deep-space-observatory.jpg",
+        asset: "share-thumbnails/space.jpg",
         kicker: "deep space observatory / slow signal",
         title: "Deep Space",
         subtitle: "Pulsar timing, exoplanet transits, survey drift, and long-baseline anomaly watches.",
@@ -1268,7 +1273,7 @@
         scene: "geo-signal",
         api: null,
         video: "videos/iran.mp4",
-        asset: "generated/dashboards/iran-orbital-map.jpg",
+        asset: "share-thumbnails/iran.jpg",
         kicker: "geopolitical signal tracker / measured context",
         title: "Iran Signal",
         subtitle: "Infrastructure nodes, regional pressure, orbital windows, and measured geopolitical context.",
@@ -1292,7 +1297,7 @@
         scene: "meme",
         api: "pumpfun",
         video: "videos/meme-coin.mp4",
-        asset: "generated/dashboards/meme-market-collage.jpg",
+        asset: "share-thumbnails/meme-coin.jpg",
         kicker: "pump.fun style / social market monitor",
         title: "Meme Coin",
         subtitle: "A no-trade social market temple with bonding curve, holder clusters, liquidity decay, and narrative velocity.",
@@ -1316,7 +1321,7 @@
         scene: "quantum",
         api: "polymarket",
         video: "videos/quantum.mp4",
-        asset: "generated/dashboards/quantum-probability-field.jpg",
+        asset: "share-thumbnails/quantum.jpg",
         kicker: "quantum states / probability markets",
         title: "Quantum States",
         subtitle: "A Polymarket-inspired probability board using quantum metaphors for competing outcomes and belief shifts.",
@@ -1340,7 +1345,7 @@
         scene: "abyss",
         api: null,
         video: "videos/deep-sea.mp4",
-        asset: "generated/dashboards/abyssal-sensor-field.jpg",
+        asset: "share-thumbnails/deep-sea.jpg",
         kicker: "abyssal sensor network / slow signal",
         title: "Abyssal Monitor",
         subtitle: "Hydrothermal vents, abyssal current shifts, pressure anomalies, and bioluminescent event logs.",
@@ -1410,7 +1415,7 @@
         scene: "darkwatch",
         api: null,
         video: "videos/dark-forest.mp4",
-        asset: "generated/dashboards/dark-forest-catalog.jpg",
+        asset: "share-thumbnails/dark-forest.jpg",
         kicker: "anomalous astronomy / long-baseline watch",
         title: "Dark Forest",
         subtitle: "Stellar dimming, catalog irregularities, long-baseline silence, and anomaly clustering.",
