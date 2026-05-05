@@ -1811,27 +1811,16 @@
             <video data-src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Dark Forest</div>
           </div>
-          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Dune Fundraise Deck">
-            <div class="tile-kicker">18 / DUNE DECK</div>
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Katechon x Dune Dashboard">
+            <div class="tile-kicker">18 / KATECHON x DUNE</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
                 <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="tile-preview-title">dune deck</div>
+                <div class="tile-preview-title">katechon x dune</div>
               </div>
             </div>
             <img data-src="decks/dune/assets/visuals/00-dashboard-header.jpg" data-fallback-src="decks/dune/assets/visuals/01-live-software-channel.jpg" alt="">
-            <div class="gif-label">Dune Fundraise Deck</div>
-          </div>
-          <div class="gif-box channel-preview channel-open" onclick="switchWs('rosadelmar-deck')" aria-label="Rosadelmar Deck">
-            <div class="tile-kicker">19 / ROSADELMAR</div>
-            <div class="tile-preview" aria-hidden="true">
-              <div class="tile-preview-inner">
-                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="tile-preview-title">alpha search</div>
-              </div>
-            </div>
-            <img data-src="decks/rosadelmar/assets/pages/pitch-1.jpg" alt="">
-            <div class="gif-label">Rosadelmar Deck</div>
+            <div class="gif-label">Katechon x Dune Dashboard</div>
           </div>
         </div>
       </div>
@@ -1862,8 +1851,6 @@
         <div class="dashboard-tunnel-layer tunnel-streaks"></div>
         <div class="dashboard-tunnel-layer tunnel-vignette"></div>
       </div>
-      <iframe id="dashboard-frame-a" class="dashboard-frame active" title="Live dashboard"></iframe>
-      <iframe id="dashboard-frame-b" class="dashboard-frame" title="Live dashboard"></iframe>
     </div>
   </div>
 
@@ -2516,10 +2503,8 @@
     const landingFrameCache = document.getElementById('landing-frame-cache');
     const dashboardOverlay = document.getElementById('dashboard-overlay');
     const dashboardFrameStage = document.getElementById('dashboard-frame-stage');
-    const dashboardFrames = [
-      document.getElementById('dashboard-frame-a'),
-      document.getElementById('dashboard-frame-b'),
-    ];
+    const dashboardFrames = [];
+    const dashboardFrameById = new Map();
     const dashboardTitle = document.getElementById('dashboard-title');
     const dashboardPosition = document.getElementById('dashboard-position');
     const backButton = document.getElementById('dashboard-back');
@@ -2565,139 +2550,137 @@
     const AVATAR_DESKTOP_MIN_WIDTH = 620;
     const AVATAR_DESKTOP_MAX_WIDTH = 860;
     const AVATAR_DESKTOP_MEDIA = window.matchMedia('(min-width: 861px)');
+
+    function dashboardPrototypeUrl(id, params = {}) {
+      const query = new URLSearchParams({ dashboard: id, ...params });
+      return appUrl(`/dashboards/${id}/?${query.toString()}`);
+    }
+
     const DASHBOARDS = {
       spectre: {
         label: 'SPECTRE Event Room',
         title: '// OSINT — SPECTRE EVENT ROOM',
         channel: '01 / OSINT',
-        url: () => appUrl('/dashboards/spectre/?kiosk=1'),
+        url: () => dashboardPrototypeUrl('spectre', { kiosk: '1' }),
         narration: true,
       },
       news: {
         label: 'News Situation Room',
         title: '// NEWS — SITUATION ROOM',
         channel: '02 / NEWS',
-        url: () => appUrl('/dashboards/news/'),
+        url: () => dashboardPrototypeUrl('news'),
         narration: true,
       },
       'world-monitor': {
         label: 'World Monitor',
         title: '// GEO — WORLD MONITOR',
         channel: '04 / WORLD',
-        url: () => appUrl('/dashboards/world-monitor/'),
+        url: () => dashboardPrototypeUrl('world-monitor'),
         narration: true,
       },
       glance: {
         label: 'Glance',
         title: '// FEEDS — GLANCE',
         channel: '06 / SOURCE WALL',
-        url: () => appUrl('/dashboards/glance/'),
+        url: () => dashboardPrototypeUrl('glance'),
         narration: true,
       },
       'crypto-trading': {
         label: 'Crypto Trading',
         title: '// CRYPTO — TRADING DASHBOARD',
         channel: '07 / CRYPTO',
-        url: () => appUrl('/dashboards/crypto-trading/'),
+        url: () => dashboardPrototypeUrl('crypto-trading'),
         narration: true,
       },
       polyrec: {
         label: 'Polyrec',
         title: '// PREDICTION MARKETS — POLYREC',
         channel: '08 / CLOCK',
-        url: () => appUrl('/dashboards/polyrec/'),
+        url: () => dashboardPrototypeUrl('polyrec'),
         narration: true,
       },
       dashboard123: {
         label: 'Market Pulse',
         title: '// MARKETS — MARKET PULSE',
         channel: '03 / MARKETS',
-        url: () => appUrl('/dashboards/dashboard123/'),
+        url: () => dashboardPrototypeUrl('dashboard123'),
         narration: true,
       },
       arena: {
         label: 'AI Arena',
         title: '// ARENA — AI vs AI',
         channel: '05 / AGENTS',
-        url: () => appUrl('/dashboards/arena/'),
+        url: () => dashboardPrototypeUrl('arena'),
         narration: true,
       },
       biotech: {
         label: 'Biotech',
         title: '// BIO — CRISPR & PROTEIN',
         channel: '09 / BIO',
-        url: () => appUrl('/dashboards/biotech/'),
+        url: () => dashboardPrototypeUrl('biotech'),
         narration: true,
       },
       space: {
         label: 'Deep Space',
         title: '// SPACE — DEEP FIELD',
         channel: '10 / SPACE',
-        url: () => appUrl('/dashboards/space/'),
+        url: () => dashboardPrototypeUrl('space'),
         narration: true,
       },
       iran: {
         label: 'Iran Signal',
         title: '// IRAN — SIGNAL TRACKER',
         channel: '11 / GEO',
-        url: () => appUrl('/dashboards/iran/'),
+        url: () => dashboardPrototypeUrl('iran'),
         narration: true,
       },
       'meme-coin': {
         label: 'Meme Coin',
         title: '// DEGEN — MEME COIN TEMPLE',
         channel: '12 / SOCIAL',
-        url: () => appUrl('/dashboards/meme-coin/'),
+        url: () => dashboardPrototypeUrl('meme-coin'),
         narration: true,
       },
       quantum: {
         label: 'Quantum States',
         title: '// QUANT — QUANTUM COMPUTING',
         channel: '13 / QUANT',
-        url: () => appUrl('/dashboards/quantum/'),
+        url: () => dashboardPrototypeUrl('quantum'),
         narration: true,
       },
       'deep-sea': {
         label: 'Abyssal Monitor',
         title: '// ABYSS — DEEP SEA',
         channel: '14 / ABYSS',
-        url: () => appUrl('/dashboards/deep-sea/'),
+        url: () => dashboardPrototypeUrl('deep-sea'),
         narration: true,
       },
       'power-grid': {
         label: 'Power Grid',
         title: '// GRID — POWER INFRASTRUCTURE',
         channel: '15 / GRID',
-        url: () => appUrl('/dashboards/power-grid/'),
+        url: () => dashboardPrototypeUrl('power-grid'),
         narration: true,
       },
       viral: {
         label: 'Viral Spread',
         title: '// VIRAL — TRANSMISSION MODEL',
         channel: '16 / VIRAL',
-        url: () => appUrl('/dashboards/viral/'),
+        url: () => dashboardPrototypeUrl('viral'),
         narration: true,
       },
       'dark-forest': {
         label: 'Dark Forest',
         title: '// VOID — DARK FOREST',
         channel: '17 / VOID',
-        url: () => appUrl('/dashboards/dark-forest/'),
+        url: () => dashboardPrototypeUrl('dark-forest'),
         narration: true,
       },
       'dune-deck': {
-        label: 'Dune Fundraise Deck',
+        label: 'Katechon x Dune Dashboard',
         title: '// DECK — KATECHON x DUNE',
         channel: '18 / DUNE',
         url: () => appUrl('/dashboards/dune-deck/?embed=dashboard'),
-        narration: false,
-        deckNarration: true,
-      },
-      'rosadelmar-deck': {
-        label: 'Rosadelmar Deck',
-        title: '// DECK — ROSADELMAR',
-        channel: '19 / ROSADELMAR',
-        url: () => appUrl('/dashboards/rosadelmar-deck/?embed=dashboard'),
         narration: false,
         deckNarration: true,
       },
@@ -2721,7 +2704,6 @@
       'viral',
       'dark-forest',
       'dune-deck',
-      'rosadelmar-deck',
     ];
     const DASHBOARD_LAUNCH_PARAM_KEYS = ['dashboard', 'channel', 'watch'];
 
@@ -2856,7 +2838,7 @@
     };
     let dashboardFrameLoadToken = 0;
     let dashboardFrameRevealTimer = null;
-    let activeDashboardFrameIndex = 0;
+    let activeDashboardFrameIndex = -1;
     let currentDashboardUrl = '';
     let avatarReady = false;
     let avatarReadyResolver = null;
@@ -3362,14 +3344,14 @@
     }
 
     function activeDashboardFrame() {
-      return dashboardFrames[activeDashboardFrameIndex];
+      return activeDashboardFrameIndex >= 0 ? dashboardFrames[activeDashboardFrameIndex] : null;
     }
 
     function bufferDashboardFrame() {
-      return dashboardFrames[1 - activeDashboardFrameIndex];
+      return null;
     }
 
-    function resetDashboardFrame(frame) {
+    function hideDashboardFrame(frame) {
       if (!frame) return;
       frame.className = 'dashboard-frame';
       frame.style.opacity = '';
@@ -3378,8 +3360,30 @@
       frame.style.transition = '';
       frame.style.zIndex = '';
       frame.style.pointerEvents = '';
-      frame.src = 'about:blank';
-      frame.removeAttribute('src');
+    }
+
+    function ensureDashboardFrame(id) {
+      if (dashboardFrameById.has(id)) return dashboardFrameById.get(id);
+      const dashboard = DASHBOARDS[id];
+      if (!dashboard) return null;
+      const frame = document.createElement('iframe');
+      frame.className = 'dashboard-frame';
+      frame.title = dashboard.label;
+      frame.loading = 'eager';
+      frame.dataset.dashboardId = id;
+      frame.src = dashboard.url();
+      dashboardFrameStage.appendChild(frame);
+      dashboardFrameById.set(id, frame);
+      dashboardFrames.push(frame);
+      return frame;
+    }
+
+    function preloadDashboardFrames() {
+      channelIds().forEach(ensureDashboardFrame);
+    }
+
+    function resetDashboardFrame(frame) {
+      hideDashboardFrame(frame);
     }
 
     function clearDashboardTunnelStage() {
@@ -3490,7 +3494,7 @@
       nextFrame.style.filter = 'none';
       nextFrame.style.transition = '';
 
-      if (activeDashboardFrame() !== previousFrame) resetDashboardFrame(previousFrame);
+      if (previousFrame && previousFrame !== nextFrame) hideDashboardFrame(previousFrame);
     }
 
     function disableDashboardTunnelTransitions() {
@@ -3603,9 +3607,8 @@
       clearDashboardNavigationTimers();
       clearDashboardTunnelStage();
       currentDashboardUrl = '';
-      activeDashboardFrameIndex = 0;
-      dashboardFrames.forEach(resetDashboardFrame);
-      dashboardFrames[0].classList.add('active');
+      activeDashboardFrameIndex = -1;
+      dashboardFrames.forEach(hideDashboardFrame);
     }
 
     function revealDashboardFrame(token, nextFrame, previousFrame, direction, options = {}) {
@@ -3613,15 +3616,16 @@
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
 
-      previousFrame.classList.remove('active');
+      previousFrame?.classList.remove('active');
       setDashboardTunnelStage(direction);
-      prepareDashboardTunnelFrames(nextFrame, previousFrame, direction);
+      if (previousFrame) prepareDashboardTunnelFrames(nextFrame, previousFrame, direction);
+      else normalizeActiveDashboardFrame(nextFrame);
       activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
       currentDashboardUrl = nextFrame.getAttribute('src') || '';
 
-      if (reduceMotion) {
+      if (!previousFrame || reduceMotion) {
         nextFrame.style.opacity = '1';
-        previousFrame.style.opacity = '0';
+        if (previousFrame) previousFrame.style.opacity = '0';
         scheduleDashboardRevealFinish(token, nextFrame, previousFrame, 90);
         return;
       }
@@ -3630,19 +3634,19 @@
       scheduleDashboardRevealFinish(token, nextFrame, previousFrame, DASHBOARD_TUNNEL_DURATION + DASHBOARD_TUNNEL_SETTLE_DELAY);
     }
 
-    function loadDashboardFrame(url, direction = 1, options = {}) {
-      if (currentDashboardUrl === url || activeDashboardFrame().getAttribute('src') === url) {
+    function loadDashboardFrame(workspace, url, direction = 1, options = {}) {
+      const nextFrame = ensureDashboardFrame(workspace);
+      if (!nextFrame) return;
+
+      if (currentDashboardUrl === url || activeDashboardFrame() === nextFrame) {
         currentDashboardUrl = url;
-        activeDashboardFrame().classList.add('active');
-        activeDashboardFrame().style.opacity = '';
-        activeDashboardFrame().style.transform = '';
-        activeDashboardFrame().style.filter = '';
+        activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
+        normalizeActiveDashboardFrame(nextFrame);
         return;
       }
 
       const token = ++dashboardFrameLoadToken;
       const previousFrame = activeDashboardFrame();
-      const nextFrame = bufferDashboardFrame();
       let revealed = false;
 
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
@@ -3652,10 +3656,13 @@
       stopDashboardTunnelAnimation();
       restoreDashboardTunnelTransitions();
       clearDashboardTunnelStage();
-      normalizeActiveDashboardFrame(previousFrame);
+      if (previousFrame) normalizeActiveDashboardFrame(previousFrame);
+      dashboardFrames.forEach(frame => {
+        if (frame !== previousFrame && frame !== nextFrame) hideDashboardFrame(frame);
+      });
 
       nextFrame.className = 'dashboard-frame incoming';
-      nextFrame.title = previousFrame.title || 'Live dashboard';
+      nextFrame.title = DASHBOARDS[workspace]?.label || 'Live dashboard';
       nextFrame.style.opacity = reduceMotion ? '0' : '0.16';
       nextFrame.style.transform = reduceMotion
         ? 'translate3d(0, 0, 0) scale(1) rotateY(0deg)'
@@ -3670,11 +3677,13 @@
         revealDashboardFrame(token, nextFrame, previousFrame, direction, options);
       };
 
-      nextFrame.addEventListener('load', finish, { once: true });
       requestAnimationFrame(() => {
         if (token !== dashboardFrameLoadToken) return;
-        nextFrame.src = url;
-        dashboardFrameRevealTimer = setTimeout(finish, DASHBOARD_TUNNEL_LOAD_TIMEOUT);
+        if (nextFrame.contentDocument?.readyState === 'complete') finish();
+        else {
+          nextFrame.addEventListener('load', finish, { once: true });
+          dashboardFrameRevealTimer = setTimeout(finish, DASHBOARD_TUNNEL_LOAD_TIMEOUT);
+        }
       });
     }
 
@@ -3865,18 +3874,6 @@
 
     const DECK_NARRATION_FILES = {
       'dune-deck': ['dune-01', 'dune-02', 'dune-03', 'dune-04'],
-      'rosadelmar-deck': [
-        'rosadelmar-01',
-        'rosadelmar-02',
-        'rosadelmar-03',
-        'rosadelmar-04',
-        'rosadelmar-05',
-        'rosadelmar-06',
-        'rosadelmar-07',
-        'rosadelmar-08',
-        'rosadelmar-09',
-        'rosadelmar-10',
-      ],
     };
 
     function preloadDeckNarration(dashboardId) {
@@ -3931,16 +3928,13 @@
       const rapidNavigation = options.rapid === true;
       scheduleRemoteWorkspaceSwitch(workspace, rapidNavigation);
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
-      dashboardFrames.forEach(frame => {
-        frame.title = dashboard.label;
-      });
       updateDashboardPosition();
       dashboardOverlay.classList.remove('hidden');
       if (options.fullscreen) setDashboardFullscreen(true, false);
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
       if (dashboard.deckNarration) preloadDeckNarration(workspace);
-      loadDashboardFrame(url, options.direction ?? 1, { rapid: rapidNavigation });
+      loadDashboardFrame(workspace, url, options.direction ?? 1, { rapid: rapidNavigation });
       const autoplayAudio = options.autoplayAudio === true || options.sharedLaunch === true;
       scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0, {
         preferParentAudio: autoplayAudio,
@@ -4320,6 +4314,7 @@
       startRecording().catch(() => showToast('mic access denied', '#ff4444'));
     });
     micBtn.addEventListener('touchend',   () => stopRecording());
+    preloadDashboardFrames();
     afterNextPaint(launchRequestedDashboard, 80);
   </script>
 </body>

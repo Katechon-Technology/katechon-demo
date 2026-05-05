@@ -74,8 +74,6 @@ for (const id of dashboardIds) {
 
 fs.rmSync(path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
 fs.cpSync(path.join(source, "decks", "dune"), path.join(appOutput, "dashboards", "dune-deck"), { recursive: true });
-fs.rmSync(path.join(appOutput, "dashboards", "rosadelmar-deck"), { recursive: true, force: true });
-fs.cpSync(path.join(source, "decks", "rosadelmar"), path.join(appOutput, "dashboards", "rosadelmar-deck"), { recursive: true });
 
 writeSharePages(output, "");
 writeSharePages(appOutput, "/app");

@@ -197,14 +197,11 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 | Market Pulse | `/dashboards/dashboard123/` | Macro context |
 | World Monitor | `/dashboards/world-monitor/` | Risk correlation |
 | AI Arena | `/dashboards/arena/` | Speed and accuracy |
-| Dune Fundraise Deck | `/dashboards/dune-deck/` | Per-slide avatar narration |
-| Rosadelmar Deck | `/dashboards/rosadelmar-deck/` | PDF-rendered deck and one-pager with per-slide avatar narration |
+| Katechon x Dune Dashboard | `/dashboards/dune-deck/` | Per-slide avatar narration |
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
-The Dune fundraise deck is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar. Regenerate the deck visuals with `public/decks/dune/scripts/generate-replicate-visuals.py` and narration with `public/decks/dune/scripts/generate-elevenlabs-narration.sh`.
-
-The Rosadelmar deck is copied into `public/decks/rosadelmar` and served at `/dashboards/rosadelmar-deck/`. The source PDFs are rendered into static JPEG pages for reliable fullscreen display and normal image context-menu behavior. Regenerate narration with `public/decks/rosadelmar/scripts/generate-elevenlabs-narration.sh`.
+The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar. Regenerate the deck visuals with `public/decks/dune/scripts/generate-replicate-visuals.py` and narration with `public/decks/dune/scripts/generate-elevenlabs-narration.sh`.
 
 This repo includes a minimal Glance config at `glance-config/glance.yml` for upstream testing:
 

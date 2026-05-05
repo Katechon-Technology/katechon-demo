@@ -59,7 +59,6 @@ const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
-const ROSADELMAR_DECK_DIR = path.join(__dirname, "public", "decks", "rosadelmar");
 const USER_DB_FILE = path.resolve(__dirname, process.env.USER_DB_FILE || "data/users.json");
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
@@ -375,13 +374,8 @@ const PANELS = [
   },
   {
     id: "dune-deck",
-    label: "Dune Fundraise Deck",
+    label: "Katechon x Dune Dashboard",
     description: "Copied Katechon x Dune fundraise deck with per-slide avatar narration and generated visuals.",
-  },
-  {
-    id: "rosadelmar-deck",
-    label: "Rosadelmar Deck",
-    description: "Rosadelmar pitch deck and one-pager rendered from PDFs with per-slide avatar narration.",
   },
 ];
 
@@ -1230,7 +1224,6 @@ app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
 app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
 app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
-app.use("/dashboards/rosadelmar-deck", express.static(ROSADELMAR_DECK_DIR));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
@@ -1537,7 +1530,6 @@ function fallbackAgentDecision(transcript) {
     ["crypto-trading", /\b(crypto\s*trading|trading\s*dashboard|backtest|backtesting|binance|coinbase|kraken)\b/],
     ["polyrec", /\b(polyrec|polymarket|prediction\s*market|order\s*book|btc)\b/],
     ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
-    ["rosadelmar-deck", /\b(rosadelmar|rosa\s*del\s*mar|alpha\s*search|alpha\s*engine)\b/],
     ["dune-deck", /\b(dune|pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
   ];
 
