@@ -42,6 +42,18 @@
       "destination": "/decks/dune/:path*"
     },
     {
+      "source": "/app/dashboards/rosadelmar-deck",
+      "destination": "/decks/rosadelmar/index.html"
+    },
+    {
+      "source": "/app/dashboards/rosadelmar-deck/",
+      "destination": "/decks/rosadelmar/index.html"
+    },
+    {
+      "source": "/app/dashboards/rosadelmar-deck/:path*",
+      "destination": "/decks/rosadelmar/:path*"
+    },
+    {
       "source": "/app/dashboards/:dashboard",
       "destination": "/prototype-dashboard.html"
     },

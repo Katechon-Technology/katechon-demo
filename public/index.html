@@ -1674,6 +1674,17 @@
             <img src="decks/dune/assets/visuals/00-dashboard-header.jpg" alt="" onerror="this.onerror=null; this.src='decks/dune/assets/visuals/01-live-software-channel.jpg';">
             <div class="gif-label">Dune Fundraise Deck</div>
           </div>
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('rosadelmar-deck')" aria-label="Rosadelmar Deck">
+            <div class="tile-kicker">19 / ROSADELMAR</div>
+            <div class="tile-preview" aria-hidden="true">
+              <div class="tile-preview-inner">
+                <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+                <div class="tile-preview-title">alpha search</div>
+              </div>
+            </div>
+            <img src="decks/rosadelmar/assets/pages/pitch-1.jpg" alt="">
+            <div class="gif-label">Rosadelmar Deck</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1685,7 +1696,7 @@
       <span class="frame-dot"></span>
       <span class="frame-dot"></span>
       <span id="dashboard-title">// KATECHON — INTELLIGENCE PLATFORM</span>
-      <span id="dashboard-position">01 / 18</span>
+      <span id="dashboard-position">01 / 19</span>
       <button id="dashboard-back" class="frame-action frame-action-text" type="button" title="Back to channels" aria-label="Back to channels">Back</button>
       <button id="dashboard-fullscreen" class="frame-action" type="button" title="Fullscreen dashboard" aria-label="Fullscreen dashboard" aria-pressed="false">
         <span class="fullscreen-icon" aria-hidden="true">
@@ -2382,6 +2393,14 @@
         narration: false,
         deckNarration: true,
       },
+      'rosadelmar-deck': {
+        label: 'Rosadelmar Deck',
+        title: '// DECK — ROSADELMAR',
+        channel: '19 / ROSADELMAR',
+        url: () => appUrl('/dashboards/rosadelmar-deck/?embed=dashboard'),
+        narration: false,
+        deckNarration: true,
+      },
     };
     const CHANNEL_ORDER = [
       'spectre',
@@ -2402,6 +2421,7 @@
       'viral',
       'dark-forest',
       'dune-deck',
+      'rosadelmar-deck',
     ];
     const avatarAudioWaiters = new Map();
     const avatarAudioStarters = new Map();
@@ -3241,23 +3261,40 @@
       runDashboardNarration(dashboardId, narration.runId);
     }
 
-    function preloadDuneDeckNarration() {
-      ['dune-01', 'dune-02', 'dune-03', 'dune-04'].forEach(slug => {
-        fetch(appUrl(`/dashboards/dune-deck/assets/narration/${slug}.mp3`), { cache: 'force-cache' }).catch(() => {});
+    const DECK_NARRATION_FILES = {
+      'dune-deck': ['dune-01', 'dune-02', 'dune-03', 'dune-04'],
+      'rosadelmar-deck': [
+        'rosadelmar-01',
+        'rosadelmar-02',
+        'rosadelmar-03',
+        'rosadelmar-04',
+        'rosadelmar-05',
+        'rosadelmar-06',
+        'rosadelmar-07',
+        'rosadelmar-08',
+        'rosadelmar-09',
+        'rosadelmar-10',
+      ],
+    };
+
+    function preloadDeckNarration(dashboardId) {
+      const files = DECK_NARRATION_FILES[dashboardId] || [];
+      files.forEach(slug => {
+        fetch(appUrl(`/dashboards/${dashboardId}/assets/narration/${slug}.mp3`), { cache: 'force-cache' }).catch(() => {});
       });
     }
 
     function handleDeckNarration(message) {
-      if (currentDashboardId !== 'dune-deck') return;
-      const dashboard = DASHBOARDS['dune-deck'];
+      const dashboard = DASHBOARDS[currentDashboardId];
       if (!dashboard?.deckNarration) return;
+      if (message.deck && message.deck !== currentDashboardId) return;
 
       const slide = Number(message.slide) || 1;
       const text = String(message.text || '').trim();
       const audioUrl = String(message.audioUrl || '');
-      const id = String(message.id || `dune-deck-${slide}-${Date.now()}`);
+      const id = String(message.id || `${currentDashboardId}-${slide}-${Date.now()}`);
       stopBrowserAvatarAudio();
-      showKatNarrator('dune-deck', text || `Narrating slide ${slide}.`);
+      showKatNarrator(currentDashboardId, text || `Narrating slide ${slide}.`);
       playAvatarSpeech({
         id,
         text,
@@ -3299,7 +3336,7 @@
       dashboardOverlay.classList.remove('hidden');
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       hideMainOverlay(true);
-      if (workspace === 'dune-deck') preloadDuneDeckNarration();
+      if (dashboard.deckNarration) preloadDeckNarration(workspace);
       loadDashboardFrame(url, options.direction ?? 1);
       startDashboardNarration(workspace);
       showToast(`→ ${dashboard.label}`, '#00e87b');
