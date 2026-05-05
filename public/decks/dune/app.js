@@ -157,7 +157,7 @@ function animateSlide(index, direction = 1) {
 }
 
 function parentAudioUrl(item) {
-  const url = new URL(item.audio, window.location.href);
+  const url = new URL(item.audio, document.baseURI || window.location.href);
   return `${url.pathname}${url.search}`;
 }
 

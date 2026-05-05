@@ -58,6 +58,12 @@ function writeSharePages(outputRoot, basePath) {
   }
 }
 
+function setHtmlBase(file, href) {
+  const html = fs.readFileSync(file, "utf8");
+  if (html.includes("<base ")) return;
+  fs.writeFileSync(file, html.replace("<head>", `<head>\n  <base href="${href}">`));
+}
+
 fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(source, output, { recursive: true });
 fs.cpSync(source, appOutput, { recursive: true });
@@ -74,6 +80,8 @@ for (const id of dashboardIds) {
 
 fs.rmSync(path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
 fs.cpSync(path.join(source, "decks", "dune"), path.join(appOutput, "dashboards", "dune-deck"), { recursive: true });
+setHtmlBase(path.join(appOutput, "decks", "dune", "index.html"), "/app/decks/dune/");
+setHtmlBase(path.join(appOutput, "dashboards", "dune-deck", "index.html"), "/app/decks/dune/");
 
 writeSharePages(output, "");
 writeSharePages(appOutput, "/app");
