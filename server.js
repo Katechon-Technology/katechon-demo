@@ -35,16 +35,18 @@ const VOICE_SOURCE = process.env.KAT_VOICE_SOURCE || "pitch";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOURCE] || VOICES.pitch;
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 const ELEVENLABS_TIMEOUT_MS = Number(process.env.ELEVENLABS_TIMEOUT_MS || 8000);
+const KATECHON_TTS_PRONUNCIATION = process.env.KATECHON_TTS_PRONUNCIATION || "Kat-eh-kon";
 const WELCOME_MESSAGE =
   process.env.KATECHON_WELCOME_MESSAGE ||
   "Welcome to Katechon Technology. This is a live software channel for narrated dashboards: intelligence rooms, market surfaces, research tools, and interactive agents you can watch, browse, and command in real time.";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const DASHBOARD_NARRATION_REMOTE = process.env.DASHBOARD_NARRATION_REMOTE === "1";
-const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS === "1";
+const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS !== "0";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
+const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
@@ -584,6 +586,7 @@ const DASHBOARD_NARRATION = {
   },
 };
 const narrationCursor = {};
+const speechCache = new Map();
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -1609,9 +1612,16 @@ async function routeWithKatAgent(transcript) {
   return normalizeAgentDecision(toolUse.input || {}, transcript, "anthropic");
 }
 
+function speechTextForTts(text) {
+  return String(text || "").replace(/\bKatechon\b/g, KATECHON_TTS_PRONUNCIATION);
+}
+
 async function synthesizeSpeech(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
+  const ttsText = speechTextForTts(text);
+  const cacheKey = `${ELEVENLABS_VOICE_ID}:${ELEVENLABS_MODEL_ID}:${ttsText}`;
+  if (speechCache.has(cacheKey)) return speechCache.get(cacheKey);
 
   const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
     method: "POST",
@@ -1621,7 +1631,7 @@ async function synthesizeSpeech(text) {
       Accept: "audio/mpeg",
     },
     body: JSON.stringify({
-      text,
+      text: ttsText,
       model_id: ELEVENLABS_MODEL_ID,
       output_format: "mp3_44100_128",
       voice_settings: {
@@ -1639,7 +1649,12 @@ async function synthesizeSpeech(text) {
     throw new Error(`ElevenLabs ${resp.status}: ${body.slice(0, 300)}`);
   }
 
-  return (await resp.buffer()).toString("base64");
+  const audio = (await resp.buffer()).toString("base64");
+  speechCache.set(cacheKey, audio);
+  while (speechCache.size > SPEECH_CACHE_MAX) {
+    speechCache.delete(speechCache.keys().next().value);
+  }
+  return audio;
 }
 
 function buildWelcomeMetadata() {
@@ -1676,16 +1691,46 @@ function cleanSpeech(text) {
     .slice(0, 360);
 }
 
+function titleFromId(id) {
+  return String(id || "dashboard")
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function dashboardNarrationSpec(dashboardId) {
+  if (DASHBOARD_NARRATION[dashboardId]) return DASHBOARD_NARRATION[dashboardId];
+
+  const external = EXTERNAL_DASHBOARDS[dashboardId];
+  const panel = PANELS.find((candidate) => candidate.id === dashboardId);
+  const label = external?.label || panel?.label || titleFromId(dashboardId);
+  const description = external?.headline || panel?.description || `${label} dashboard`;
+
+  return {
+    label,
+    voice:
+      `You are Kat narrating ${label}, a live dashboard surface in the Katechon interface. ` +
+      "Keep the narration concise, operational, and grounded in what the dashboard is for. " +
+      "Do not invent live facts, prices, events, incidents, or medical/financial claims.",
+    fallback: [
+      `${label} is online. I'm reading this as a live dashboard, starting with the highest-signal areas first.`,
+      `This panel is about ${description}. I'm narrating the workflow, not inventing live facts.`,
+      `${label} should be read as a signal surface: scan, compare, then decide what deserves attention.`,
+      `I'm watching ${label} for structure, context, and changes that make the interface easier to understand.`,
+    ],
+  };
+}
+
 function fallbackNarration(dashboardId) {
-  const dashboard = DASHBOARD_NARRATION[dashboardId] || DASHBOARD_NARRATION.spectre;
+  const dashboard = dashboardNarrationSpec(dashboardId);
   const index = narrationCursor[dashboardId] || 0;
   narrationCursor[dashboardId] = index + 1;
   return dashboard.fallback[index % dashboard.fallback.length];
 }
 
 async function generateDashboardNarration(dashboardId) {
-  const dashboard = DASHBOARD_NARRATION[dashboardId];
-  if (!dashboard) throw new Error(`unknown dashboard: ${dashboardId}`);
+  const dashboard = dashboardNarrationSpec(dashboardId);
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey || !DASHBOARD_NARRATION_REMOTE) return fallbackNarration(dashboardId);
 
@@ -1907,8 +1952,8 @@ app.post("/api/speak", async (req, res) => {
 app.get("/api/narration/:dashboard", async (req, res) => {
   try {
     const dashboardId = String(req.params.dashboard || "").toLowerCase().replace(/[^\w-]/g, "");
-    if (!DASHBOARD_NARRATION[dashboardId]) {
-      return res.status(404).json({ error: `unknown dashboard: ${dashboardId}` });
+    if (!dashboardId) {
+      return res.status(400).json({ error: "dashboard id required" });
     }
 
     const text = await generateDashboardNarration(dashboardId);
@@ -2006,7 +2051,7 @@ app.post("/api/register", (req, res) => {
 
   try {
     const { action, user } = recordUserEmail(email);
-    const welcome = action === "signup" ? buildWelcomeMetadata() : null;
+    const welcome = buildWelcomeMetadata();
     console.log(`user ${action}: ${email}`);
     res.json({
       ok: true,

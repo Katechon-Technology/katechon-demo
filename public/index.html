@@ -1426,7 +1426,7 @@
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=5" allow="autoplay" loading="eager"></iframe>
+    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=6" allow="autoplay" loading="eager"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -2404,6 +2404,7 @@
       'dune-deck',
     ];
     const avatarAudioWaiters = new Map();
+    const avatarAudioStarters = new Map();
     let avatarPlaybackSeq = 0;
     let welcomeRequestSeq = 0;
     let fallbackSpeechUtterance = null;
@@ -2667,9 +2668,15 @@
         }
         return;
       }
+      if (event.data.type === 'audio-started' && event.data.id && avatarAudioStarters.has(event.data.id)) {
+        avatarAudioStarters.get(event.data.id)();
+        avatarAudioStarters.delete(event.data.id);
+        return;
+      }
       if (event.data.type === 'audio-ended' && event.data.id && avatarAudioWaiters.has(event.data.id)) {
         avatarAudioWaiters.get(event.data.id)();
         avatarAudioWaiters.delete(event.data.id);
+        avatarAudioStarters.delete(event.data.id);
         activeDashboardFrame()?.contentWindow?.postMessage({ type: 'deck-narration-ended', id: event.data.id }, window.location.origin);
         return;
       }
@@ -2714,12 +2721,32 @@
       katNarrator.classList.remove('hidden');
     }
 
+    async function playAvatarSpeech(payload, options = {}) {
+      if (!payload?.text && !payload?.speech && !payload?.reply) return;
+      if (options.preferParentAudio && payload.audio && !payload.muted) {
+        const playbackSeq = ++avatarPlaybackSeq;
+        const text = payload.text || payload.speech || payload.reply || '';
+        setKatNarrationLine(text, true);
+        try {
+          await playBase64Audio(payload.audio);
+        } catch (err) {
+          if (playbackSeq !== avatarPlaybackSeq) return;
+          await playThroughBrowserAvatar(payload);
+          return;
+        }
+        if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
+        return;
+      }
+
+      await playThroughBrowserAvatar(payload);
+    }
+
     function playWelcomeMessage(payload) {
       if (!payload?.text || payload.pending || currentDashboardId) return;
       stopDashboardNarration();
       stopBrowserAvatarAudio();
       showWelcomeNarrator(payload.text);
-      playThroughBrowserAvatar(payload).catch(err => {
+      playAvatarSpeech(payload, { preferParentAudio: true }).catch(err => {
         console.warn('welcome playback failed:', err);
         setKatNarrationLine('', false);
       });
@@ -2765,18 +2792,23 @@
       fallbackSpeechUtterance = null;
     }
 
+    function speechTextForVoice(text) {
+      return String(text || '').replace(/\bKatechon\b/g, 'Kat-eh-kon');
+    }
+
     function speakWithBrowserVoice(text) {
       if (!text || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
         return wait(readableDelay(text));
       }
       stopBrowserFallbackSpeech();
       return new Promise(resolve => {
-        const utterance = new SpeechSynthesisUtterance(text);
+        const spokenText = speechTextForVoice(text);
+        const utterance = new SpeechSynthesisUtterance(spokenText);
         utterance.rate = 0.96;
         utterance.pitch = 1.04;
         utterance.volume = 0.9;
         fallbackSpeechUtterance = utterance;
-        const timeout = setTimeout(resolve, readableDelay(text) + 1800);
+        const timeout = setTimeout(resolve, readableDelay(spokenText) + 1800);
         utterance.onend = utterance.onerror = () => {
           clearTimeout(timeout);
           if (fallbackSpeechUtterance === utterance) fallbackSpeechUtterance = null;
@@ -2804,20 +2836,41 @@
       await waitForAvatarReady();
       if (playbackSeq !== avatarPlaybackSeq) return;
       const id = payload.id || `browser-audio-${Date.now()}`;
-      await new Promise(resolve => {
+      const avatarEnded = new Promise(resolve => {
         const timeout = setTimeout(resolve, Math.max(9000, readableDelay(text) + 6000));
         avatarAudioWaiters.set(id, () => {
           clearTimeout(timeout);
           resolve();
         });
+      });
+      const avatarStarted = await new Promise(resolve => {
+        const timeout = setTimeout(() => {
+          avatarAudioStarters.delete(id);
+          resolve(false);
+        }, 900);
+        avatarAudioStarters.set(id, () => {
+          clearTimeout(timeout);
+          resolve(true);
+        });
         postToAvatar({ type: 'audio', id, text, audio: payload.audio, audioUrl: payload.audioUrl });
       });
+
+      if (!avatarStarted && payload.audio) {
+        avatarAudioWaiters.delete(id);
+        postToAvatar({ type: 'stop' });
+        await playBase64Audio(payload.audio);
+        if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
+        return;
+      }
+
+      await avatarEnded;
       if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
     }
 
     function stopBrowserAvatarAudio() {
       avatarPlaybackSeq++;
       avatarAudioWaiters.clear();
+      avatarAudioStarters.clear();
       stopBrowserFallbackSpeech();
       postToAvatar({ type: 'stop' });
       setKatNarrationLine('', false);
@@ -3168,7 +3221,7 @@
         const payload = await resp.json();
         if (!resp.ok) throw new Error(payload.error || `narration failed (${resp.status})`);
         if (!narration.active || narration.runId !== runId) return;
-        await playThroughBrowserAvatar(payload);
+        await playAvatarSpeech(payload);
         if (!narration.active || narration.runId !== runId) return;
         narration.timer = setTimeout(() => runDashboardNarration(dashboardId, runId), 1200);
       } catch (err) {
@@ -3181,7 +3234,7 @@
     function startDashboardNarration(dashboardId) {
       const dashboard = DASHBOARDS[dashboardId];
       stopDashboardNarration();
-      if (!dashboard?.narration) return;
+      if (dashboard?.narration === false || dashboard?.deckNarration) return;
       narration.active = true;
       narration.dashboard = dashboardId;
       narration.runId++;
@@ -3205,7 +3258,7 @@
       const id = String(message.id || `dune-deck-${slide}-${Date.now()}`);
       stopBrowserAvatarAudio();
       showKatNarrator('dune-deck', text || `Narrating slide ${slide}.`);
-      playThroughBrowserAvatar({
+      playAvatarSpeech({
         id,
         text,
         audioUrl,
@@ -3441,6 +3494,7 @@
       if (replySource) {
         try { replySource.stop(); } catch (_) {}
         replySource = null;
+        postToAvatar({ type: 'mouth', level: 0 });
       }
 
       const raw = atob(base64);
@@ -3448,18 +3502,36 @@
       for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
       const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
       const source = ctx.createBufferSource();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      const analyserData = new Uint8Array(analyser.fftSize);
       source.buffer = audioBuffer;
-      source.connect(ctx.destination);
+      source.connect(analyser);
+      analyser.connect(ctx.destination);
       replySource = source;
 
       await new Promise(resolve => {
         const timeout = setTimeout(resolve, Math.ceil(audioBuffer.duration * 1000) + 600);
+        const syncMouth = () => {
+          if (replySource !== source) return;
+          analyser.getByteTimeDomainData(analyserData);
+          let sum = 0;
+          for (let i = 0; i < analyserData.length; i++) {
+            const v = (analyserData[i] - 128) / 128;
+            sum += v * v;
+          }
+          const level = Math.min(1, Math.sqrt(sum / analyserData.length) * 1.7);
+          postToAvatar({ type: 'mouth', level });
+          requestAnimationFrame(syncMouth);
+        };
         source.onended = () => {
           clearTimeout(timeout);
           if (replySource === source) replySource = null;
+          postToAvatar({ type: 'mouth', level: 0 });
           resolve();
         };
         source.start(0);
+        syncMouth();
       });
     }
 
@@ -3477,7 +3549,7 @@
         await wait(readableDelay(speech));
         return;
       }
-      await playThroughBrowserAvatar({
+      await playAvatarSpeech({
         id: command.id,
         text: speech,
         audio: command.audio,

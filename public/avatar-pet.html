@@ -99,14 +99,21 @@ setTimeout(resizeAvatar, 500);
 // --- Audio state ---
 let audioCtx = null, analyser = null, analyserData = null;
 let currentSource = null, currentMouth = 0, playbackSeq = 0;
+let manualMouth = 0, manualMouthUntil = 0;
 const RMS_GAIN = 1.5;
 
 function getRms() {
+  if (manualMouthUntil > performance.now()) return manualMouth;
   if (!analyser || !currentSource) return 0;
   analyser.getByteTimeDomainData(analyserData);
   let sum = 0;
   for (let i = 0; i < analyserData.length; i++) { const v = (analyserData[i]-128)/128; sum += v*v; }
   return Math.min(1, Math.sqrt(sum / analyserData.length) * RMS_GAIN);
+}
+
+function setManualMouth(level) {
+  manualMouth = Math.max(0, Math.min(1, Number(level) || 0));
+  manualMouthUntil = performance.now() + 180;
 }
 
 async function ensureAudioCtx() {
@@ -127,6 +134,8 @@ function stopAudio() {
   playbackSeq++;
   if (currentSource) { try { currentSource.stop(); } catch (e) {} currentSource = null; }
   currentMouth = 0;
+  manualMouth = 0;
+  manualMouthUntil = 0;
 }
 
 async function audioDataForPayload(payload) {
@@ -180,6 +189,7 @@ window.addEventListener('message', (e) => {
   if (e.data.type === 'unlock') ensureAudioCtx();
   if (e.data.type === 'audio') playPayload(e.data);
   if (e.data.type === 'stop') stopAudio();
+  if (e.data.type === 'mouth') setManualMouth(e.data.level);
   if (e.data.type === 'resize') resizeAvatarTo(e.data.width, e.data.height);
   if (e.data.type === 'switch-model') switchModel(e.data.index ?? 0);
   if (e.data.type === 'tune') applyTransform(e.data.scale, e.data.yFactor);

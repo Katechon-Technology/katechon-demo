@@ -81,10 +81,12 @@ Edit `.env` and fill in:
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
 | `ELEVENLABS_TIMEOUT_MS` | No | Defaults to `8000`; caps TTS wait time for welcome and Kat speech |
+| `KATECHON_TTS_PRONUNCIATION` | No | Defaults to `Kat-eh-kon`; TTS-only pronunciation alias for `Katechon` |
 | `KATECHON_WELCOME_MESSAGE` | No | Optional override for the first-login spoken welcome |
 | `REPLICATE_API_KEY` | No | Required only when regenerating Dune deck visuals |
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
-| `DASHBOARD_NARRATION_TTS` | No | Set to `1` to use ElevenLabs for dashboard narration; defaults off so the browser narration fallback starts immediately |
+| `DASHBOARD_NARRATION_TTS` | No | Defaults on. Set to `0` to disable ElevenLabs dashboard narration |
+| `SPEECH_CACHE_MAX` | No | Defaults to `250`; max in-memory ElevenLabs responses cached by text/voice/model |
 | `PITCH_DECK_URL` | No | Defaults to `http://127.0.0.1:5174/deck/`; live-linked Vite deck from `../katechon-pitch` |
 | `PITCH_DECK_DIST_DIR` | No | Defaults to `../katechon-pitch/dist`; used as a snapshot fallback when the live deck is not running |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
@@ -247,14 +249,14 @@ All endpoints are served by `server.js` on port 4040.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/api/register` | Validate, log, and save signup/login email; flags first-login welcome playback |
-| `GET`  | `/api/welcome` | Generate the first-login welcome message with ElevenLabs |
+| `POST` | `/api/register` | Validate, log, and save signup/login email; flags welcome playback |
+| `GET`  | `/api/welcome` | Generate the login welcome message with ElevenLabs |
 | `GET`  | `/api/state` | Current workspace + session IDs |
 | `POST` | `/api/switch/:workspace` | Switch active workspace (`spectre`, `minecraft`, `news`, `landing`) |
 | `POST` | `/api/transcribe` | Transcribe audio blob → text (Groq Whisper) |
 | `POST` | `/api/command` | Parse transcript → action, route to remote control server |
 | `POST` | `/api/speak` | Synthesize TTS (ElevenLabs) + forward to avatar |
-| `GET`  | `/api/narration/:dashboard` | Generate one Kat narration payload for a dashboard iframe |
+| `GET`  | `/api/narration/:dashboard` | Generate one generic or custom Kat narration payload with synced TTS audio |
 | `POST` | `/api/sessions/start/:kind` | Spawn a new broker session |
 | `GET`  | `/api/sessions/:id` | Poll session status + stream URL |
 | `PUT`  | `/api/sessions/:kind/:id` | Register an existing session ID |
