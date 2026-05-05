@@ -23,7 +23,7 @@ body {
 }
 
 body.parent-avatar {
-  --avatar-clear: clamp(300px, 32vw, 460px);
+  --avatar-clear: clamp(120px, 12vw, 220px);
 }
 
 body::before {
@@ -50,7 +50,7 @@ body::before {
   inset: 0 var(--avatar-clear) 0 0;
   display: grid;
   place-items: center;
-  padding: clamp(1rem, 3.2vw, 3rem) clamp(1rem, 3vw, 3rem) clamp(4.8rem, 8vh, 6.2rem);
+  padding: clamp(0.7rem, 1.6vw, 1.5rem) clamp(0.7rem, 1.6vw, 1.5rem);
   opacity: 0;
   pointer-events: none;
   transform: translateX(22px) scale(0.985);
@@ -72,13 +72,13 @@ body::before {
 }
 
 .page-frame.landscape .page-image {
-  width: min(100%, calc((100svh - clamp(5.8rem, 11vh, 8rem)) * 16 / 9));
-  max-height: calc(100svh - clamp(5.8rem, 11vh, 8rem));
+  width: min(100%, calc((100svh - clamp(1.5rem, 4vh, 3rem)) * 16 / 9));
+  max-height: calc(100svh - clamp(1.5rem, 4vh, 3rem));
 }
 
 .page-frame.portrait .page-image {
-  width: min(100%, calc((100svh - clamp(5.8rem, 11vh, 8rem)) * 1191 / 1684));
-  max-height: calc(100svh - clamp(5.8rem, 11vh, 8rem));
+  width: min(100%, calc((100svh - clamp(1.5rem, 4vh, 3rem)) * 1191 / 1684));
+  max-height: calc(100svh - clamp(1.5rem, 4vh, 3rem));
 }
 
 .page-image {
@@ -93,14 +93,15 @@ body::before {
 
 .chrome {
   position: fixed;
-  right: calc(var(--avatar-clear) + clamp(1rem, 3vw, 2rem));
-  bottom: clamp(1rem, 3vh, 1.6rem);
-  left: clamp(1rem, 3vw, 2rem);
+  top: clamp(0.55rem, 1.5vh, 1rem);
+  right: clamp(0.6rem, 1.5vw, 1rem);
+  bottom: auto;
+  left: auto;
   z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.72rem;
+  justify-content: flex-end;
+  gap: 0.48rem;
   pointer-events: none;
 }
 
@@ -115,8 +116,8 @@ body::before {
 }
 
 .icon-btn {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.25rem;
+  height: 2.25rem;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -134,7 +135,7 @@ body::before {
 }
 
 .meter {
-  width: min(28vw, 260px);
+  width: clamp(92px, 10vw, 150px);
   height: 0.5rem;
   overflow: hidden;
   border-radius: 999px;
@@ -149,8 +150,8 @@ body::before {
 }
 
 .counter {
-  min-width: 5.8rem;
-  padding: 0.62rem 0.78rem;
+  min-width: 5.3rem;
+  padding: 0.56rem 0.68rem;
   border-radius: 999px;
   color: var(--muted);
   font-size: 0.72rem;
@@ -171,12 +172,13 @@ body.narrating .sound {
 
   .slide {
     inset: 0;
-    padding: 0.8rem 0.8rem 4.8rem;
+    padding: 0.7rem;
   }
 
   .chrome {
+    top: 0.6rem;
     right: 0.8rem;
-    left: 0.8rem;
+    left: auto;
     gap: 0.52rem;
   }
 

@@ -7,8 +7,9 @@ const sound = document.getElementById('sound');
 const narrator = document.getElementById('narrator');
 const params = new URLSearchParams(window.location.search);
 const useParentAvatar = window.parent !== window && params.get('avatar') !== '0';
+const useAvatarLayout = (useParentAvatar || params.get('embed') === 'dashboard') && params.get('avatar') !== '0';
 
-document.body.classList.toggle('parent-avatar', useParentAvatar);
+document.body.classList.toggle('parent-avatar', useAvatarLayout);
 
 const narration = [
   {
