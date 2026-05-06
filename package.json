@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "commonjs",
   "scripts": {
-    "build": "node scripts/build-vercel.js",
+    "build": "node scripts/build-vercel.js && node scripts/check-vercel-output.js",
     "start": "node server.js",
     "dev": "node server.js",
     "dune:audio": "public/decks/dune/scripts/generate-elevenlabs-narration.sh",

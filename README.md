@@ -133,7 +133,7 @@ make status
 
 ### GitHub Auto Deploy
 
-Pushes to `main` run `.github/workflows/deploy.yml`, which validates the app and then runs `make deploy` over SSH. Configure these repository secrets before relying on the workflow:
+`fundraise-demo` is the production branch for this sprint. Pushes to `fundraise-demo` run `.github/workflows/deploy.yml`, which validates the app, builds the static `/app` output, smoke-checks critical dashboard routes/assets, and then runs `make deploy` over SSH. Configure these repository secrets before relying on the workflow:
 
 | Secret | Purpose |
 |---|---|
@@ -161,14 +161,14 @@ YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, wh
 
 ### Vercel `/app` Deployment
 
-This repo owns the deployable `/app/` frontend. Build it locally before previewing or deploying:
+This repo owns the deployable public site and app frontend. The stable landing page/data room live under `site/` and are copied to the deployment root. The active demo app lives under `public/` and is copied to `/app/`. Build locally before previewing or deploying:
 
 ```bash
 npm run build
 vercel deploy
 ```
 
-`vercel.json` serves `dist/` at `/app/`, redirects `/` to `/app/`, rewrites dashboard iframe routes to the local prototype dashboard, and proxies `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests to the remote demo backend at `http://176.57.184.142:4040`.
+`vercel.json` serves `dist/` with the landing page at `/`, data room at `/data/`, one-pager at `/pdf/`, and the demo app at `/app/`. Dashboard iframe routes resolve to the local prototype dashboard, and `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests proxy to the remote demo backend at `http://176.57.184.142:4040`.
 
 Production should be deployed directly from this repo:
 
@@ -177,6 +177,8 @@ vercel deploy --prod
 ```
 
 For production builds, generated share/canonical URLs default to `https://katechon.technology/app/...`. Preview builds default to the deployment URL that Vercel provides. Set `KATECHON_PUBLIC_URL` only when you need to override that behavior.
+
+The old sibling `../katechon-pitch` repo is no longer the production web surface for this sprint. Its stable landing/data-room HTML has been frozen into `site/`; dashboard polish should happen here under `public/`, then ship through this repo's `/app` build.
 
 ### Browser Avatar + Audio
 

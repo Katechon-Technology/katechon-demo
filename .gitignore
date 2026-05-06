@@ -7,6 +7,6 @@ public/debug-audio.*
 logs/
 run/
 recordings/
-data/
+/data/
 .vercel
 .env*.local

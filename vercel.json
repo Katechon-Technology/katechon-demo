@@ -54,13 +54,18 @@
       "permanent": false
     },
     {
-      "source": "/",
+      "source": "/app",
       "destination": "/app/",
       "permanent": false
     },
     {
-      "source": "/app",
-      "destination": "/app/",
+      "source": "/deck",
+      "destination": "/app/dashboards/dune-deck/",
+      "permanent": false
+    },
+    {
+      "source": "/deck/",
+      "destination": "/app/dashboards/dune-deck/",
       "permanent": false
     }
   ],
@@ -79,47 +84,35 @@
     },
     {
       "source": "/app/dashboards/dune-deck",
-      "destination": "/decks/dune/index.html"
+      "destination": "/app/decks/dune/index.html"
     },
     {
       "source": "/app/dashboards/dune-deck/",
-      "destination": "/decks/dune/index.html"
+      "destination": "/app/decks/dune/index.html"
     },
     {
       "source": "/app/dashboards/dune-deck/:path*",
-      "destination": "/decks/dune/:path*"
-    },
-    {
-      "source": "/app/dashboards/catalog.js",
-      "destination": "/dashboards/catalog.js"
-    },
-    {
-      "source": "/app/dashboards/prototype.js",
-      "destination": "/dashboards/prototype.js"
+      "destination": "/app/decks/dune/:path*"
     },
     {
       "source": "/app/dashboards/identities/:path*",
-      "destination": "/dashboards/identities/:path*"
+      "destination": "/app/dashboards/identities/:path*"
     },
     {
       "source": "/app/dashboards/:dashboard",
-      "destination": "/prototype-dashboard.html"
+      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
     },
     {
       "source": "/app/dashboards/:dashboard/",
-      "destination": "/prototype-dashboard.html"
+      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
     },
     {
       "source": "/app/dashboards/:dashboard/:path*",
-      "destination": "/prototype-dashboard.html"
+      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
     },
     {
       "source": "/app/",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/app/:path*",
-      "destination": "/:path*"
+      "destination": "/app/index.html"
     }
   ]
 }
