@@ -22,11 +22,15 @@ let current = 0;
 let speechUtterance = null;
 let parentNarrationId = '';
 let narrationWaveAnimation = null;
+let assetVersion = '';
 
-function deckAssetPath(value) {
+function deckAssetPath(value, version = assetVersion) {
   if (!value) return '';
-  if (/^(?:https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./')) return value;
-  return `./${value}`;
+  const path = /^(?:https?:)?\/\//.test(value) || value.startsWith('/') || value.startsWith('./')
+    ? value
+    : `./${value}`;
+  if (!version || path.startsWith('data:') || path.startsWith('blob:')) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}v=${encodeURIComponent(version)}`;
 }
 
 function setTextElement(parent, tagName, className, text) {
@@ -38,8 +42,24 @@ function setTextElement(parent, tagName, className, text) {
   return element;
 }
 
+function renderLineage(parent, lineage) {
+  if (!Array.isArray(lineage) || !lineage.length) return;
+
+  const rail = document.createElement('div');
+  rail.className = 'lineage';
+  lineage.forEach((item) => {
+    const step = document.createElement('div');
+    step.className = 'lineage-step';
+    setTextElement(step, 'span', 'lineage-format', item.format);
+    setTextElement(step, 'strong', 'lineage-owner', item.owner);
+    rail.appendChild(step);
+  });
+  parent.appendChild(rail);
+}
+
 function renderSlides(config) {
   deck.querySelectorAll('.slide').forEach((slide) => slide.remove());
+  assetVersion = config.assetVersion || config.version || '';
 
   const slideConfig = Array.isArray(config.slides) ? config.slides : [];
   slideConfig.forEach((item, index) => {
@@ -67,6 +87,7 @@ function renderSlides(config) {
     setTextElement(copy, 'p', 'eyebrow', item.eyebrow);
     setTextElement(copy, 'h1', '', item.headline);
     setTextElement(copy, 'p', 'line', item.line);
+    renderLineage(copy, item.lineage);
     slide.appendChild(copy);
 
     if (Array.isArray(item.stateRail) && item.stateRail.length) {
@@ -82,7 +103,7 @@ function renderSlides(config) {
 
   slides = Array.from(document.querySelectorAll('.slide'));
   narration = slideConfig.map((item) => ({
-    audio: deckAssetPath(item.audio),
+    audio: deckAssetPath(item.audio, item.assetVersion || assetVersion),
     text: item.narration || '',
   }));
 }
@@ -205,6 +226,7 @@ function stopNarrationMotion() {
 function slideMotionTargets(slide) {
   return [
     ...slide.querySelectorAll('.eyebrow, h1, .line'),
+    ...slide.querySelectorAll('.lineage-step'),
     ...slide.querySelectorAll('.state-rail span'),
   ];
 }

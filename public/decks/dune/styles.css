@@ -255,6 +255,63 @@ h1 {
   line-height: 1.32;
 }
 
+.lineage {
+  width: min(760px, 100%);
+  margin-top: clamp(1.4rem, 2.6vw, 2.2rem);
+  padding-top: 1.05rem;
+  border-top: 1px solid rgba(248, 242, 234, 0.18);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(0.7rem, 1.6vw, 1.2rem);
+}
+
+.lineage-step {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.lineage-step::before {
+  content: "";
+  position: absolute;
+  top: -1.35rem;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--dim);
+  box-shadow: 0 0 18px rgba(248, 242, 234, 0.16);
+}
+
+.lineage-step:nth-child(1)::before { background: var(--blue); }
+.lineage-step:nth-child(2)::before { background: var(--red); }
+.lineage-step:nth-child(3)::before { background: var(--amber); }
+.lineage-step:nth-child(4)::before {
+  background: var(--green);
+  box-shadow: 0 0 24px rgba(49, 208, 127, 0.42);
+}
+
+.lineage-format,
+.lineage-owner {
+  display: block;
+  min-width: 0;
+}
+
+.lineage-format {
+  color: var(--dim);
+  font-size: clamp(0.68rem, 0.85vw, 0.78rem);
+  font-weight: 900;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.lineage-owner {
+  color: var(--paper);
+  font-size: clamp(0.98rem, 1.3vw, 1.2rem);
+  line-height: 1.1;
+}
+
 .state-rail span {
   min-width: 0;
   border: 1px solid var(--line);
@@ -407,6 +464,33 @@ body.narrating .sound {
   .line {
     max-width: 100%;
     font-size: 0.96rem;
+  }
+
+  .lineage {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.1rem 0.8rem;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .lineage-step {
+    padding-left: 1rem;
+    border-left: 1px solid rgba(248, 242, 234, 0.18);
+  }
+
+  .lineage-step::before {
+    top: 0.08rem;
+    left: -5px;
+    width: 8px;
+    height: 8px;
+  }
+
+  .lineage-format {
+    font-size: 0.64rem;
+  }
+
+  .lineage-owner {
+    font-size: 0.88rem;
   }
 
   .state-rail {

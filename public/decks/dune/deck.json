@@ -2,6 +2,7 @@
   "title": "Katechon Technology",
   "description": "Katechon Technology pitch cut for Dune Ventures.",
   "targetRuntime": "36-42 seconds total",
+  "assetVersion": "technology-deck-r3",
   "visuals": [
     {
       "slug": "header",
@@ -12,54 +13,68 @@
   "slides": [
     {
       "slug": "dune-01",
-      "eyebrow": "Katechon Technology",
-      "headline": "Live software becomes the next media object.",
-      "line": "Channels people can watch, scroll, and eventually act inside.",
+      "eyebrow": "Inflection",
+      "headline": "Software is becoming content.",
+      "line": "AI makes applications cheap enough to generate in real time.",
       "image": "assets/visuals/01-live-software-channel.jpg",
       "audio": "assets/narration/dune-01-v4.mp3",
-      "narration": "AI is making software surfaces abundant. Katechon turns live state into channels people can watch, scroll, and eventually act inside.",
-      "visualPrompt": "Cinematic investor deck hero image for a new media format: a dark full-bleed live software feed floating in space, multiple luminous application dashboards as channels, maps, event rooms, agent timelines, market pulse panels, game-state overlays, elegant red and green signal accents, premium interactive media aesthetic, deep black background, sharp glass UI, no readable text, no logos, no watermark, 16:9 composition"
+      "narration": "Instagram captured the camera-in-every-pocket moment. TikTok captured algorithmic video. Now AI is making software cheap enough to generate in real time.",
+      "visualPrompt": "Wide cinematic background for the inflection where software becomes content. A luminous semi-abstract field of generated application surfaces emerging like media cards from a bright model core, airy futuristic sci-fi composition, deep space with blue-black depth but not heavy or muddy, refined emerald, red ember, amber, and blue signal accents, premium interactive media aesthetic, crisp glass interface fragments. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
     },
     {
       "slug": "dune-02",
-      "eyebrow": "Not SaaS",
-      "headline": "A dashboard with the grammar of interactive media.",
+      "eyebrow": "Katechon Technology",
+      "headline": "Live software channels.",
+      "line": "Always-on surfaces people can watch, scroll, and eventually act inside.",
       "copyClass": "compact",
       "image": "assets/visuals/02-interactive-media.jpg",
       "audio": "assets/narration/dune-02-v4.mp3",
-      "narration": "This is not dashboard SaaS. A live surface has state like a game, a narrator like a streamer, and a feed like consumer media.",
-      "visualPrompt": "A high-end interactive media cockpit that feels half dashboard, half game spectator mode: live map surface, avatar narration presence represented as an abstract glowing voice core, feed tiles, game-like state indicators, cinematic dark interface, red orange accent, emerald signal lights, premium venture deck visual, no readable text, no logos, no watermark, 16:9"
+      "narration": "Katechon turns that new abundance into channels: live dashboards with the state of a game, the voice of a streamer, and the motion of a feed.",
+      "visualPrompt": "Wide cinematic background for live software channels. Semi-abstract futuristic media surface, floating channel panes, game-like state arcs, narrator energy represented as a clean luminous voice waveform, feels like interactive media rather than enterprise dashboard SaaS. Spacious, elegant, high-contrast, not cluttered, not a dark cockpit, not heavy. Blue-black sci-fi depth with emerald, red ember, amber, and soft cyan accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
     },
     {
       "slug": "dune-03",
       "eyebrow": "State, not pixels",
-      "headline": "YouTube streams video. Katechon streams software state.",
+      "headline": "Stream the object, not the recording.",
+      "line": "Structured, inspectable, personalized, recomposable, actionable.",
       "image": "assets/visuals/03-state-not-pixels.jpg",
       "audio": "assets/narration/dune-03-v4.mp3",
-      "narration": "Video flattens the surface. Katechon keeps the underlying object structured, inspectable, personalized, and eventually actionable.",
+      "narration": "Video flattens software into pixels. Katechon keeps the underlying object live, structured, personalized, recomposable, and eventually actionable.",
       "stateRail": [
         "inspectable",
         "personalized",
         "recomposable",
         "actionable"
       ],
-      "visualPrompt": "Abstract split between flat video pixels and structured software state: left side dissolving into video scanlines, right side clean inspectable data objects, nodes, panels, live application state layers, cinematic black environment, crisp technical realism, red blue green accents, sophisticated investor presentation visual, no readable text, no logos, no watermark, 16:9"
+      "visualPrompt": "Wide cinematic background showing the difference between a flat recording and live structured software state. Semi-abstract layers of transparent data objects, nodes, state graphs, and recomposable interface planes unfolding in depth, with a faint dissolving pixel field in the background. Futuristic sci-fi but elegant and bright enough to feel premium, not heavy, not dense. Emerald, blue, amber, and red ember signal accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
     },
     {
       "slug": "dune-04",
-      "eyebrow": "Discovery captures value",
-      "headline": "Own the software feed.",
-      "line": "Websites, photos, and short-form video made their biggest fortunes at discovery. Katechon learns which model, prompt, state, and intent combinations become software channels people want.",
+      "eyebrow": "The prize",
+      "headline": "Own discovery for generated software.",
+      "line": "Google found websites. Instagram surfaced photos. TikTok selected video. Katechon learns what software people want next.",
       "copyClass": "end",
       "image": "assets/visuals/04-software-feed.jpg",
       "imageAlt": "A cinematic software feed control plane connecting frontier model cores to live software channels and audience signals.",
       "audio": "assets/narration/dune-04-discovery-v4.mp3",
-      "narration": "Every new content format created the same prize. Google owned discovery for websites. Instagram owned discovery for photos. TikTok owned discovery for short-form video. As people use Katechon, we learn which models, prompts, tools, state, and user intents combine into software worth watching and using. Own that discovery graph, and we become the way the world finds software.",
-      "stateRail": [
-        "discovery",
-        "intent graph",
-        "model mix",
-        "value capture"
+      "narration": "Every new media format made its biggest company at discovery. As users watch and use Katechon, we learn which models, prompts, tools, states, and intents become software channels. That graph is the new distribution layer.",
+      "lineage": [
+        {
+          "format": "websites",
+          "owner": "Google"
+        },
+        {
+          "format": "photos",
+          "owner": "Instagram"
+        },
+        {
+          "format": "video",
+          "owner": "TikTok"
+        },
+        {
+          "format": "software",
+          "owner": "Katechon"
+        }
       ],
       "visualPrompt": "Wide cinematic investor deck background, not an infographic. A colossal black-glass recommendation engine floats in deep space, routing luminous streams from frontier-model energy cores into thousands of live software-channel constellations. Abstract feed-era motifs appear only as unlabeled energy shapes: a red link mesh, a blue tile cloud, and amber vertical light columns. The whole scene feels like owning the algorithmic layer between models and users. Deep scale, crisp technical realism, premium dark environment, refined red ember, emerald signal, blue intelligence, amber opportunity accents. No captions, no typography, no readable UI, no logos, no people, no faces, 16:9 composition"
     }
