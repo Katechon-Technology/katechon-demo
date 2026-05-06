@@ -102,7 +102,7 @@ while IFS=$'\t' read -r SLUG AUDIO TEXT; do
         voice_settings: {
           stability: 0.42,
           similarity_boost: 0.26,
-          speed: 1.2
+          speed: 1.1
         }
       }')" \
     --output "$TMP_FILE" \

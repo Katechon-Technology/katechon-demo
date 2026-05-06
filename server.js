@@ -1665,14 +1665,14 @@ function speechTextForTts(text) {
 const ELEVENLABS_VOICE_SETTINGS = {
   stability: 0.42,
   similarity_boost: 0.26,
-  speed: 1.2,
+  speed: 1.1,
 };
 
 async function synthesizeSpeech(text) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
   const ttsText = speechTextForTts(text);
-  const cacheKey = `${ELEVENLABS_VOICE_ID}:${ELEVENLABS_MODEL_ID}:${ttsText}`;
+  const cacheKey = `${ELEVENLABS_VOICE_ID}:${ELEVENLABS_MODEL_ID}:${JSON.stringify(ELEVENLABS_VOICE_SETTINGS)}:${ttsText}`;
   if (speechCache.has(cacheKey)) return speechCache.get(cacheKey);
 
   const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {

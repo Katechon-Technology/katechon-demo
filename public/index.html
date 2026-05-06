@@ -3204,7 +3204,7 @@
       return new Promise(resolve => {
         const spokenText = speechTextForVoice(text);
         const utterance = new SpeechSynthesisUtterance(spokenText);
-        utterance.rate = 1.2;
+        utterance.rate = 1.1;
         utterance.pitch = 1.04;
         utterance.volume = 0.9;
         fallbackSpeechUtterance = utterance;
