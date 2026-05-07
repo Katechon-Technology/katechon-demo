@@ -823,7 +823,7 @@
     .darkwatch,
     .observatory,
     .quantum-field {
-      position: relative;
+      position: absolute;
     }
     .map-panel {
       position: absolute;
@@ -851,11 +851,104 @@
       align-content: center;
       gap: 7px;
     }
-    .geo-signal .side-stack,
-    .gridops .side-stack {
+    .stage-badges {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+    }
+    .stage-badge {
+      position: absolute;
+      width: 176px;
+      min-height: 58px;
+      padding: 9px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent2) 26%, rgba(255,255,255,0.10));
+      border-radius: 7px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 52%),
+        rgba(2, 5, 8, 0.72);
+      box-shadow: 0 16px 34px rgba(0,0,0,0.32), inset 0 0 22px rgba(255,255,255,0.035);
+      backdrop-filter: blur(8px);
+    }
+    .stage-badge .source-label,
+    .stage-badge strong,
+    .stage-badge span:not(.source-label) {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stage-badge strong {
+      color: var(--text);
+      font-size: 22px;
+      line-height: 1;
+    }
+    .stage-badge span:not(.source-label) {
+      color: var(--muted);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.10em;
+    }
+    .stage-badge .bar {
+      height: 3px;
+      width: 100%;
+      opacity: 0.72;
+    }
+    .stage-badge:nth-child(1) {
+      left: 6%;
+      top: 14%;
+    }
+    .stage-badge:nth-child(2) {
+      right: 7%;
+      top: 38%;
+      border-color: color-mix(in srgb, var(--accent3) 34%, rgba(255,255,255,0.10));
+    }
+    .stage-badge:nth-child(3) {
+      left: 42%;
+      bottom: 11%;
+      border-color: color-mix(in srgb, var(--accent) 36%, rgba(255,255,255,0.10));
+    }
+    .geo-badges .stage-badge:nth-child(1) {
+      left: 11%;
+      top: 13%;
+    }
+    .geo-badges .stage-badge:nth-child(2) {
+      right: 9%;
+      top: 42%;
+    }
+    .geo-badges .stage-badge:nth-child(3) {
+      left: 36%;
+      bottom: 9%;
+    }
+    .grid-badges .stage-badge:nth-child(1) {
+      left: 8%;
       top: 18%;
+    }
+    .grid-badges .stage-badge:nth-child(2) {
+      right: 8%;
+      top: 30%;
+    }
+    .grid-badges .stage-badge:nth-child(3) {
+      left: 46%;
+      bottom: 10%;
+    }
+    .quantum-badges .stage-badge:nth-child(1) {
+      left: 8%;
+      top: 13%;
+    }
+    .quantum-badges .stage-badge:nth-child(2) {
+      right: 8%;
+      top: 44%;
+    }
+    .quantum-badges .stage-badge:nth-child(3) {
+      left: 34%;
       bottom: 12%;
-      width: min(29%, 238px);
     }
 
     .arena-scene {

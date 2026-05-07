@@ -294,6 +294,12 @@
       return `<span class="source-label">${escapeHtml(metric[0])}</span><strong>${escapeHtml(metric[1])}</strong><span>${escapeHtml(metric[2])}</span>`;
     }
 
+    function stageBadgesHtml(className = "") {
+      return `<div class="stage-badges ${className}">
+        ${visibleMetrics().map((_, index) => `<article class="stage-badge">${metricText(index)}<div class="bar"></div></article>`).join("")}
+      </div>`;
+    }
+
     function sceneHtml(scene) {
       const customRenderer = customRenderers[dashboardId] || customRenderers[scene];
       if (typeof customRenderer === "function") {
@@ -464,7 +470,7 @@
     function renderGeoSignal() {
       return `<div class="scene geo-signal">
         <div class="map-panel"><span class="map-halo"></span><span class="orbital-sweep"></span><span class="route-arc arc-a"></span>${nodes(12)}${lines(8)}<span class="scan-line"></span></div>
-        <div class="side-stack">${visibleMetrics().map((_, index) => `<article class="scene-card">${metricText(index)}<div class="bar"></div></article>`).join("")}</div>
+        ${stageBadgesHtml("geo-badges")}
       </div>`;
     }
 
@@ -481,7 +487,7 @@
         <span class="state-orb" style="left:12%;top:22%"></span><span class="state-orb" style="left:39%;top:34%;width:182px;height:182px"></span><span class="state-orb" style="left:24%;top:58%;width:150px;height:150px"></span><span class="state-orb" style="left:62%;top:24%;width:118px;height:118px"></span>
         ${Array.from({ length: 20 }, (_, index) => `<span class="qbit" style="left:${seededValue(index, 9, 88)}%;top:${seededValue(index + 12, 9, 86)}%"></span>`).join("")}
         <div class="quantum-shelf">${Array.from({ length: 8 }, (_, index) => `<span class="bar" style="top:${16 + index * 14}px;width:${seededValue(index, 34, 96)}%"></span>`).join("")}</div>
-        <div class="quantum-stack">${visibleMetrics().map((_, index) => `<article class="scene-card">${metricText(index)}<div class="bar"></div></article>`).join("")}</div>
+        ${stageBadgesHtml("quantum-badges")}
       </div>`;
     }
 
@@ -499,7 +505,7 @@
         <span class="grid-backbone backbone-a"></span><span class="grid-backbone backbone-b"></span>
         ${Array.from({ length: 13 }, (_, index) => `<span class="grid-node" style="left:${seededValue(index, 8, 86)}%;top:${seededValue(index + 30, 10, 84)}%"></span>`).join("")}
         ${lines(14, "power-line")}
-        <div class="side-stack">${visibleMetrics().map((_, index) => `<article class="scene-card">${metricText(index)}<div class="bar"></div></article>`).join("")}</div>
+        ${stageBadgesHtml("grid-badges")}
       </div>`;
     }
 
