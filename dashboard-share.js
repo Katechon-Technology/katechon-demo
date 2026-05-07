@@ -68,8 +68,8 @@ const DASHBOARD_SHARE_CATALOG = {
     description: "Anomalous astronomy monitor for stellar dimming, catalog irregularities, silence, and clusters.",
   },
   "dune-deck": {
-    label: "Katechon x Dune Dashboard",
-    description: "Katechon x Dune fundraise deck with generated visuals and per-slide avatar narration.",
+    label: "Katechon Technology",
+    description: "Investor pitch deck for real-time generative software channels with per-slide avatar narration.",
   },
 };
 

@@ -376,8 +376,8 @@ const PANELS = [
   },
   {
     id: "dune-deck",
-    label: "Katechon x Dune Dashboard",
-    description: "Copied Katechon x Dune fundraise deck with per-slide avatar narration and generated visuals.",
+    label: "Katechon Technology",
+    description: "Investor pitch deck for real-time generative software channels with per-slide avatar narration.",
   },
 ];
 

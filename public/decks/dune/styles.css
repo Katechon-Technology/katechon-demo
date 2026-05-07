@@ -146,6 +146,10 @@ body[data-slide="3"] .vector {
 }
 
 body[data-slide="4"] .vector {
+  background: linear-gradient(90deg, transparent, rgba(83, 167, 255, 0.52), rgba(49, 208, 127, 0.30), transparent);
+}
+
+body[data-slide="5"] .vector {
   background: linear-gradient(90deg, transparent, rgba(243, 200, 94, 0.48), rgba(224, 74, 47, 0.42), transparent);
 }
 

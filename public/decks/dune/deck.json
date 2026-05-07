@@ -1,8 +1,8 @@
 {
   "title": "Katechon Technology",
   "description": "Katechon Technology pitch cut for Dune Ventures.",
-  "targetRuntime": "36-42 seconds total",
-  "assetVersion": "technology-deck-r3",
+  "targetRuntime": "64-74 seconds total",
+  "assetVersion": "technology-deck-r5",
   "visuals": [
     {
       "slug": "header",
@@ -13,33 +13,33 @@
   "slides": [
     {
       "slug": "dune-01",
-      "eyebrow": "Inflection",
-      "headline": "Software is becoming content.",
-      "line": "AI makes applications cheap enough to generate in real time.",
-      "image": "assets/visuals/01-live-software-channel.jpg",
-      "audio": "assets/narration/dune-01-v4.mp3",
-      "narration": "Instagram captured the camera-in-every-pocket moment. TikTok captured algorithmic video. Now AI is making software cheap enough to generate in real time.",
-      "visualPrompt": "Wide cinematic background for the inflection where software becomes content. A luminous semi-abstract field of generated application surfaces emerging like media cards from a bright model core, airy futuristic sci-fi composition, deep space with blue-black depth but not heavy or muddy, refined emerald, red ember, amber, and blue signal accents, premium interactive media aesthetic, crisp glass interface fragments. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
+      "eyebrow": "Founder-market fit",
+      "headline": "Simon Judd built for this moment.",
+      "line": "Index Coop scale, GPU cryptography, and EPFL systems research led to Katechon.",
+      "image": "assets/visuals/00-dashboard-header.jpg",
+      "audio": "assets/narration/dune-01-founder-v2.mp3",
+      "narration": "Katechon founder Simon Judd helped grow Index Coop to five hundred million dollars in AUM and raise ten million dollars. He then spent three years deep in GPU acceleration, cryptography, and computer science at Ingonyama and EPFL. That mix of distribution and systems depth is why Katechon exists.",
+      "visualPrompt": "Cinematic 16:9 dashboard header for the Katechon Technology fundraise deck: live software channels arranged like a premium media control room, luminous application surfaces, avatar narration energy suggested through abstract signal waves, dark full-bleed investor demo aesthetic, refined red ember and emerald signal accents, no readable text, no logos, no watermark"
     },
     {
       "slug": "dune-02",
-      "eyebrow": "Katechon Technology",
-      "headline": "Live software channels.",
-      "line": "Always-on surfaces people can watch, scroll, and eventually act inside.",
+      "eyebrow": "Inflection",
+      "headline": "Code hit the camera moment.",
+      "line": "AI makes software cheap enough to generate continuously around user interests.",
       "copyClass": "compact",
-      "image": "assets/visuals/02-interactive-media.jpg",
-      "audio": "assets/narration/dune-02-v4.mp3",
-      "narration": "Katechon turns that new abundance into channels: live dashboards with the state of a game, the voice of a streamer, and the motion of a feed.",
-      "visualPrompt": "Wide cinematic background for live software channels. Semi-abstract futuristic media surface, floating channel panes, game-like state arcs, narrator energy represented as a clean luminous voice waveform, feels like interactive media rather than enterprise dashboard SaaS. Spacious, elegant, high-contrast, not cluttered, not a dark cockpit, not heavy. Blue-black sci-fi depth with emerald, red ember, amber, and soft cyan accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
+      "image": "assets/visuals/01-live-software-channel.jpg",
+      "audio": "assets/narration/dune-02-inflection-v2.mp3",
+      "narration": "The iPhone made photos functionally infinite, and Instagram made them living objects. AI is doing the same to code: software can now be generated continuously, in real time, around what each user wants to understand or do.",
+      "visualPrompt": "Wide cinematic background for the inflection where software becomes content. A luminous semi-abstract field of generated application surfaces emerging like media cards from a bright model core, airy futuristic sci-fi composition, deep space with blue-black depth but not heavy or muddy, refined emerald, red ember, amber, and blue signal accents, premium interactive media aesthetic, crisp glass interface fragments. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
     },
     {
       "slug": "dune-03",
-      "eyebrow": "State, not pixels",
-      "headline": "Stream the object, not the recording.",
-      "line": "Structured, inspectable, personalized, recomposable, actionable.",
+      "eyebrow": "The gap",
+      "headline": "Screenshots are the wrong container.",
+      "line": "The dashboards people share should stay live, personalized, and actionable.",
       "image": "assets/visuals/03-state-not-pixels.jpg",
-      "audio": "assets/narration/dune-03-v4.mp3",
-      "narration": "Video flattens software into pixels. Katechon keeps the underlying object live, structured, personalized, recomposable, and eventually actionable.",
+      "audio": "assets/narration/dune-03-container-v2.mp3",
+      "narration": "Today that software has no native container. People vibe-code dashboards for major events, then post screenshots and videos. Katechon keeps the dashboard alive so the next viewer can inspect it, personalize it, and act inside it.",
       "stateRail": [
         "inspectable",
         "personalized",
@@ -50,14 +50,25 @@
     },
     {
       "slug": "dune-04",
+      "eyebrow": "Katechon Technology",
+      "headline": "Live software channels.",
+      "line": "Each channel materializes as code when the user navigates to it.",
+      "copyClass": "compact",
+      "image": "assets/visuals/02-interactive-media.jpg",
+      "audio": "assets/narration/dune-04-channels-v2.mp3",
+      "narration": "In this demo, every dashboard and board is treated as software materializing in real time as the user navigates: intelligence rooms, markets, agents, science, and culture, all shaped by user interest and narrated by Kat.",
+      "visualPrompt": "Wide cinematic background for live software channels. Semi-abstract futuristic media surface, floating channel panes, game-like state arcs, narrator energy represented as a clean luminous voice waveform, feels like interactive media rather than enterprise dashboard SaaS. Spacious, elegant, high-contrast, not cluttered, not a dark cockpit, not heavy. Blue-black sci-fi depth with emerald, red ember, amber, and soft cyan accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
+    },
+    {
+      "slug": "dune-05",
       "eyebrow": "The prize",
       "headline": "Own discovery for generated software.",
-      "line": "Google found websites. Instagram surfaced photos. TikTok selected video. Katechon learns what software people want next.",
+      "line": "Crypto trading, prediction markets, and token launchpads become native channel actions.",
       "copyClass": "end",
       "image": "assets/visuals/04-software-feed.jpg",
       "imageAlt": "A cinematic software feed control plane connecting frontier model cores to live software channels and audience signals.",
-      "audio": "assets/narration/dune-04-discovery-v4.mp3",
-      "narration": "Every new media format made its biggest company at discovery. As users watch and use Katechon, we learn which models, prompts, tools, states, and intents become software channels. That graph is the new distribution layer.",
+      "audio": "assets/narration/dune-05-monetization-v2.mp3",
+      "narration": "Every new media format made its biggest company at discovery. As users watch and use Katechon, we learn which models, prompts, tools, states, and intents become software channels. And because wallets and transactions can live inside those channels, Katechon is a natural distribution layer for crypto trading, prediction markets, and token launchpads.",
       "lineage": [
         {
           "format": "websites",
