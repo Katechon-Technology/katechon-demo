@@ -1939,32 +1939,34 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
+      html:not(.force-motion) *,
+      html:not(.force-motion) *::before,
+      html:not(.force-motion) *::after {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
       }
-      #dashboard-frame-stage {
+      html:not(.force-motion) #dashboard-frame-stage {
         perspective: none;
       }
-      #dashboard-build-effects,
-      .dashboard-build-layer,
-      .build-buffer,
-      .build-buffer-cell,
-      .build-buffer-line,
-      .build-frame,
-      .build-terminal-row,
-      .build-source-row,
-      .build-diff,
-      .build-cursor,
-      .build-scan {
+      html:not(.force-motion) #dashboard-build-effects,
+      html:not(.force-motion) .dashboard-build-layer,
+      html:not(.force-motion) .build-buffer,
+      html:not(.force-motion) .build-buffer-cell,
+      html:not(.force-motion) .build-buffer-line,
+      html:not(.force-motion) .build-frame,
+      html:not(.force-motion) .build-terminal-row,
+      html:not(.force-motion) .build-source-row,
+      html:not(.force-motion) .build-diff,
+      html:not(.force-motion) .build-cursor,
+      html:not(.force-motion) .build-scan {
         opacity: 0 !important;
         transform: none !important;
       }
-      .dashboard-frame,
-      .dashboard-frame.incoming,
-      .dashboard-frame.outgoing,
-      .dashboard-frame.active {
+      html:not(.force-motion) .dashboard-frame,
+      html:not(.force-motion) .dashboard-frame.incoming,
+      html:not(.force-motion) .dashboard-frame.outgoing,
+      html:not(.force-motion) .dashboard-frame.active {
         transform: translate3d(0, 0, 0) scale(1) !important;
         filter: none !important;
       }
@@ -2401,6 +2403,9 @@
     const MOBILE_GATE_QUERY = '(max-width: 860px), (pointer: coarse) and (max-width: 1024px)';
     const mobileGateMedia = window.matchMedia(MOBILE_GATE_QUERY);
     const pageParams = new URLSearchParams(window.location.search);
+    const forceMotion = /^(1|true|yes)$/i.test(String(pageParams.get('motion') || pageParams.get('transitions') || '')) ||
+      pageParams.get('demo') === '1';
+    if (forceMotion) document.documentElement.classList.add('force-motion');
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
 
     function hasSharedDashboardLaunch() {
@@ -2454,7 +2459,7 @@
     }
 
     let animeApi = window.anime || {};
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduceMotion = !forceMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let canMotion = !reduceMotion && typeof animeApi.animate === 'function';
     let canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
     function refreshMotionRuntime() {
