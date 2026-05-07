@@ -1252,6 +1252,36 @@
       scrollbar-width: thin;
       scrollbar-color: rgba(0,232,123,0.42) transparent;
     }
+    #main-narration {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      width: 34px;
+      height: 26px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 5px;
+      background: rgba(5,8,10,0.64);
+      color: rgba(0,232,123,0.86);
+      cursor: pointer;
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease, opacity 150ms ease;
+    }
+    #main-narration:hover,
+    #main-narration:focus-visible {
+      border-color: rgba(0,232,123,0.62);
+      background: rgba(0,232,123,0.10);
+      color: rgba(242,244,247,0.92);
+      outline: none;
+    }
+    #main-narration:disabled {
+      cursor: default;
+      opacity: 0.54;
+    }
 
     .main-head {
       max-width: 680px;
@@ -1996,6 +2026,7 @@
 
   <!-- after email: title + gif thumbnails -->
   <div id="main-overlay" class="overlay hidden" data-layout="showcase">
+    <button id="main-narration" type="button" title="Play Kat overview" aria-label="Play Kat overview">Kat</button>
     <div class="main-head">
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
@@ -2958,6 +2989,7 @@
     const shareButton = document.getElementById('dashboard-share');
     const fullscreenButton = document.getElementById('dashboard-fullscreen');
     const startupAudioButton = document.getElementById('startup-audio');
+    const mainNarrationButton = document.getElementById('main-narration');
     const browserAvatar = document.getElementById('browser-avatar');
     const katNarrator = document.getElementById('kat-narrator');
     const katChannel = document.getElementById('kat-channel');
@@ -2980,6 +3012,10 @@
       w: 33.333,
       h: 100,
     };
+    const MAIN_OVERVIEW_NARRATION =
+      "This is Katechon Technology. On the left, you can see each of our channels. " +
+      "These channels are generated in real time based on user input, data feeds, and real world events. " +
+      "Channels cover a broad range of topics, initially focused on geopolitical events, information flows, and crypto trading.";
 
     function loadDeferredFrame(frame) {
       const frameSrc = frame?.dataset?.src;
@@ -3634,6 +3670,44 @@
             muted: true,
           });
         });
+    }
+
+    async function playMainOverviewNarration() {
+      if (!MAIN_OVERVIEW_NARRATION || mainNarrationButton?.disabled) return;
+      if (mainNarrationButton) mainNarrationButton.disabled = true;
+      stopDashboardNarration();
+      stopBrowserAvatarAudio();
+      showWelcomeNarrator(MAIN_OVERVIEW_NARRATION);
+      unlockBrowserAvatarAudio().catch(() => {});
+
+      const id = `main-overview-${Date.now()}`;
+      let payload = {
+        id,
+        text: MAIN_OVERVIEW_NARRATION,
+        muted: true,
+      };
+
+      try {
+        const response = await fetch(appUrl('/api/speak'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, text: MAIN_OVERVIEW_NARRATION }),
+        });
+        const nextPayload = await response.json();
+        if (!response.ok) throw new Error(nextPayload.error || `overview narration failed (${response.status})`);
+        payload = nextPayload;
+      } catch (err) {
+        console.warn('main overview narration failed:', err);
+      }
+
+      try {
+        await playAvatarSpeech(payload, { preferParentAudio: true });
+      } catch (err) {
+        console.warn('main overview playback failed:', err);
+        setKatNarrationLine('', false);
+      } finally {
+        if (mainNarrationButton) mainNarrationButton.disabled = false;
+      }
     }
 
     async function unlockBrowserAvatarAudio() {
@@ -4488,6 +4562,7 @@
 
     layoutRoot()?.addEventListener('scroll', onTileLayoutScroll, { passive: true });
     document.getElementById('layout-toggle')?.addEventListener('click', cycleTileLayoutMode);
+    mainNarrationButton?.addEventListener('click', playMainOverviewNarration);
     try {
       setTileLayoutMode(localStorage.getItem(LAYOUT_STORAGE_KEY) || 'showcase', false);
     } catch (_) {
