@@ -36,6 +36,7 @@ remote-start:
 	ssh $(REMOTE) 'cd $(REMOTE_DIR) && APP_PORT=$(APP_PORT) bash scripts/remote-node-start.sh'
 
 compositor-start:
+	rsync -az entrypoint-hls.sh $(REMOTE):$(REMOTE_DIR)/entrypoint-hls.sh
 	ssh $(REMOTE) 'docker rm -f $(CONTAINER) 2>/dev/null || true; docker run -d --name $(CONTAINER) --network psychic_train_net --add-host=host.docker.internal:host-gateway -p $(HOST_HLS_PORT):3000 --shm-size=2g -e ANGLE_BACKEND=swiftshader -e ENABLE_HLS_AUDIO=$(ENABLE_HLS_AUDIO) -e REMOTE_AVATAR_ENABLED=$(REMOTE_AVATAR_ENABLED) -v $(REMOTE_DIR)/entrypoint-hls.sh:/entrypoint-hls.sh:ro $(IMAGE) bash /entrypoint-hls.sh'
 
 wait-hls:
