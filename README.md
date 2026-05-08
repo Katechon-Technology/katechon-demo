@@ -13,7 +13,7 @@ claudetorio-stream-server:/opt/katechon/katechon-demo
     │
     ├── Node UI/API :4040
     │     ├── public landing/control UI
-    │     ├── push-to-talk API
+    │     ├── OpenAI Realtime push-to-talk API
     │     └── same-origin HLS proxy: /stream.m3u8 + /seg*.ts
     │
     ├── Docker: katechon-desktop :3100 -> :3000
@@ -75,8 +75,12 @@ Edit `.env` and fill in:
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | Push-to-talk transcription via Groq Whisper |
-| `ELEVENLABS_API_KEY` | Yes | Kat's TTS voice |
+| `OPENAI_API_KEY` | Yes | OpenAI Realtime WebRTC session broker for Kat voice interactions |
+| `OPENAI_REALTIME_MODEL` | No | Defaults to `gpt-realtime-2` |
+| `OPENAI_REALTIME_VOICE` | No | Defaults to `marin` |
+| `OPENAI_REALTIME_TRANSCRIBE_MODEL` | No | Defaults to `gpt-4o-mini-transcribe` for input transcript events |
+| `GROQ_API_KEY` | Fallback | Legacy push-to-talk transcription via Groq Whisper when Realtime cannot connect |
+| `ELEVENLABS_API_KEY` | Recommended | Kat's existing TTS voice for dashboard narration, welcome audio, and legacy fallback replies |
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
 | `ELEVENLABS_VOICE_ID` | No | Explicit override. Defaults to the selected `KAT_VOICE_SOURCE` |
 | `ELEVENLABS_MODEL_ID` | No | Defaults to `eleven_turbo_v2` |
@@ -87,6 +91,7 @@ Edit `.env` and fill in:
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
 | `DASHBOARD_NARRATION_TTS` | No | Defaults on. Set to `0` to disable ElevenLabs dashboard narration |
 | `SPEECH_CACHE_MAX` | No | Defaults to `250`; max in-memory ElevenLabs responses cached by text/voice/model |
+| `DASHBOARD_OVERRIDES_FILE` | No | Defaults to `data/dashboard-overrides.json`; stores safe voice-generated dashboard edits |
 | `PITCH_DECK_URL` | No | Defaults to `http://127.0.0.1:5174/deck/`; live-linked Vite deck from `../katechon-pitch` |
 | `PITCH_DECK_DIST_DIR` | No | Defaults to `../katechon-pitch/dist`; used as a snapshot fallback when the live deck is not running |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
@@ -257,13 +262,21 @@ The UI will show "reconnecting…" for the video but all API endpoints work. Use
 
 ## API reference
 
-All endpoints are served by `server.js` on port 4040.
+All endpoints are served by `server.js` on port 4040. Channel data routes are documented in [`docs/channel-apis.md`](docs/channel-apis.md).
 
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/api/register` | Validate, log, and save signup/login email; flags welcome playback |
 | `GET`  | `/api/welcome` | Generate the login welcome message with ElevenLabs |
 | `GET`  | `/api/state` | Current workspace + session IDs |
+| `GET`  | `/api/channels` | List dashboard channels, live routes, docs routes, providers, and data contracts |
+| `GET`  | `/api/channels/:channel` | Fetch one channel's metadata |
+| `GET`  | `/api/channels/:channel/live` | Fetch active normalized data for one channel |
+| `GET`  | `/api/channels/:channel/context` | Fetch compact Kat context with live summary, docs, dashboard state, and edit rules |
+| `GET`  | `/api/channels/:channel/docs` | Fetch structured docs for one channel and its providers |
+| `GET`  | `/api/live/hyperliquid` | Provider compatibility route for read-only Hyperliquid market data |
+| `GET`  | `/api/live/polymarket` | Provider compatibility route for Polymarket market discovery data |
+| `GET`  | `/api/live/pumpfun` | Provider compatibility route for indexed Pump.fun-style token data |
 | `POST` | `/api/switch/:workspace` | Switch active workspace (`spectre`, `minecraft`, `news`, `landing`) |
 | `POST` | `/api/transcribe` | Transcribe audio blob → text (Groq Whisper) |
 | `POST` | `/api/command` | Parse transcript → action, route to remote control server |

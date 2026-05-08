@@ -1205,14 +1205,18 @@
       border: 1.5px solid rgba(255,255,255,0.12);
       border-radius: 50%;
       cursor: pointer;
-      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
       backdrop-filter: blur(10px);
       transition: border-color 0.2s, transform 0.15s;
     }
-    body.debug-tools #speech-btn { display: flex; }
     #speech-btn:hover {
       border-color: #00e87b;
       transform: scale(1.06);
+    }
+    #speech-btn.connecting,
+    #speech-btn.thinking {
+      border-color: rgba(125,232,255,0.72);
+      background: rgba(125,232,255,0.10);
     }
     #speech-btn.listening {
       border-color: #ff4444;
@@ -4502,12 +4506,17 @@
       if (dashboard.deckNarration) preloadDeckNarration(workspace);
       loadDashboardFrame(workspace, url, options.direction ?? 1, { rapid: rapidNavigation });
       const autoplayAudio = options.autoplayAudio === true || options.sharedLaunch === true;
-      scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0, {
-        preferParentAudio: autoplayAudio,
-        showAudioPrompt: autoplayAudio,
-      });
+      if (options.skipNarration) {
+        stopDashboardNarration();
+      } else {
+        scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0, {
+          preferParentAudio: autoplayAudio,
+          showAudioPrompt: autoplayAudio,
+        });
+      }
       if (options.sharedLaunch && !localDevPauseAutoNarration) showStartupAudioPrompt(workspace);
       scheduleDashboardNeighborPrefetch(workspace);
+      sendRealtimeDashboardContext(workspace).catch(() => {});
       if (!rapidNavigation || !dashboardPendingStepCount) showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
     }
@@ -4660,6 +4669,351 @@
     let toastTimer     = null;
     let replyAudioCtx  = null;
     let replySource    = null;
+    const realtimeVoice = {
+      pc: null,
+      dc: null,
+      micStream: null,
+      micTrack: null,
+      audioEl: null,
+      connected: false,
+      recording: false,
+      responding: false,
+      fallbackMode: false,
+      replyText: '',
+      toolCalls: new Set(),
+      mouthSyncFrame: 0,
+    };
+
+    function realtimeDashboardSnapshot(id = currentDashboardId) {
+      const dashboard = id ? DASHBOARDS[id] : null;
+      const catalog = id ? DASHBOARD_CATALOG.dashboards?.[id] : null;
+      return {
+        id: id || 'landing',
+        label: dashboard?.label || catalog?.title || 'Katechon Technology',
+        title: catalog?.title || dashboard?.label || 'Katechon Technology',
+        subtitle: catalog?.subtitle || '',
+        kicker: catalog?.kicker || '',
+        lens: catalog?.lens || '',
+        tabs: Array.isArray(catalog?.tabs) ? catalog.tabs.slice(0, 6) : [],
+        metrics: Array.isArray(catalog?.metrics) ? catalog.metrics.slice(0, 3) : [],
+        feed: Array.isArray(catalog?.feed) ? catalog.feed.slice(0, 6) : [],
+        caption: catalog?.caption || '',
+      };
+    }
+
+    async function fetchRealtimeDashboardContext(id = currentDashboardId) {
+      if (!id) return realtimeDashboardSnapshot(null);
+      try {
+        const path = id === 'landing'
+          ? `/api/dashboard-context/${encodeURIComponent(id)}`
+          : `/api/channels/${encodeURIComponent(id)}/context?fresh=1`;
+        const resp = await fetch(appUrl(path), { cache: 'no-store' });
+        if (!resp.ok) throw new Error(`context failed (${resp.status})`);
+        const payload = await resp.json();
+        return payload.context || payload;
+      } catch (_) {
+        return realtimeDashboardSnapshot(id);
+      }
+    }
+
+    function buildRealtimeInstructions(context) {
+      return [
+        'You are Kat, the voice-native agent inside Katechon.',
+        'Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.',
+        'You can discuss the active dashboard, navigate dashboards, and use tools to safely modify dashboard copy, metrics, feed rows, tabs, and small CSS polish.',
+        'Ground dashboard answers in the active channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.',
+        'If the user asks for current data not present in liveSummary, call get_channel_live before answering.',
+        'When the user asks to change a dashboard, call apply_dashboard_edit with a concrete patch. After the tool succeeds, briefly say what changed.',
+        'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
+        `Active channel context:\n${JSON.stringify(context, null, 2)}`,
+      ].join('\n\n');
+    }
+
+    function realtimeSend(event) {
+      if (!realtimeVoice.dc || realtimeVoice.dc.readyState !== 'open') return false;
+      realtimeVoice.dc.send(JSON.stringify(event));
+      return true;
+    }
+
+    async function sendRealtimeDashboardContext(id = currentDashboardId) {
+      if (!realtimeVoice.connected) return;
+      const context = await fetchRealtimeDashboardContext(id);
+      realtimeSend({
+        type: 'session.update',
+        session: {
+          instructions: buildRealtimeInstructions(context),
+        },
+      });
+    }
+
+    function parseToolArguments(value) {
+      if (!value) return {};
+      if (typeof value === 'object') return value;
+      try {
+        return JSON.parse(value);
+      } catch (_) {
+        return {};
+      }
+    }
+
+    async function applyRealtimeToolResult(name, result) {
+      if (!result?.ok) return;
+      if (result.workspace === 'landing' || result.action === 'go_home') {
+        goHome();
+        return;
+      }
+      if (result.workspace && DASHBOARDS[result.workspace] && result.workspace !== currentDashboardId) {
+        await openDashboard(result.workspace, { skipNarration: true });
+      }
+      if (name === 'apply_dashboard_edit') {
+        const dashboardId = result.dashboard?.id || currentDashboardId;
+        if (dashboardId) {
+          activeDashboardFrame()?.contentWindow?.postMessage({
+            type: 'dashboard-overrides-updated',
+            dashboard: dashboardId,
+          }, window.location.origin);
+        }
+        showToast('dashboard updated', '#00e87b');
+      }
+      sendRealtimeDashboardContext(result.dashboard?.id || result.workspace || currentDashboardId).catch(() => {});
+    }
+
+    async function handleRealtimeToolCall(name, callId, argsValue) {
+      if (!name || !callId || realtimeVoice.toolCalls.has(callId)) return;
+      realtimeVoice.toolCalls.add(callId);
+      const args = parseToolArguments(argsValue);
+      let output;
+      try {
+        const resp = await fetch(appUrl('/api/realtime/tool'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, arguments: args, dashboard: currentDashboardId || 'landing' }),
+        });
+        output = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(output.error || `tool failed (${resp.status})`);
+        await applyRealtimeToolResult(name, output);
+      } catch (err) {
+        output = { ok: false, error: err.message };
+        showToast(err.message || 'tool failed', '#ff4444');
+      }
+
+      realtimeSend({
+        type: 'conversation.item.create',
+        item: {
+          type: 'function_call_output',
+          call_id: callId,
+          output: JSON.stringify(output),
+        },
+      });
+      realtimeSend({ type: 'response.create' });
+    }
+
+    function handleRealtimeTranscriptDelta(delta) {
+      if (!delta) return;
+      realtimeVoice.replyText = `${realtimeVoice.replyText}${delta}`;
+      const line = realtimeVoice.replyText.trim();
+      if (line) {
+        setKatNarrationLine(line, true);
+        showToast(`Kat: ${line}`, '#00e87b');
+      }
+    }
+
+    function handleRealtimeServerEvent(event) {
+      if (!event?.type) return;
+      if (event.type === 'error') {
+        console.warn('realtime error:', event.error || event);
+        showToast(event.error?.message || 'voice error', '#ff4444');
+        micBtn.classList.remove('thinking', 'connecting');
+        realtimeVoice.responding = false;
+        return;
+      }
+      if (event.type === 'session.created' || event.type === 'session.updated') {
+        realtimeVoice.connected = true;
+        micBtn.classList.remove('connecting');
+        return;
+      }
+      if (event.type === 'conversation.item.input_audio_transcription.completed') {
+        const text = event.transcript || event.item?.content?.find?.(part => part.transcript)?.transcript || '';
+        if (text) showToast(`"${text}"`, '#e8e8ec');
+        return;
+      }
+      if (event.type === 'response.created') {
+        realtimeVoice.replyText = '';
+        realtimeVoice.responding = true;
+        micBtn.classList.add('thinking');
+        return;
+      }
+      if (
+        event.type === 'response.output_audio_transcript.delta' ||
+        event.type === 'response.audio_transcript.delta' ||
+        event.type === 'response.output_text.delta' ||
+        event.type === 'response.text.delta'
+      ) {
+        handleRealtimeTranscriptDelta(event.delta || event.text || '');
+        return;
+      }
+      if (event.type === 'response.output_item.done' && event.item?.type === 'function_call') {
+        handleRealtimeToolCall(event.item.name, event.item.call_id, event.item.arguments);
+        return;
+      }
+      if (event.type === 'response.function_call_arguments.done') {
+        handleRealtimeToolCall(event.name, event.call_id, event.arguments);
+        return;
+      }
+      if (event.type === 'response.audio.done' || event.type === 'response.done') {
+        realtimeVoice.responding = false;
+        micBtn.classList.remove('thinking');
+        setTimeout(() => setKatNarrationLine('', false), 450);
+      }
+    }
+
+    function startRealtimeMouthSync(stream) {
+      if (!stream || realtimeVoice.mouthSyncFrame) return;
+      try {
+        const ctx = getReplyAudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        const data = new Uint8Array(analyser.fftSize);
+        ctx.createMediaStreamSource(stream).connect(analyser);
+        const pump = () => {
+          analyser.getByteTimeDomainData(data);
+          let sum = 0;
+          for (let i = 0; i < data.length; i++) {
+            const v = (data[i] - 128) / 128;
+            sum += v * v;
+          }
+          const level = Math.min(1, Math.sqrt(sum / data.length) * 1.9);
+          postToAvatar({ type: 'mouth', level });
+          realtimeVoice.mouthSyncFrame = requestAnimationFrame(pump);
+        };
+        pump();
+      } catch (err) {
+        console.warn('realtime mouth sync failed:', err);
+      }
+    }
+
+    async function waitForRealtimeDataChannel() {
+      if (realtimeVoice.dc?.readyState === 'open') return;
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('realtime data channel timeout')), 5000);
+        realtimeVoice.dc.addEventListener('open', () => {
+          clearTimeout(timeout);
+          resolve();
+        }, { once: true });
+      });
+    }
+
+    async function ensureRealtimeSession() {
+      if (realtimeVoice.connected && realtimeVoice.pc?.connectionState !== 'failed') {
+        sendRealtimeDashboardContext().catch(() => {});
+        return;
+      }
+      if (!window.RTCPeerConnection || !navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Realtime voice is not available in this browser');
+      }
+
+      micBtn.classList.add('connecting');
+      showToast('connecting voice…', '#7de8ff');
+
+      const pc = new RTCPeerConnection();
+      realtimeVoice.pc = pc;
+      realtimeVoice.dc = pc.createDataChannel('oai-events');
+      realtimeVoice.dc.addEventListener('message', (message) => {
+        try {
+          handleRealtimeServerEvent(JSON.parse(message.data));
+        } catch (err) {
+          console.warn('bad realtime event:', err);
+        }
+      });
+
+      realtimeVoice.audioEl = realtimeVoice.audioEl || document.createElement('audio');
+      realtimeVoice.audioEl.autoplay = true;
+      realtimeVoice.audioEl.playsInline = true;
+      realtimeVoice.audioEl.style.display = 'none';
+      if (!realtimeVoice.audioEl.parentNode) document.body.appendChild(realtimeVoice.audioEl);
+      pc.ontrack = (event) => {
+        const stream = event.streams[0];
+        realtimeVoice.audioEl.srcObject = stream;
+        startRealtimeMouthSync(stream);
+      };
+
+      realtimeVoice.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      realtimeVoice.micTrack = realtimeVoice.micStream.getAudioTracks()[0];
+      realtimeVoice.micTrack.enabled = false;
+      pc.addTrack(realtimeVoice.micTrack, realtimeVoice.micStream);
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      const dashboard = encodeURIComponent(currentDashboardId || 'landing');
+      const resp = await fetch(appUrl(`/api/realtime/session?dashboard=${dashboard}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/sdp' },
+        body: offer.sdp,
+      });
+      const sdp = await resp.text();
+      if (!resp.ok) throw new Error(sdp || `realtime session failed (${resp.status})`);
+      await pc.setRemoteDescription({ type: 'answer', sdp });
+      await waitForRealtimeDataChannel();
+      realtimeVoice.connected = true;
+      micBtn.classList.remove('connecting');
+      await sendRealtimeDashboardContext();
+    }
+
+    async function startRealtimeTalk() {
+      await ensureRealtimeSession();
+      stopDashboardNarration();
+      stopBrowserAvatarAudio();
+      realtimeVoice.recording = true;
+      realtimeVoice.replyText = '';
+      if (realtimeVoice.responding) realtimeSend({ type: 'response.cancel' });
+      realtimeSend({ type: 'input_audio_buffer.clear' });
+      realtimeVoice.micTrack.enabled = true;
+      setListening(true);
+      showToast('listening…', '#ff4444');
+    }
+
+    function stopRealtimeTalk() {
+      if (!realtimeVoice.recording) return;
+      realtimeVoice.recording = false;
+      if (realtimeVoice.micTrack) realtimeVoice.micTrack.enabled = false;
+      setListening(false);
+      micBtn.classList.add('thinking');
+      showToast('Kat is thinking…', '#6b6b78');
+      realtimeSend({ type: 'input_audio_buffer.commit' });
+      realtimeSend({ type: 'response.create' });
+    }
+
+    async function startPushToTalk() {
+      if (realtimeVoice.fallbackMode) {
+        await startRecording();
+        return;
+      }
+      try {
+        await unlockAgentAudio();
+        await startRealtimeTalk();
+      } catch (err) {
+        console.warn('realtime voice unavailable, falling back:', err);
+        try { realtimeVoice.pc?.close(); } catch (_) {}
+        try { realtimeVoice.micStream?.getTracks().forEach(track => track.stop()); } catch (_) {}
+        realtimeVoice.pc = null;
+        realtimeVoice.dc = null;
+        realtimeVoice.micStream = null;
+        realtimeVoice.micTrack = null;
+        realtimeVoice.connected = false;
+        realtimeVoice.fallbackMode = true;
+        micBtn.classList.remove('connecting', 'thinking');
+        showToast('legacy voice fallback…', '#7de8ff');
+        await startRecording();
+      }
+    }
+
+    function stopPushToTalk() {
+      if (realtimeVoice.recording) {
+        stopRealtimeTalk();
+        return;
+      }
+      stopRecording();
+    }
 
     function goHome() {
       const runId = ++landingSwitchRunId;
@@ -4673,6 +5027,7 @@
       hideKatNarrator();
       maskStaleDesktopFrame();
       const req = fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
+      sendRealtimeDashboardContext(null).catch(() => {});
       revealMainOverlay(true);
       req.finally(() => {
         setTimeout(() => {
@@ -4825,7 +5180,8 @@
 
     function setListening(on) {
       micBtn.classList.toggle('listening', on);
-      micBtn.querySelector('span').textContent = on ? 'listening' : 'hold';
+      if (on) micBtn.classList.remove('connecting', 'thinking');
+      micBtn.querySelector('span').textContent = on ? 'listening' : realtimeVoice.fallbackMode ? 'legacy' : 'hold';
     }
 
     const MIME = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg','audio/mp4']
@@ -4870,17 +5226,15 @@
 
     micBtn.addEventListener('mousedown',  (e) => {
       e.preventDefault();
-      unlockAgentAudio().catch(() => {});
-      startRecording().catch(() => showToast('mic access denied', '#ff4444'));
+      startPushToTalk().catch(() => showToast('mic access denied', '#ff4444'));
     });
-    micBtn.addEventListener('mouseup',    () => stopRecording());
-    micBtn.addEventListener('mouseleave', () => stopRecording());
+    micBtn.addEventListener('mouseup',    () => stopPushToTalk());
+    micBtn.addEventListener('mouseleave', () => stopPushToTalk());
     micBtn.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      unlockAgentAudio().catch(() => {});
-      startRecording().catch(() => showToast('mic access denied', '#ff4444'));
+      startPushToTalk().catch(() => showToast('mic access denied', '#ff4444'));
     });
-    micBtn.addEventListener('touchend',   () => stopRecording());
+    micBtn.addEventListener('touchend',   () => stopPushToTalk());
     preloadDashboardFrames();
     afterNextPaint(launchRequestedDashboard, 80);
   </script>

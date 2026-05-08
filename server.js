@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs");
 const net = require("net");
+const vm = require("vm");
 require("dotenv").config();
 
 function loadEnvKeyFromFile(file, key) {
@@ -15,6 +16,7 @@ const katechonAppEnv = path.join(__dirname, "..", "katechon-app", ".env.local");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_API_KEY");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_MODEL_ID");
 loadEnvKeyFromFile(katechonAppEnv, "ANTHROPIC_API_KEY");
+loadEnvKeyFromFile(katechonAppEnv, "OPENAI_API_KEY");
 
 const express = require("express");
 const fetch = require("node-fetch");
@@ -28,8 +30,16 @@ const {
   normalizeDashboardId,
   renderDashboardShareHtml,
 } = require("./dashboard-share");
+const {
+  channelDocs,
+  getChannel,
+  listChannels,
+  publicChannel,
+  syntheticChannelData,
+} = require("./lib/channel-registry");
 
 const app = express();
+app.use(express.text({ type: ["application/sdp", "text/plain"], limit: "1mb" }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -52,12 +62,17 @@ const WELCOME_MESSAGE =
   "Welcome to Katechon Technology. This is a live software channel for narrated dashboards: intelligence rooms, market surfaces, research tools, and interactive agents you can watch, browse, and command in real time.";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
+const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-2";
+const OPENAI_REALTIME_VOICE = process.env.OPENAI_REALTIME_VOICE || "marin";
+const OPENAI_REALTIME_TRANSCRIBE_MODEL = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
 const DASHBOARD_NARRATION_REMOTE = process.env.DASHBOARD_NARRATION_REMOTE === "1";
 const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS !== "0";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
 const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPSTREAMS === "1";
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
+const DASHBOARD_OVERRIDES_FILE = path.resolve(__dirname, process.env.DASHBOARD_OVERRIDES_FILE || "data/dashboard-overrides.json");
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
@@ -600,6 +615,299 @@ const DASHBOARD_NARRATION = {
     ],
   },
 };
+
+function cleanDashboardId(value) {
+  return String(value || "").toLowerCase().replace(/[^\w-]/g, "");
+}
+
+let dashboardCatalogCache = null;
+
+function loadDashboardCatalog() {
+  const file = path.join(__dirname, "public", "dashboards", "catalog.js");
+  const mtimeMs = fs.statSync(file).mtimeMs;
+  if (dashboardCatalogCache?.mtimeMs === mtimeMs) return dashboardCatalogCache.catalog;
+  const sandbox = { window: {}, console: { warn() {}, error() {}, log() {} } };
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(file, "utf8"), sandbox, { filename: file, timeout: 1000 });
+  const catalog = sandbox.window.KATECHON_DASHBOARD_CATALOG || { dashboards: {}, channels: {}, channelOrder: [] };
+  dashboardCatalogCache = { mtimeMs, catalog };
+  return catalog;
+}
+
+function emptyDashboardOverrides() {
+  return { dashboards: {}, events: [] };
+}
+
+function readDashboardOverrides() {
+  if (!fs.existsSync(DASHBOARD_OVERRIDES_FILE)) return emptyDashboardOverrides();
+  const raw = fs.readFileSync(DASHBOARD_OVERRIDES_FILE, "utf8").trim();
+  if (!raw) return emptyDashboardOverrides();
+  const parsed = JSON.parse(raw);
+  return {
+    dashboards: parsed.dashboards && typeof parsed.dashboards === "object" ? parsed.dashboards : {},
+    events: Array.isArray(parsed.events) ? parsed.events : [],
+  };
+}
+
+function writeDashboardOverrides(db) {
+  fs.mkdirSync(path.dirname(DASHBOARD_OVERRIDES_FILE), { recursive: true });
+  const tmpFile = `${DASHBOARD_OVERRIDES_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpFile, `${JSON.stringify(db, null, 2)}\n`);
+  fs.renameSync(tmpFile, DASHBOARD_OVERRIDES_FILE);
+}
+
+function clampText(value, max = 220) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function sanitizeStringArray(value, maxItems = 6, maxChars = 44) {
+  if (!Array.isArray(value)) return null;
+  const items = value.map((item) => clampText(item, maxChars)).filter(Boolean).slice(0, maxItems);
+  return items.length ? items : null;
+}
+
+function sanitizeTupleArray(value, maxItems = 6, tupleSize = 3, maxChars = 120) {
+  if (!Array.isArray(value)) return null;
+  const rows = value
+    .filter((row) => Array.isArray(row))
+    .map((row) => Array.from({ length: tupleSize }, (_, index) => clampText(row[index] ?? "", maxChars)))
+    .filter((row) => row.some(Boolean))
+    .slice(0, maxItems);
+  return rows.length ? rows : null;
+}
+
+function sanitizeCustomCss(value) {
+  const css = String(value || "").trim().slice(0, 2400);
+  if (!css) return null;
+  if (/[<>]|@import|url\s*\(/i.test(css)) return null;
+  return css;
+}
+
+function sanitizeDashboardPatch(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const patch = {};
+  const textFields = {
+    title: 80,
+    subtitle: 260,
+    kicker: 80,
+    visualLabel: 80,
+    visualCopy: 260,
+    feedLabel: 80,
+    lens: 80,
+    caption: 260,
+  };
+
+  for (const [field, max] of Object.entries(textFields)) {
+    if (raw[field] !== undefined) {
+      const value = clampText(raw[field], max);
+      if (value) patch[field] = value;
+    }
+  }
+
+  const tabs = sanitizeStringArray(raw.tabs, 6, 34);
+  if (tabs) patch.tabs = tabs;
+
+  const metrics = sanitizeTupleArray(raw.metrics, 3, 3, 44);
+  if (metrics) patch.metrics = metrics;
+
+  const feed = sanitizeTupleArray(raw.feed, 6, 3, 130);
+  if (feed) patch.feed = feed;
+
+  const customCss = sanitizeCustomCss(raw.customCss);
+  if (customCss) patch.customCss = customCss;
+
+  return patch;
+}
+
+function dashboardContextFor(dashboardId) {
+  const id = cleanDashboardId(dashboardId || state.currentWorkspace || "landing");
+  const catalog = loadDashboardCatalog();
+  const catalogDashboard = catalog.dashboards?.[id] || null;
+  const channel = catalog.channels?.[id] || null;
+  const panel = PANELS.find((candidate) => candidate.id === id) || null;
+  const override = readDashboardOverrides().dashboards[id]?.patch || {};
+  const merged = { ...(catalogDashboard || {}), ...override };
+  return {
+    id,
+    currentWorkspace: state.currentWorkspace,
+    label: channel?.label || panel?.label || merged.title || titleFromId(id),
+    title: merged.title || channel?.label || panel?.label || titleFromId(id),
+    subtitle: merged.subtitle || panel?.description || "",
+    kicker: merged.kicker || "",
+    scene: merged.scene || "",
+    lens: merged.lens || "",
+    tabs: Array.isArray(merged.tabs) ? merged.tabs.slice(0, 6) : [],
+    metrics: Array.isArray(merged.metrics) ? merged.metrics.slice(0, 3) : [],
+    feed: Array.isArray(merged.feed) ? merged.feed.slice(0, 6) : [],
+    caption: merged.caption || "",
+    visualLabel: merged.visualLabel || "",
+    visualCopy: merged.visualCopy || "",
+    override,
+  };
+}
+
+function applyDashboardOverride(dashboardId, rawPatch, instruction, source = "kat-realtime") {
+  const id = cleanDashboardId(dashboardId);
+  if (!id || !PANELS.some((panel) => panel.id === id)) throw new Error("unknown dashboard");
+  const patch = sanitizeDashboardPatch(rawPatch);
+  if (!Object.keys(patch).length) throw new Error("empty or unsupported dashboard edit");
+
+  const db = readDashboardOverrides();
+  const existing = db.dashboards[id]?.patch || {};
+  db.dashboards[id] = {
+    patch: { ...existing, ...patch },
+    updatedAt: new Date().toISOString(),
+    updatedBy: source,
+    instruction: clampText(instruction, 500),
+  };
+  db.events.push({
+    dashboard: id,
+    source,
+    instruction: clampText(instruction, 500),
+    patch,
+    at: new Date().toISOString(),
+  });
+  db.events = db.events.slice(-100);
+  writeDashboardOverrides(db);
+  return db.dashboards[id];
+}
+
+function realtimeTools() {
+  const workspaceEnum = PANELS.map((panel) => panel.id);
+  return [
+    {
+      type: "function",
+      name: "open_dashboard",
+      description: "Open a Katechon dashboard or return to the landing panel when the user asks to navigate.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          workspace: { type: "string", enum: workspaceEnum },
+        },
+        required: ["workspace"],
+      },
+    },
+    {
+      type: "function",
+      name: "get_dashboard_context",
+      description: "Read the currently open dashboard context before answering detailed dashboard questions.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum },
+        },
+      },
+    },
+    {
+      type: "function",
+      name: "get_channel_context",
+      description: "Read the active channel context packet, including compact live data, provider docs, dashboard layout, and edit rules.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum },
+          fresh: { type: "boolean", description: "When true, refresh live provider data before summarizing." },
+        },
+      },
+    },
+    {
+      type: "function",
+      name: "get_channel_live",
+      description: "Read current channel live data. Use summary first; request compact detail only when the user asks about specific rows, markets, tokens, or levels.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum },
+          detail: { type: "string", enum: ["summary", "compact"], description: "summary is preferred for voice; compact includes trimmed data." },
+          coin: { type: "string", description: "Optional Hyperliquid coin, for example BTC or ETH." },
+        },
+      },
+    },
+    {
+      type: "function",
+      name: "apply_dashboard_edit",
+      description:
+        "Modify the active dashboard through the safe override schema when the user asks Kat to change copy, metrics, feed rows, tabs, or small CSS polish. Do not call for ordinary questions.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          instruction: { type: "string" },
+          patch: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              title: { type: "string" },
+              subtitle: { type: "string" },
+              kicker: { type: "string" },
+              visualLabel: { type: "string" },
+              visualCopy: { type: "string" },
+              feedLabel: { type: "string" },
+              lens: { type: "string" },
+              caption: { type: "string" },
+              tabs: { type: "array", items: { type: "string" }, maxItems: 6 },
+              metrics: {
+                type: "array",
+                maxItems: 3,
+                items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+              },
+              feed: {
+                type: "array",
+                maxItems: 6,
+                items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+              },
+              customCss: { type: "string" },
+            },
+          },
+        },
+        required: ["dashboardId", "instruction", "patch"],
+      },
+    },
+  ];
+}
+
+function realtimeInstructions(dashboardId) {
+  const context = katContextBootstrap(dashboardId);
+  const panelCatalog = PANELS.map((panel) => `${panel.id}: ${panel.label} - ${panel.description}`).join("\n");
+  return [
+    "You are Kat, the voice-native agent inside Katechon.",
+    "Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.",
+    "You can discuss the active dashboard, navigate between dashboards, and safely modify dashboard copy/config through tools.",
+    "When answering about a dashboard, ground yourself in the provided channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.",
+    "If the user asks for current data that is not in liveSummary, call get_channel_live before answering.",
+    "When the user asks to change a dashboard, call apply_dashboard_edit with a concrete patch and then briefly state what changed after the tool succeeds.",
+    "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
+    `Current channel context:\n${JSON.stringify(context, null, 2)}`,
+    `Available dashboards:\n${panelCatalog}`,
+  ].join("\n\n");
+}
+
+function realtimeSessionConfig(dashboardId) {
+  return {
+    type: "realtime",
+    model: OPENAI_REALTIME_MODEL,
+    instructions: realtimeInstructions(dashboardId),
+    modalities: ["text", "audio"],
+    audio: {
+      input: {
+        transcription: { model: OPENAI_REALTIME_TRANSCRIBE_MODEL },
+        turn_detection: null,
+      },
+      output: {
+        voice: OPENAI_REALTIME_VOICE,
+      },
+    },
+    tools: realtimeTools(),
+    tool_choice: "auto",
+    tracing: "auto",
+  };
+}
+
 const narrationCursor = {};
 const speechCache = new Map();
 
@@ -1084,22 +1392,27 @@ async function getPumpfunLiveData() {
   };
 }
 
-async function sendCachedLive(req, res, key, loader, fallback) {
+async function getCachedLive(req, key, loader, fallback) {
+  const source = key.split(":")[0];
   const cached = LIVE_API_CACHE.get(key);
   if (cached && Date.now() - cached.time < LIVE_API_TTL_MS) {
-    return res.json({ ok: true, source: cached.source, stale: false, data: cached.data, fallbackReason: null });
+    return { ok: true, source: cached.source, stale: false, data: cached.data, fallbackReason: null };
   }
 
   try {
     const data = await loader(req);
-    LIVE_API_CACHE.set(key, { time: Date.now(), source: key.split(":")[0], data });
-    res.json({ ok: true, source: key.split(":")[0], stale: false, data, fallbackReason: null });
+    LIVE_API_CACHE.set(key, { time: Date.now(), source, data });
+    return { ok: true, source, stale: false, data, fallbackReason: null };
   } catch (err) {
     if (cached) {
-      return res.json({ ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason: err.message });
+      return { ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason: err.message };
     }
-    res.json({ ok: true, source: `${key.split(":")[0]}-synthetic`, stale: true, data: fallback(req), fallbackReason: err.message });
+    return { ok: true, source: `${source}-synthetic`, stale: true, data: fallback(req), fallbackReason: err.message };
   }
+}
+
+async function sendCachedLive(req, res, key, loader, fallback) {
+  res.json(await getCachedLive(req, key, loader, fallback));
 }
 
 app.get("/api/live/hyperliquid", (req, res) => {
@@ -1113,6 +1426,353 @@ app.get("/api/live/polymarket", (req, res) => {
 
 app.get("/api/live/pumpfun", (req, res) => {
   sendCachedLive(req, res, "pumpfun:tokens", getPumpfunLiveData, syntheticPumpfunData);
+});
+
+function requestWithChannelDefaults(req, channel) {
+  return {
+    ...req,
+    query: {
+      ...(channel.defaultQuery || {}),
+      ...(req.query || {}),
+    },
+  };
+}
+
+function channelLiveKey(channel, req) {
+  const provider = channel.liveProvider;
+  if (provider === "hyperliquid") {
+    const coin = String(req.query.coin || channel.defaultQuery?.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
+    return `${provider}:${channel.id}:${coin}`;
+  }
+  if (provider === "polymarket") return `${provider}:${channel.id}:markets`;
+  if (provider === "pumpfun") return `${provider}:${channel.id}:tokens`;
+  return `${provider}:${channel.id}`;
+}
+
+async function getChannelProviderPayload(req, channel) {
+  const provider = channel.liveProvider;
+  const providerReq = requestWithChannelDefaults(req, channel);
+
+  if (provider === "hyperliquid") {
+    const coin = String(providerReq.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
+    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getHyperliquidLiveData, () => syntheticHyperliquidData(coin));
+  }
+  if (provider === "polymarket") {
+    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPolymarketLiveData, syntheticPolymarketData);
+  }
+  if (provider === "pumpfun") {
+    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPumpfunLiveData, syntheticPumpfunData);
+  }
+
+  return {
+    ok: true,
+    source: "channel-synthetic",
+    stale: false,
+    data: syntheticChannelData(channel),
+    fallbackReason: null,
+  };
+}
+
+async function getChannelLiveEnvelope(req, channel) {
+  const payload = await getChannelProviderPayload(req, channel);
+  return {
+    ok: true,
+    channel: channel.id,
+    label: channel.label,
+    category: channel.category,
+    contract: channel.contract,
+    providers: channel.providers,
+    liveProvider: channel.liveProvider,
+    source: payload.source,
+    stale: Boolean(payload.stale),
+    updatedAt: payload.data?.updatedAt || Date.now(),
+    data: payload.data,
+    fallbackReason: payload.fallbackReason || null,
+    docs: channel.docsPath,
+  };
+}
+
+function getCachedChannelLiveEnvelope(req, channel) {
+  const providerReq = requestWithChannelDefaults(req || { query: {} }, channel);
+  const key = channelLiveKey(channel, providerReq);
+  const cached = LIVE_API_CACHE.get(key);
+  if (cached) {
+    return {
+      ok: true,
+      channel: channel.id,
+      label: channel.label,
+      category: channel.category,
+      contract: channel.contract,
+      providers: channel.providers,
+      liveProvider: channel.liveProvider,
+      source: cached.source,
+      stale: Date.now() - cached.time >= LIVE_API_TTL_MS,
+      updatedAt: cached.data?.updatedAt || cached.time,
+      data: cached.data,
+      fallbackReason: null,
+      docs: channel.docsPath,
+    };
+  }
+
+  const data = syntheticChannelData(channel);
+  return {
+    ok: true,
+    channel: channel.id,
+    label: channel.label,
+    category: channel.category,
+    contract: channel.contract,
+    providers: channel.providers,
+    liveProvider: channel.liveProvider,
+    source: "channel-synthetic",
+    stale: true,
+    updatedAt: data.updatedAt,
+    data,
+    fallbackReason: "live cache unavailable for fast context",
+    docs: channel.docsPath,
+  };
+}
+
+function formatUsd(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "n/a";
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function formatCompactUsd(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return "n/a";
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function formatPercent(value, decimals = 1) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "n/a";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}%`;
+}
+
+function sourceIs(envelope, provider) {
+  return String(envelope.source || "").replace(/-synthetic$/, "") === provider;
+}
+
+function summarizeChannelLive(channel, envelope) {
+  const data = envelope.data || {};
+  const summary = {
+    source: envelope.source,
+    stale: Boolean(envelope.stale),
+    updatedAt: envelope.updatedAt,
+    fallbackReason: envelope.fallbackReason || null,
+    contract: envelope.contract,
+    metrics: [],
+    feed: [],
+    highlights: [],
+    dataShape: [],
+    livePath: channel.livePath,
+  };
+
+  if (sourceIs(envelope, "hyperliquid") && data.mid !== undefined) {
+    const coin = data.coin || "BTC";
+    const mid = Number(data.mid || 0);
+    const spread = Number(data.spreadBps || 0);
+    const depth = Number(data.depthUsd || 0);
+    const candles = Array.isArray(data.candles) ? data.candles : [];
+    const last = candles[candles.length - 1] || null;
+    summary.metrics = [
+      [coin, formatUsd(mid), "mid"],
+      ["Spread", `${spread.toFixed(2)}bp`, "L2 book"],
+      ["Depth", formatCompactUsd(depth), "top book"],
+    ];
+    summary.feed = candles.slice(-5).reverse().map((candle, index) => [
+      `${index * 3}m`,
+      `${coin} candle closed at ${formatUsd(candle.c || candle.close || mid)}.`,
+      "Hyperliquid",
+    ]);
+    summary.highlights = [
+      `${coin} mid is ${formatUsd(mid)}.`,
+      `Spread is ${spread.toFixed(2)} basis points.`,
+      `Top depth summary is ${formatCompactUsd(depth)}.`,
+      last ? `Latest candle close is ${formatUsd(last.c || last.close || mid)}.` : "No candle close is available.",
+    ];
+    summary.dataShape = ["coin", "mid", "spreadBps", "depthUsd", "candles[]", "book.levels[][]"];
+    return summary;
+  }
+
+  if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) {
+    const markets = data.markets.slice(0, 6);
+    summary.metrics = [
+      ["Markets", String(markets.length), "active"],
+      ["Top YES", markets[0] ? `${Math.round(Number(markets[0].yes || 0) * 100)}%` : "n/a", "implied"],
+      ["Volume", markets[0] ? formatCompactUsd(markets[0].volume || 0) : "n/a", "top market"],
+    ];
+    summary.feed = markets.slice(0, 5).map((market, index) => [
+      index === 0 ? "now" : `${index * 4}m`,
+      market.question || "Prediction market updated.",
+      `${Math.round(Number(market.yes || 0) * 100)}% yes / ${market.category || "market"}`,
+    ]);
+    summary.highlights = markets.slice(0, 4).map((market) =>
+      `${market.question || "Market"} is ${Math.round(Number(market.yes || 0) * 100)}% yes.`
+    );
+    summary.dataShape = ["markets[].question", "markets[].yes", "markets[].no", "markets[].volume", "markets[].category"];
+    return summary;
+  }
+
+  if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) {
+    const tokens = data.tokens.slice(0, 6);
+    summary.metrics = [
+      ["Tokens", String(tokens.length), "indexed"],
+      ["Leader", String(tokens[0]?.symbol || tokens[0]?.name || "n/a").toUpperCase().slice(0, 10), "velocity"],
+      ["1H", tokens[0] ? formatPercent(tokens[0].change1h || 0) : "n/a", "change"],
+    ];
+    summary.feed = tokens.slice(0, 5).map((token, index) => [
+      index === 0 ? "now" : `${index * 3}m`,
+      `${token.name || token.symbol || "Token"} is on the social market watchlist.`,
+      `${formatPercent(token.change1h || token.change24h || 0)} / ${token.marketCap || "mcap n/a"}`,
+    ]);
+    summary.highlights = tokens.slice(0, 4).map((token) =>
+      `${token.name || token.symbol || "Token"} shows ${formatPercent(token.change1h || token.change24h || 0)} change.`
+    );
+    summary.dataShape = ["tokens[].name", "tokens[].symbol", "tokens[].price", "tokens[].change1h", "tokens[].marketCap"];
+    return summary;
+  }
+
+  if (Array.isArray(data.metrics)) summary.metrics = data.metrics.slice(0, 3);
+  if (Array.isArray(data.feed)) summary.feed = data.feed.slice(0, 5);
+  summary.highlights = summary.feed.map((item) => Array.isArray(item) ? item[1] : item.title || item.message || String(item)).filter(Boolean).slice(0, 4);
+  summary.dataShape = ["metrics[]", "feed[]", "kind", "mode"];
+  return summary;
+}
+
+function compactChannelLiveEnvelope(envelope) {
+  const data = envelope.data || {};
+  let compactData = data;
+
+  if (sourceIs(envelope, "hyperliquid")) {
+    compactData = {
+      ...data,
+      candles: Array.isArray(data.candles) ? data.candles.slice(-12) : [],
+      book: data.book?.levels
+        ? { ...data.book, levels: data.book.levels.map((side) => Array.isArray(side) ? side.slice(0, 8) : []) }
+        : data.book,
+    };
+  } else if (sourceIs(envelope, "polymarket")) {
+    compactData = { ...data, markets: Array.isArray(data.markets) ? data.markets.slice(0, 8) : [] };
+  } else if (sourceIs(envelope, "pumpfun")) {
+    compactData = { ...data, tokens: Array.isArray(data.tokens) ? data.tokens.slice(0, 10) : [] };
+  }
+
+  return {
+    ...envelope,
+    data: compactData,
+  };
+}
+
+function buildKatContextPacket(channel, liveEnvelope, options = {}) {
+  const docs = channelDocs(channel);
+  const dashboard = dashboardContextFor(channel.id);
+  return {
+    channel: publicChannel(channel),
+    liveSummary: summarizeChannelLive(channel, liveEnvelope),
+    dashboard: {
+      ...dashboard,
+      editableFields: ["title", "subtitle", "kicker", "visualLabel", "visualCopy", "feedLabel", "lens", "caption", "tabs", "metrics", "feed", "customCss"],
+    },
+    docs: {
+      summary: docs.summary,
+      contract: docs.contract,
+      providers: docs.providers.map((provider) => ({
+        id: provider.id,
+        label: provider.label,
+        auth: provider.auth,
+        realtime: provider.realtime,
+        docsUrl: provider.docsUrl,
+      })),
+    },
+    rules: [
+      "Use liveSummary for normal spoken answers.",
+      "Call get_channel_live before making specific current-data claims not present in liveSummary.",
+      "Modify dashboard layout/copy only through apply_dashboard_edit or future generated renderer tools.",
+      "Do not call provider APIs directly from generated components.",
+      "Do not add wallet, trading, paid, KYC, or login-only flows in v1.",
+    ],
+    contextMode: options.contextMode || "fast",
+  };
+}
+
+function katContextBootstrap(dashboardId) {
+  const channel = getChannel(dashboardId);
+  if (!channel) {
+    return {
+      channel: null,
+      liveSummary: null,
+      dashboard: dashboardContextFor(dashboardId),
+      docs: null,
+      rules: ["No dashboard channel is active yet. Ask what panel the user wants to open."],
+      contextMode: "bootstrap",
+    };
+  }
+  return buildKatContextPacket(channel, getCachedChannelLiveEnvelope({ query: {} }, channel), { contextMode: "bootstrap" });
+}
+
+async function getKatChannelContext(req, channel) {
+  const fresh = req.query?.fresh === "1" || req.query?.fresh === "true";
+  const liveEnvelope = fresh
+    ? await getChannelLiveEnvelope(req, channel)
+    : getCachedChannelLiveEnvelope(req, channel);
+  return buildKatContextPacket(channel, liveEnvelope, { contextMode: fresh ? "fresh" : "fast" });
+}
+
+app.get("/api/channels", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({
+    ok: true,
+    routes: {
+      list: "/api/channels",
+      metadata: "/api/channels/:channel",
+      live: "/api/channels/:channel/live",
+      context: "/api/channels/:channel/context",
+      docs: "/api/channels/:channel/docs",
+    },
+    channels: listChannels().map(publicChannel),
+  });
+});
+
+app.get("/api/channels/:channel", (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, channel: publicChannel(channel) });
+});
+
+app.get("/api/channels/:channel/live", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(await getChannelLiveEnvelope(req, channel));
+  } catch (err) {
+    console.error("channel live error:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/channels/:channel/docs", (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, docs: channelDocs(channel) });
+});
+
+app.get("/api/channels/:channel/context", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({ ok: true, context: await getKatChannelContext(req, channel) });
+  } catch (err) {
+    console.error("channel context error:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 async function getPitchDeckSource(req) {
@@ -1425,6 +2085,133 @@ function proxyExternalDashboardUpgrade(req, socket, head) {
   upstream.on("error", () => socket.destroy());
   socket.on("error", () => upstream.destroy());
 }
+
+app.get("/api/dashboard-context/:dashboard", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.dashboard);
+    if (!channel) return res.json(katContextBootstrap(req.params.dashboard));
+    res.json(await getKatChannelContext(req, channel));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/dashboard-overrides/:dashboard", (req, res) => {
+  try {
+    const dashboardId = cleanDashboardId(req.params.dashboard);
+    const override = readDashboardOverrides().dashboards[dashboardId] || null;
+    res.json({
+      dashboard: dashboardId,
+      patch: override?.patch || {},
+      updatedAt: override?.updatedAt || null,
+      instruction: override?.instruction || "",
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/realtime/session", async (req, res) => {
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ error: "OPENAI_API_KEY is not configured" });
+    }
+    if (!req.body || typeof req.body !== "string") {
+      return res.status(400).json({ error: "SDP offer required" });
+    }
+
+    const form = new FormData();
+    form.append("sdp", req.body);
+    form.append("session", JSON.stringify(realtimeSessionConfig(req.query.dashboard || state.currentWorkspace)));
+
+    const response = await fetch(OPENAI_REALTIME_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        ...form.getHeaders(),
+      },
+      body: form,
+      timeout: 15000,
+    });
+    const text = await response.text();
+    res.status(response.status);
+    res.type(response.ok ? "application/sdp" : "text/plain");
+    res.send(text);
+  } catch (err) {
+    console.error("realtime session failed:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
+  if (name === "open_dashboard") {
+    const workspace = cleanDashboardId(args.workspace);
+    if (!PANELS.some((panel) => panel.id === workspace)) throw new Error("unknown dashboard");
+    const action = workspace === "landing" ? "go_home" : workspace === "spectre" ? "open_spectre" : "open_dashboard";
+    state.currentWorkspace = workspace;
+    const remote = await dispatchRemoteCommand({
+      id: `kat-realtime-tool-${Date.now()}`,
+      action,
+      workspace,
+      transcript: `open ${workspace}`,
+      speech: workspace === "landing" ? "Back to the main panel." : `Opening ${dashboardContextFor(workspace).label}.`,
+    });
+    return {
+      ok: true,
+      action,
+      workspace,
+      remote,
+      dashboard: workspace === "landing" ? null : dashboardContextFor(workspace),
+    };
+  }
+
+  if (name === "get_dashboard_context" || name === "get_channel_context") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) return { ok: true, context: katContextBootstrap(dashboardId) };
+    const req = { query: args.fresh ? { fresh: "1" } : {} };
+    return { ok: true, context: await getKatChannelContext(req, channel) };
+  }
+
+  if (name === "get_channel_live") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    const req = { query: args.coin ? { coin: args.coin } : {} };
+    const envelope = await getChannelLiveEnvelope(req, channel);
+    const summary = summarizeChannelLive(channel, envelope);
+    if (args.detail === "compact") {
+      return { ok: true, liveSummary: summary, live: compactChannelLiveEnvelope(envelope) };
+    }
+    return { ok: true, liveSummary: summary };
+  }
+
+  if (name === "apply_dashboard_edit") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const override = applyDashboardOverride(dashboardId, args.patch, args.instruction, "kat-realtime");
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      applied: override.patch,
+      updatedAt: override.updatedAt,
+      message: "Dashboard override applied.",
+    };
+  }
+
+  throw new Error(`unsupported tool: ${name}`);
+}
+
+app.post("/api/realtime/tool", async (req, res) => {
+  try {
+    const name = String(req.body?.name || "");
+    const args = req.body?.arguments && typeof req.body.arguments === "object" ? req.body.arguments : {};
+    const dashboard = cleanDashboardId(req.body?.dashboard || state.currentWorkspace);
+    res.json(await runRealtimeTool(name, args, dashboard));
+  } catch (err) {
+    console.error("realtime tool failed:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
 
 // GET current state
 app.get("/api/state", (req, res) => {
@@ -2122,6 +2909,7 @@ const PORT = process.env.PORT || 4040;
 const server = app.listen(PORT, () => {
   console.log(`katechon-demo running at http://localhost:${PORT}`);
   console.log(`Kat voice: ${VOICE_SOURCE} (${ELEVENLABS_VOICE_ID}), model=${ELEVENLABS_MODEL_ID}`);
+  console.log(`OpenAI realtime: ${OPENAI_REALTIME_MODEL}, voice=${OPENAI_REALTIME_VOICE}`);
   console.log(`HLS control: ${HLS_CONTROL_URL}`);
 });
 server.on("upgrade", (req, socket, head) => {

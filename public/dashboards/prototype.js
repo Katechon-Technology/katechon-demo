@@ -19,7 +19,8 @@
 
     const fallbackDashboard = dashboards["world-monitor"] || Object.values(dashboards)[0];
     if (!fallbackDashboard) throw new Error("No dashboard catalog entries loaded.");
-    const config = dashboards[dashboardId] || fallbackDashboard;
+    const baseConfig = dashboards[dashboardId] || fallbackDashboard;
+    let config = { ...baseConfig };
     const identity = config.identity || {};
     document.body.dataset.dashboard = dashboardId;
     if (identity.className) document.body.classList.add(identity.className);
@@ -39,6 +40,7 @@
     const $ = (id) => document.getElementById(id);
     window.KATECHON_DASHBOARD_RENDERERS = window.KATECHON_DASHBOARD_RENDERERS || {};
     const customRenderers = window.KATECHON_DASHBOARD_RENDERERS;
+    let dashboardRendered = false;
 
     function animate(target, params) {
       if (!canMotion) return null;
@@ -67,6 +69,31 @@
     async function loadDashboardIdentity() {
       loadStylesheet(identity.css);
       if (identity.script) await loadScript(identity.script);
+    }
+
+    function applyDashboardCustomCss(css) {
+      if (!css) return;
+      let style = document.getElementById("dashboard-voice-override-css");
+      if (!style) {
+        style = document.createElement("style");
+        style.id = "dashboard-voice-override-css";
+        document.head.appendChild(style);
+      }
+      style.textContent = css;
+    }
+
+    async function loadDashboardOverride() {
+      try {
+        const resp = await fetch(appUrl(`/api/dashboard-overrides/${encodeURIComponent(dashboardId)}`), { cache: "no-store" });
+        if (!resp.ok) return;
+        const payload = await resp.json();
+        if (!payload.patch || typeof payload.patch !== "object") return;
+        config = { ...baseConfig, ...payload.patch };
+        state.metrics = normalizeMetrics(config.metrics);
+        state.feed = Array.isArray(config.feed) ? config.feed.map((item) => [...item]) : [];
+        state.activeFeed = 0;
+        applyDashboardCustomCss(payload.patch.customCss);
+      } catch (_) {}
     }
 
     function setTheme() {
@@ -120,8 +147,11 @@
       updateClock();
       runIntroMotion();
       loadLiveData();
-      setInterval(tickDashboard, 4200);
-      setInterval(updateClock, 10000);
+      if (!dashboardRendered) {
+        dashboardRendered = true;
+        setInterval(tickDashboard, 4200);
+        setInterval(updateClock, 10000);
+      }
     }
 
     function renderMetrics() {
@@ -590,35 +620,58 @@
     }
 
     async function loadLiveData() {
-      if (!config.api) {
-        $("source-chip").textContent = "deterministic synthetic state";
-        return;
-      }
-      $("source-chip").textContent = `loading ${config.api}`;
+      const sourceLabel = config.api || "channel";
+      $("source-chip").textContent = `loading ${sourceLabel}`;
       try {
-        const resp = await fetch(appUrl(`/api/live/${config.api}?dashboard=${encodeURIComponent(dashboardId)}`), { cache: "no-store" });
-        const payload = await resp.json();
+        const payload = await fetchLivePayload();
         state.livePayload = payload;
         applyLivePayload(payload);
         $("source-chip").textContent = payload.fallbackReason
           ? `${payload.source} fallback`
           : `${payload.source}${payload.stale ? " stale" : " live"}`;
       } catch (err) {
-        $("source-chip").textContent = "synthetic fallback";
+        $("source-chip").textContent = config.api ? "provider fallback failed" : "channel fallback failed";
+      }
+    }
+
+    async function fetchLivePayload() {
+      const channelUrl = `/api/channels/${encodeURIComponent(dashboardId)}/live?dashboard=${encodeURIComponent(dashboardId)}`;
+      try {
+        const resp = await fetch(appUrl(channelUrl), { cache: "no-store" });
+        if (!resp.ok) throw new Error(`channel ${resp.status}`);
+        return resp.json();
+      } catch (err) {
+        if (!config.api) throw err;
+        const resp = await fetch(appUrl(`/api/live/${config.api}?dashboard=${encodeURIComponent(dashboardId)}`), { cache: "no-store" });
+        if (!resp.ok) throw new Error(`provider ${resp.status}`);
+        return resp.json();
       }
     }
 
     function applyLivePayload(payload) {
       const data = payload && payload.data;
       if (!data) return;
-      if (config.api === "hyperliquid") applyHyperliquidData(data);
-      if (config.api === "polymarket") applyPolymarketData(data);
-      if (config.api === "pumpfun") applyPumpfunData(data);
+      const provider = String(payload.liveProvider || payload.provider || config.api || payload.source || "").replace(/-synthetic$/, "");
+      if (provider === "hyperliquid") applyHyperliquidData(data);
+      else if (provider === "polymarket") applyPolymarketData(data);
+      else if (provider === "pumpfun") applyPumpfunData(data);
+      else applyChannelStateData(data);
       renderMetrics();
       renderFeed();
       renderStage();
       renderMiniVisual();
       animate(".metric, .feed-item.active", { scale: [1, 1.025, 1], duration: 520, ease: "out(3)" });
+    }
+
+    function applyChannelStateData(data) {
+      if (Array.isArray(data.metrics) && data.metrics.length) {
+        state.metrics = normalizeMetrics(data.metrics);
+      }
+      if (Array.isArray(data.feed) && data.feed.length) {
+        state.feed = data.feed.slice(0, 8).map((item) => Array.isArray(item)
+          ? [item[0] ?? "", item[1] ?? "", item[2] ?? ""]
+          : [item.time ?? "", item.title ?? item.message ?? "", item.meta ?? item.source ?? ""]);
+      }
     }
 
     function applyHyperliquidData(data) {
@@ -662,7 +715,15 @@
       ]);
     }
 
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "dashboard-overrides-updated" && event.data.dashboard === dashboardId) {
+        window.location.reload();
+      }
+    });
+
     loadDashboardIdentity()
+      .then(loadDashboardOverride)
       .catch((err) => {
         console.warn(err);
       })
