@@ -18,7 +18,7 @@ Provider compatibility routes still exist:
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/api/live/hyperliquid?coin=BTC` | Hyperliquid mids, L2 book, and 15m candles |
+| `GET` | `/api/live/hyperliquid?coin=BTC&interval=15m&lookbackHours=24` | Hyperliquid mids, L2 book, and historical candles |
 | `GET` | `/api/live/polymarket` | Polymarket active market discovery |
 | `GET` | `/api/live/pumpfun` | Indexed Pump.fun-style token market data |
 | `GET` | `/api/live/eia-grid?respondent=US48` | EIA hourly grid load, forecast, generation, interchange, and fuel mix |
@@ -113,6 +113,8 @@ Hyperliquid:
 
 - Uses the public `POST https://api.hyperliquid.xyz/info` endpoint.
 - Current requests are `allMids`, `l2Book`, and `candleSnapshot`.
+- Crypto chart routes accept `coin`, `interval`, `lookbackHours`, `candles`, `startTime`, and `endTime`; values are sanitized and capped server-side.
+- Supported intervals are `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `8h`, `12h`, and `1d`.
 - Public docs: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint
 
 Polymarket:
@@ -168,6 +170,8 @@ Runtime:
 - Anime.js handles chart/card entrance and update motion through the existing shell.
 - Chart data must come from `/api/channels/:channel/live`, `/api/channels/:channel/context`, or explicit safe rows in the generated component.
 - Generated components must not fetch provider APIs directly from the browser.
+- Primary generated charts should use the `stageOverlay` slot and replace the slot by default, so the chart becomes the active surface over the dashboard graphic instead of stacking multiple panels.
+- The dashboard refreshes live/channel state on the same short polling cadence as the server cache and generated charts can be clicked to inspect the selected row inline.
 
 Supported chart component:
 
@@ -176,10 +180,15 @@ Supported chart component:
   "type": "vega-chart",
   "title": "BTC Candle Trend",
   "chart": {
-    "type": "line",
+    "type": "candlestick",
     "binding": "liveData.candles",
     "x": "label",
-    "y": "close"
+    "y": "close",
+    "query": {
+      "coin": "BTC",
+      "interval": "15m",
+      "lookbackHours": 24
+    }
   },
   "note": "Read-only chart from normalized channel data."
 }
@@ -195,6 +204,8 @@ Supported chart types:
 | `horizontal-bar` | Long labels such as prediction market questions |
 | `scatter` | Pairwise numeric comparisons |
 | `market-depth` | Bid/ask book summaries |
+| `candlestick` | OHLC crypto candles |
+| `volume` | Candle volume bars |
 
 Supported chart bindings:
 
@@ -225,6 +236,10 @@ Kat workflow for graph requests:
 |--------|-----------------|
 | `auto` | Server chooses from active channel/provider and request text |
 | `price_trend` | `liveData.candles` |
+| `moving_average` | `liveData.candles` |
+| `candlestick` | `liveData.candles` |
+| `volume` | `liveData.candles` |
+| `volatility` | `liveData.candles` |
 | `market_depth` | `liveData.book` |
 | `market_odds` | `liveData.markets` |
 | `token_velocity` | `liveData.tokens` |
@@ -241,7 +256,7 @@ Example mutation:
   "dashboardId": "power-grid",
   "instruction": "Show the grid load against forecast.",
   "mutation": {
-    "type": "add_component",
+    "type": "replace_slot",
     "slot": "stageOverlay",
     "component": {
       "type": "vega-chart",

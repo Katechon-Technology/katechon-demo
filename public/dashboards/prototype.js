@@ -31,6 +31,7 @@
       metrics: normalizeMetrics(config.metrics),
       feed: config.feed.map((item) => [...item]),
       livePayload: null,
+      liveLoading: false,
       generated: emptyGeneratedDashboard(),
     };
 
@@ -183,6 +184,7 @@
         dashboardRendered = true;
         setInterval(tickDashboard, 4200);
         setInterval(updateClock, 10000);
+        setInterval(loadLiveData, 12000);
       }
     }
 
@@ -260,15 +262,29 @@
       if (Array.isArray(chart.data) && chart.data.length) return chart.data.slice(0, 96);
 
       if (binding === "liveData.candles" && Array.isArray(data.candles)) {
-        return data.candles.slice(-48).map((candle, index) => ({
-          index,
-          label: candle.t ? new Date(Number(candle.t)).toISOString().slice(11, 16) : String(index + 1),
-          open: numericValue(candle.o || candle.open),
-          high: numericValue(candle.h || candle.high),
-          low: numericValue(candle.l || candle.low),
-          close: numericValue(candle.c || candle.close),
-          volume: numericValue(candle.v || candle.volume),
-        }));
+        const candles = data.candles.slice(-48);
+        const closes = candles.map(candle => numericValue(candle.c || candle.close));
+        return candles.map((candle, index) => {
+          const open = numericValue(candle.o || candle.open);
+          const high = numericValue(candle.h || candle.high);
+          const low = numericValue(candle.l || candle.low);
+          const close = closes[index];
+          const windowStart = Math.max(0, index - 7);
+          const smaWindow = closes.slice(windowStart, index + 1).filter(value => Number.isFinite(value));
+          const sma = smaWindow.length ? smaWindow.reduce((sum, value) => sum + value, 0) / smaWindow.length : close;
+          return {
+            index,
+            label: candle.t ? new Date(Number(candle.t)).toISOString().slice(11, 16) : String(index + 1),
+            open,
+            high,
+            low,
+            close,
+            sma,
+            volume: numericValue(candle.v || candle.volume),
+            returnPct: open ? ((close - open) / open) * 100 : 0,
+            rangePct: low ? ((high - low) / low) * 100 : 0,
+          };
+        });
       }
 
       if (binding === "liveData.book" && Array.isArray(data.book?.levels)) {
@@ -346,6 +362,11 @@
       if (!query || typeof query !== "object") return "";
       const params = new URLSearchParams();
       if (query.coin) params.set("coin", String(query.coin).toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18));
+      if (query.interval) params.set("interval", String(query.interval).toLowerCase().replace(/[^0-9mhd]/g, "").slice(0, 4));
+      if (query.lookbackHours) params.set("lookbackHours", String(Number(query.lookbackHours)));
+      if (query.candles) params.set("candles", String(Number(query.candles)));
+      if (query.startTime) params.set("startTime", String(query.startTime));
+      if (query.endTime) params.set("endTime", String(query.endTime));
       if (query.respondent) params.set("respondent", String(query.respondent).toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 12));
       return params.toString();
     }
@@ -353,18 +374,26 @@
     async function ensureChartPayload(component) {
       const query = chartQuery(component);
       if (!query) return;
-      if (component._chartPayloadKey === query && component._chartPayload) return;
+      if (component._chartPayloadKey === query && component._chartPayload && Date.now() - (component._chartPayloadAt || 0) < 12000) return;
       const url = `/api/channels/${encodeURIComponent(dashboardId)}/live?${query}`;
       const resp = await fetch(appUrl(url), { cache: "no-store" });
       if (!resp.ok) throw new Error(`chart live ${resp.status}`);
       component._chartPayload = await resp.json();
       component._chartPayloadKey = query;
+      component._chartPayloadAt = Date.now();
     }
 
     function chartDefaults(component, rows) {
       const chart = component.chart || {};
       const binding = chart.binding || component.binding || "none";
-      if (binding === "liveData.candles") return { type: chart.type || "line", x: chart.x || "label", y: chart.y || "close" };
+      if (binding === "liveData.candles") {
+        const type = chart.type || (chart.variant === "ohlc" ? "candlestick" : chart.variant === "volume" ? "volume" : "line");
+        if (type === "volume") return { type, x: chart.x || "label", y: chart.y || "volume" };
+        if (type === "candlestick") return { type, x: chart.x || "label", y: chart.y || "close" };
+        if (type === "scatter") return { type, x: chart.x || "index", y: chart.y || "close" };
+        if (chart.variant === "range") return { type: chart.type || "area", x: chart.x || "label", y: chart.y || "high", y2: chart.y2 || "low" };
+        return { type, x: chart.x || "label", y: chart.y || "close", y2: chart.y2 };
+      }
       if (binding === "liveData.book") return { type: chart.type || "market-depth", x: chart.x || "label", y: chart.y || "notional", color: chart.color || "side" };
       if (binding === "liveData.series") return { type: chart.type || "area", x: chart.x || "label", y: chart.y || "loadMw", y2: chart.y2 || "forecastMw" };
       if (binding === "liveData.markets") return { type: chart.type || "horizontal-bar", x: chart.x || "yes", y: chart.y || "label" };
@@ -422,9 +451,95 @@
       const accent2 = cssToken("--accent2", "#7de8ff");
       const danger = cssToken("--danger", "#ff625f");
       const spec = chartBaseSpec(rows, width, height);
-      const numericScale = { name: "y", type: "linear", domain: { data: "table", field: y }, nice: true, range: "height", zero: type !== "line" };
+      const hasY2 = y2 && rows.some(row => Number.isFinite(Number(row[y2])));
+      const yDomain = hasY2 ? { fields: [{ data: "table", field: y }, { data: "table", field: y2 }] } : { data: "table", field: y };
+      const numericScale = { name: "y", type: "linear", domain: yDomain, nice: true, range: "height", zero: !["line", "candlestick"].includes(type) && !hasY2 };
       const xBand = { name: "x", type: "band", domain: { data: "table", field: x }, range: "width", padding: 0.22 };
       const xPoint = { name: "x", type: "point", domain: { data: "table", field: x }, range: "width", padding: 0.45 };
+
+      if (type === "candlestick") {
+        spec.padding = { left: 42, right: 14, top: 12, bottom: 30 };
+        spec.scales = [
+          xBand,
+          { name: "y", type: "linear", domain: { fields: [{ data: "table", field: "high" }, { data: "table", field: "low" }] }, nice: true, range: "height", zero: false },
+        ];
+        spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelOverlap: "parity" }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.marks = [
+          {
+            type: "rule",
+            from: { data: "table" },
+            encode: {
+              enter: {
+                x: { scale: "x", field: x, band: 0.5 },
+                y: { scale: "y", field: "high" },
+                y2: { scale: "y", field: "low" },
+                strokeWidth: { value: 1 },
+                strokeOpacity: { value: 0.72 },
+                cursor: { value: "pointer" },
+              },
+              update: {
+                stroke: [
+                  { test: "datum.close >= datum.open", value: accent },
+                  { value: danger },
+                ],
+              },
+            },
+          },
+          {
+            type: "rect",
+            from: { data: "table" },
+            encode: {
+              enter: {
+                x: { scale: "x", field: x },
+                width: { scale: "x", band: 0.72 },
+                y: { scale: "y", field: "open" },
+                y2: { scale: "y", field: "close" },
+                fillOpacity: { value: 0.72 },
+                stroke: { value: "rgba(255,255,255,0.20)" },
+                strokeWidth: { value: 0.5 },
+                cornerRadius: { value: 2 },
+                cursor: { value: "pointer" },
+              },
+              update: {
+                fill: [
+                  { test: "datum.close >= datum.open", value: accent },
+                  { value: danger },
+                ],
+              },
+              hover: { fillOpacity: { value: 1 } },
+            },
+          },
+        ];
+        return spec;
+      }
+
+      if (type === "volume") {
+        spec.scales = [xBand, { name: "y", type: "linear", domain: { data: "table", field: y }, nice: true, range: "height", zero: true }];
+        spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelOverlap: "parity" }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.marks = [{
+          type: "rect",
+          from: { data: "table" },
+          encode: {
+            enter: {
+              x: { scale: "x", field: x },
+              width: { scale: "x", band: 1 },
+              y: { scale: "y", field: y },
+              y2: { scale: "y", value: 0 },
+              fillOpacity: { value: 0.68 },
+              cornerRadius: { value: 3 },
+              cursor: { value: "pointer" },
+            },
+            update: {
+              fill: [
+                { test: "datum.close >= datum.open", value: accent },
+                { value: danger },
+              ],
+            },
+            hover: { fillOpacity: { value: 1 } },
+          },
+        }];
+        return spec;
+      }
 
       if (type === "horizontal-bar") {
         spec.padding = { left: 94, right: 18, top: 12, bottom: 24 };
@@ -437,7 +552,7 @@
           type: "rect",
           from: { data: "table" },
           encode: {
-            enter: { y: { scale: "y", field: y }, height: { scale: "y", band: 1 }, x: { scale: "x", value: 0 }, x2: { scale: "x", field: x }, fill: { value: accent }, fillOpacity: { value: 0.72 }, cornerRadius: { value: 3 } },
+            enter: { y: { scale: "y", field: y }, height: { scale: "y", band: 1 }, x: { scale: "x", value: 0 }, x2: { scale: "x", field: x }, fill: { value: accent }, fillOpacity: { value: 0.72 }, cornerRadius: { value: 3 }, cursor: { value: "pointer" } },
             update: { fillOpacity: { value: 0.78 } },
             hover: { fillOpacity: { value: 1 } },
           },
@@ -464,7 +579,9 @@
               fill: { scale: "sideColor", field: color || "side" },
               fillOpacity: { value: 0.72 },
               cornerRadius: { value: 3 },
+              cursor: { value: "pointer" },
             },
+            hover: { fillOpacity: { value: 1 } },
           },
         }];
         return spec;
@@ -479,7 +596,7 @@
             type: "area",
             from: { data: "table" },
             encode: {
-              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, y2: { scale: "y", value: 0 }, fill: { value: accent }, fillOpacity: { value: 0.18 } },
+              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, y2: hasY2 ? { scale: "y", field: y2 } : { scale: "y", value: 0 }, fill: { value: accent }, fillOpacity: { value: hasY2 ? 0.24 : 0.18 }, cursor: { value: "pointer" } },
             },
           });
         }
@@ -487,15 +604,15 @@
           type: "line",
           from: { data: "table" },
           encode: {
-            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, stroke: { value: accent }, strokeWidth: { value: 2.2 }, interpolate: { value: "monotone" } },
+            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, stroke: { value: accent }, strokeWidth: { value: 2.2 }, interpolate: { value: "monotone" }, cursor: { value: "pointer" } },
           },
         });
-        if (y2 && rows.some(row => Number.isFinite(Number(row[y2])))) {
+        if (hasY2) {
           spec.marks.push({
             type: "line",
             from: { data: "table" },
             encode: {
-              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y2 }, stroke: { value: accent2 }, strokeWidth: { value: 1.4 }, strokeOpacity: { value: 0.72 }, interpolate: { value: "monotone" } },
+              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y2 }, stroke: { value: accent2 }, strokeWidth: { value: 1.4 }, strokeOpacity: { value: 0.72 }, interpolate: { value: "monotone" }, cursor: { value: "pointer" } },
             },
           });
         }
@@ -512,7 +629,7 @@
           type: "symbol",
           from: { data: "table" },
           encode: {
-            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, size: { value: 72 }, fill: { value: accent2 }, fillOpacity: { value: 0.72 }, stroke: { value: accent }, strokeWidth: { value: 1 } },
+            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, size: { value: 72 }, fill: { value: accent2 }, fillOpacity: { value: 0.72 }, stroke: { value: accent }, strokeWidth: { value: 1 }, cursor: { value: "pointer" } },
           },
         }];
         return spec;
@@ -532,6 +649,7 @@
             fill: { value: accent },
             fillOpacity: { value: 0.72 },
             cornerRadius: { value: 3 },
+            cursor: { value: "pointer" },
           },
           hover: { fill: { value: accent2 }, fillOpacity: { value: 0.95 } },
         },
@@ -543,6 +661,25 @@
       const values = rows.length ? rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.close ?? row.yes ?? row.change ?? row.loadMw ?? row.stressPct)))) : [24, 58, 36, 72, 46, 88, 54, 68];
       const max = Math.max(...values, 1);
       return `<div class="generated-chart-fallback">${values.map(value => `<span style="height:${Math.max(10, value / max * 100).toFixed(0)}%"></span>`).join("")}</div>`;
+    }
+
+    function selectedDatumText(datum) {
+      if (!datum || typeof datum !== "object") return "";
+      const label = datum.label ?? datum.index ?? "point";
+      const fields = ["close", "sma", "open", "high", "low", "volume", "notional", "yes", "change", "loadMw", "stressPct", "value"]
+        .filter(key => datum[key] !== undefined && datum[key] !== null)
+        .slice(0, 4)
+        .map(key => `${key} ${typeof datum[key] === "number" ? Number(datum[key]).toLocaleString(undefined, { maximumFractionDigits: 4 }) : datum[key]}`);
+      return `${label}${fields.length ? ` / ${fields.join(" / ")}` : ""}`;
+    }
+
+    function updateChartSelection(node, datum) {
+      const text = selectedDatumText(datum);
+      if (!text) return;
+      const selection = node.closest(".generated-component")?.querySelector(".generated-chart-selection");
+      if (!selection) return;
+      selection.textContent = text;
+      selection.hidden = false;
     }
 
     async function renderGeneratedCharts() {
@@ -570,6 +707,9 @@
             hover: true,
           });
           await view.runAsync();
+          view.addEventListener("click", (event, item) => {
+            if (item?.datum) updateChartSelection(node, item.datum);
+          });
           animate(node, { opacity: [0.65, 1], scale: [0.985, 1], duration: 520, ease: "out(3)" });
         } catch (err) {
           node.innerHTML = fallbackChartHtml(rows);
@@ -618,6 +758,7 @@
           ${component.value ? `<div class="generated-metric-value">${escapeHtml(component.value)}</div>` : ""}
           ${component.body ? `<div class="generated-body">${escapeHtml(component.body)}</div>` : ""}
           ${isChart ? `<div class="generated-chart-shell"><div class="generated-chart" data-generated-id="${componentId}"></div></div>` : ""}
+          ${isChart ? `<div class="generated-chart-selection" hidden></div>` : ""}
           ${isMetric ? generatedMetricsHtml(rows) : ""}
           ${isRows ? generatedRowsHtml(rows) : ""}
           ${!isChart && !isMetric && !isRows && rows.length ? generatedRowsHtml(rows) : ""}
@@ -640,7 +781,8 @@
     function generatedStageHtml() {
       const components = state.generated.slots.stageOverlay || [];
       if (!components.length) return "";
-      return `<div class="generated-stage">${components.map(generatedComponentHtml).join("")}</div>`;
+      const hasChart = components.some(component => component.type === "vega-chart");
+      return `<div class="generated-stage${hasChart ? " has-chart" : ""}">${components.map(generatedComponentHtml).join("")}</div>`;
     }
 
     function renderMiniVisual() {
@@ -1081,6 +1223,8 @@
     }
 
     async function loadLiveData() {
+      if (state.liveLoading) return;
+      state.liveLoading = true;
       const sourceLabel = config.api || "channel";
       $("source-chip").textContent = `loading ${sourceLabel}`;
       try {
@@ -1092,6 +1236,8 @@
           : `${payload.source}${payload.stale ? " stale" : " live"}`;
       } catch (err) {
         $("source-chip").textContent = config.api ? "provider fallback failed" : "channel fallback failed";
+      } finally {
+        state.liveLoading = false;
       }
     }
 
@@ -1208,7 +1354,7 @@
     window.addEventListener("message", (event) => {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === "dashboard-overrides-updated" && event.data.dashboard === dashboardId) {
-        window.location.reload();
+        loadDashboardOverride().finally(render);
       }
     });
 

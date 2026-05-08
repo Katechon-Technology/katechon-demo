@@ -467,13 +467,13 @@ const DASHBOARD_NARRATION = {
   "crypto-trading": {
     label: "crypto trading dashboard",
     voice:
-      "You are Kat narrating a crypto trading dashboard with live exchange data, charting, strategy settings, " +
-      "backtests, and signal widgets. Be sharp, practical, and avoid financial advice.",
+      "You are Kat narrating a read-only crypto trading dashboard with live Hyperliquid data, historical chart generation, " +
+      "depth inspection, and replaceable generated components. Be sharp, practical, and avoid financial advice.",
     fallback: [
-      "The crypto trading board is up. Charts, strategy controls, and backtests belong in the same loop.",
-      "I'm watching this as a trader's workbench: signal quality first, performance claims second.",
-      "The right question here is whether the strategy survives the backtest, not whether the chart looks exciting.",
-      "Live crypto dashboards need discipline: clear inputs, visible risk, and no magical thinking.",
+      "The crypto board is live. Ask for a coin, timeframe, chart style, or depth view.",
+      "I'm reading this as a market cockpit: price, depth, volume, and risk before direction.",
+      "Generated charts should replace the active view, then we can clear and ask a sharper question.",
+      "The useful loop is query, render, inspect, then refine without pretending this is execution.",
     ],
   },
   polyrec: {
@@ -730,9 +730,22 @@ function sanitizeChartQuery(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const query = {};
   if (raw.coin !== undefined) {
-    const coin = String(raw.coin || "").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18);
+    const coin = sanitizeHyperliquidCoin(raw.coin, "");
     if (coin) query.coin = coin;
   }
+  if (raw.interval !== undefined) {
+    query.interval = sanitizeHyperliquidInterval(raw.interval);
+  }
+  if (raw.lookbackHours !== undefined || raw.hours !== undefined) {
+    query.lookbackHours = sanitizeLookbackHours(raw.lookbackHours ?? raw.hours);
+  }
+  if (raw.candles !== undefined) {
+    query.candles = sanitizeCandleCount(raw.candles);
+  }
+  const startTime = parseMarketTimeMs(raw.startTime || raw.start);
+  if (startTime !== null) query.startTime = startTime;
+  const endTime = parseMarketTimeMs(raw.endTime || raw.end);
+  if (endTime !== null) query.endTime = endTime;
   if (raw.respondent !== undefined) {
     const respondent = cleanEiaRespondent(raw.respondent);
     if (respondent) query.respondent = respondent;
@@ -750,7 +763,7 @@ function sanitizeChart(raw) {
     binding: sanitizeChartBinding(raw.binding),
   };
 
-  for (const field of ["title", "x", "y", "y2", "color", "label"]) {
+  for (const field of ["title", "x", "y", "y2", "color", "label", "variant"]) {
     if (raw[field] !== undefined) {
       const value = field === "title" ? clampText(raw[field], 120) : sanitizeChartField(raw[field]);
       if (value) chart[field] = value;
@@ -1036,6 +1049,10 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
 const DASHBOARD_CHART_INTENTS = [
   "auto",
   "price_trend",
+  "moving_average",
+  "candlestick",
+  "volume",
+  "volatility",
   "market_depth",
   "market_odds",
   "token_velocity",
@@ -1052,6 +1069,10 @@ function chartIntentForText(channel, rawIntent, instruction = "") {
 
   const text = normalizeAgentText(instruction);
   if (/\b(depth|book|order\s*book|bid|ask|liquidity)\b/.test(text)) return "market_depth";
+  if (/\b(moving\s*average|sma|average)\b/.test(text) && channel.liveProvider === "hyperliquid") return "moving_average";
+  if (/\b(candles?|candlestick|ohlc)\b/.test(text) && channel.liveProvider === "hyperliquid") return "candlestick";
+  if (/\b(volume|turnover|traded)\b/.test(text) && channel.liveProvider === "hyperliquid") return "volume";
+  if (/\b(volatility|range|wick|high\s*low|drawdown)\b/.test(text) && channel.liveProvider === "hyperliquid") return "volatility";
   if (/\b(odds?|probabilit|yes|markets?)\b/.test(text) && channel.liveProvider === "polymarket") return "market_odds";
   if (/\b(tokens?|velocity|meme|change|gainers?)\b/.test(text) && channel.liveProvider === "pumpfun") return "token_velocity";
   if (/\b(fuel|generation mix|mix)\b/.test(text)) return "fuel_mix";
@@ -1070,8 +1091,16 @@ function chartIntentForText(channel, rawIntent, instruction = "") {
 function defaultChartQuery(channel, args = {}) {
   const query = {};
   if (channel.liveProvider === "hyperliquid") {
-    const coin = String(args.coin || channel.defaultQuery?.coin || "").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18);
+    const coin = sanitizeHyperliquidCoin(args.coin || channel.defaultQuery?.coin, "");
     if (coin) query.coin = coin;
+    query.lookbackHours = sanitizeLookbackHours(args.lookbackHours || args.hours || args.lookback || 24);
+    query.interval = sanitizeHyperliquidInterval(args.interval || args.timeframe || defaultHyperliquidIntervalForLookback(query.lookbackHours));
+    const candles = args.candles !== undefined ? sanitizeCandleCount(args.candles) : null;
+    if (candles) query.candles = candles;
+    const startTime = parseMarketTimeMs(args.startTime || args.start);
+    if (startTime !== null) query.startTime = startTime;
+    const endTime = parseMarketTimeMs(args.endTime || args.end);
+    if (endTime !== null) query.endTime = endTime;
   }
   if (channel.liveProvider === "eia-grid") {
     const respondent = cleanEiaRespondent(args.respondent || channel.defaultQuery?.respondent || "");
@@ -1080,10 +1109,31 @@ function defaultChartQuery(channel, args = {}) {
   return Object.keys(query).length ? query : null;
 }
 
+function defaultHyperliquidIntervalForLookback(hours) {
+  const value = Number(hours);
+  if (!Number.isFinite(value)) return "15m";
+  if (value >= 24 * 45) return "1d";
+  if (value >= 24 * 10) return "4h";
+  if (value >= 48) return "1h";
+  return "15m";
+}
+
+function chartStyleForText(raw = {}, instruction = "") {
+  const explicit = cleanComponentId(raw.style || raw.variant || raw.chartType || "");
+  if (explicit && CHART_TYPES.includes(explicit)) return explicit;
+  const text = normalizeAgentText(instruction);
+  if (/\b(candles?|candlestick|ohlc)\b/.test(text)) return "candlestick";
+  if (/\b(volume|turnover|traded)\b/.test(text)) return "volume";
+  if (/\barea|filled\b/.test(text)) return "area";
+  if (/\bscatter|distribution\b/.test(text)) return "scatter";
+  return "";
+}
+
 function chartComponentForIntent(channel, raw = {}, instruction = "") {
   const intent = chartIntentForText(channel, raw.intent, instruction);
   const title = clampText(raw.title, 96);
   const query = defaultChartQuery(channel, raw);
+  const style = chartStyleForText(raw, instruction);
   const withQuery = (chart) => query ? { ...chart, query } : chart;
   const component = {
     id: `vega-chart-${Date.now().toString(36)}`,
@@ -1096,8 +1146,38 @@ function chartComponentForIntent(channel, raw = {}, instruction = "") {
   if (intent === "price_trend") {
     return {
       ...component,
-      title: title || `${query?.coin || "BTC"} Candle Trend`,
-      chart: withQuery({ type: "line", binding: "liveData.candles", x: "label", y: "close" }),
+      title: title || `${query?.coin || "BTC"} Price Trend`,
+      chart: withQuery({ type: style && ["line", "area", "scatter", "candlestick"].includes(style) ? style : "line", binding: "liveData.candles", x: "label", y: "close", variant: style || "line" }),
+    };
+  }
+  if (intent === "moving_average") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Moving Average`,
+      chart: withQuery({ type: "line", binding: "liveData.candles", x: "label", y: "close", y2: "sma", variant: "moving-average" }),
+      note: "Moving average is computed in the dashboard from normalized candle closes for visual context only.",
+    };
+  }
+  if (intent === "candlestick") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Candles`,
+      chart: withQuery({ type: "candlestick", binding: "liveData.candles", x: "label", y: "close", variant: "ohlc" }),
+    };
+  }
+  if (intent === "volume") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Volume`,
+      chart: withQuery({ type: "volume", binding: "liveData.candles", x: "label", y: "volume", variant: "volume" }),
+    };
+  }
+  if (intent === "volatility") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Range And Volatility`,
+      chart: withQuery({ type: "area", binding: "liveData.candles", x: "label", y: "high", y2: "low", variant: "range" }),
+      note: "Range uses candle high/low from the selected historical window; it is read-only market context, not advice.",
     };
   }
   if (intent === "market_depth") {
@@ -1188,11 +1268,17 @@ function realtimeTools() {
       y2: { type: "string", description: "Optional secondary value field, used for overlays when supported." },
       color: { type: "string", description: "Optional data field for color grouping." },
       label: { type: "string", description: "Optional label field." },
+      variant: { type: "string", description: "Optional visual variant such as line, area, ohlc, range, or volume." },
       query: {
         type: "object",
         additionalProperties: false,
         properties: {
           coin: { type: "string" },
+          interval: { type: "string" },
+          lookbackHours: { type: "number" },
+          candles: { type: "number" },
+          startTime: { type: "string" },
+          endTime: { type: "string" },
           respondent: { type: "string" },
         },
       },
@@ -1249,6 +1335,11 @@ function realtimeTools() {
           dashboardId: { type: "string", enum: workspaceEnum },
           detail: { type: "string", enum: ["summary", "compact"], description: "summary is preferred for voice; compact includes trimmed data." },
           coin: { type: "string", description: "Optional Hyperliquid coin, for example BTC or ETH." },
+          interval: { type: "string", description: "Optional Hyperliquid candle interval, for example 1m, 15m, 1h, or 1d." },
+          lookbackHours: { type: "number", description: "Optional historical lookback in hours." },
+          candles: { type: "number", description: "Optional target candle count." },
+          startTime: { type: "string", description: "Optional historical start time as ISO, unix seconds, or unix milliseconds." },
+          endTime: { type: "string", description: "Optional historical end time as ISO, unix seconds, or unix milliseconds." },
           respondent: { type: "string", description: "Optional EIA grid respondent, for example US48, CAL, ERCO, or PJM." },
         },
       },
@@ -1314,6 +1405,13 @@ function realtimeTools() {
           title: { type: "string" },
           replace: { type: "boolean", description: "Replace the target slot instead of appending." },
           coin: { type: "string", description: "Optional Hyperliquid coin, for example BTC, ETH, or SOL." },
+          interval: { type: "string", description: "Optional Hyperliquid candle interval, for example 1m, 5m, 15m, 1h, 4h, or 1d." },
+          lookbackHours: { type: "number", description: "Optional historical lookback in hours, capped server-side." },
+          candles: { type: "number", description: "Optional target candle count, capped server-side." },
+          startTime: { type: "string", description: "Optional historical start time as ISO, unix seconds, or unix milliseconds." },
+          endTime: { type: "string", description: "Optional historical end time as ISO, unix seconds, or unix milliseconds." },
+          style: { type: "string", description: "Optional visual style, for example line, area, candlestick, volume, scatter, or market-depth." },
+          variant: { type: "string", description: "Optional variant label for the chart renderer." },
           respondent: { type: "string", description: "Optional EIA respondent, for example US48, CAL, ERCO, or PJM." },
         },
         required: ["dashboardId", "instruction", "intent"],
@@ -1461,7 +1559,10 @@ function realtimeInstructions(dashboardId) {
     "If the user asks for current data that is not in liveSummary, call get_channel_live before answering.",
     "When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.",
     "When the user asks for a chart, graph, plot, visual, graphic, candle chart, depth chart, odds chart, token chart, or grid chart, call apply_dashboard_chart. Do not use generic widgets for chart requests.",
-    "For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent.",
+    "Generated charts and components should replace the target generated slot by default; set replace=false only when the user explicitly asks to add multiple.",
+    "For primary charts, prefer slot=stageOverlay so the chart renders as a clean stage surface over the dashboard graphic.",
+    "For crypto charts, use coin, interval, lookbackHours, candles, startTime, or endTime when the user asks for historical context or a timeframe.",
+    "For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent and query parameters.",
     "Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, chart bindings, and theme tokens.",
     "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
     `Current channel context:\n${JSON.stringify(context, null, 2)}`,
@@ -1800,6 +1901,21 @@ const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 900);
 const EIA_API_TIMEOUT_MS = Number(process.env.EIA_API_TIMEOUT_MS || Math.max(3500, LIVE_API_TIMEOUT_MS));
 const LIVE_API_TTL_MS = Number(process.env.LIVE_API_TTL_MS || 12000);
 const LIVE_API_CACHE = new Map();
+const HYPERLIQUID_INTERVAL_MS = {
+  "1m": 60 * 1000,
+  "3m": 3 * 60 * 1000,
+  "5m": 5 * 60 * 1000,
+  "15m": 15 * 60 * 1000,
+  "30m": 30 * 60 * 1000,
+  "1h": 60 * 60 * 1000,
+  "2h": 2 * 60 * 60 * 1000,
+  "4h": 4 * 60 * 60 * 1000,
+  "8h": 8 * 60 * 60 * 1000,
+  "12h": 12 * 60 * 60 * 1000,
+  "1d": 24 * 60 * 60 * 1000,
+};
+const HYPERLIQUID_MAX_CANDLES = 180;
+const HYPERLIQUID_MAX_LOOKBACK_HOURS = 24 * 120;
 
 function liveSeed(seed) {
   let hash = 2166136261;
@@ -1837,12 +1953,72 @@ async function fetchHyperliquidInfo(body) {
   });
 }
 
-function syntheticCandles(seed, count, base) {
+function sanitizeHyperliquidCoin(value, fallback = "BTC") {
+  return String(value || fallback).toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || fallback;
+}
+
+function sanitizeHyperliquidInterval(value, fallback = "15m") {
+  const interval = String(value || fallback).toLowerCase().replace(/\s+/g, "");
+  return HYPERLIQUID_INTERVAL_MS[interval] ? interval : fallback;
+}
+
+function parseMarketTimeMs(value) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? Math.round(value) : Math.round(value * 1000);
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) {
+    const n = Number(text);
+    return n > 100000000000 ? n : n * 1000;
+  }
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sanitizeLookbackHours(value, fallback = 24) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.max(1, Math.min(HYPERLIQUID_MAX_LOOKBACK_HOURS, n));
+}
+
+function sanitizeCandleCount(value, fallback = 96) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.max(12, Math.min(HYPERLIQUID_MAX_CANDLES, n));
+}
+
+function hyperliquidQueryFrom(input = {}) {
+  const query = input?.query || input || {};
+  const coin = sanitizeHyperliquidCoin(query.coin || input.coin);
+  const interval = sanitizeHyperliquidInterval(query.interval || input.interval);
+  const intervalMs = HYPERLIQUID_INTERVAL_MS[interval] || HYPERLIQUID_INTERVAL_MS["15m"];
+  const now = Date.now();
+  const requestedEnd = parseMarketTimeMs(query.endTime || query.end || input.endTime || input.end);
+  const requestedStart = parseMarketTimeMs(query.startTime || query.start || input.startTime || input.start);
+  const lookbackHours = sanitizeLookbackHours(query.lookbackHours || query.hours || input.lookbackHours || input.hours, 24);
+  const candleCount = sanitizeCandleCount(query.candles || input.candles, Math.ceil((lookbackHours * 60 * 60 * 1000) / intervalMs));
+  const endTime = Math.min(requestedEnd || now, now);
+  const maxRangeMs = Math.min(HYPERLIQUID_MAX_LOOKBACK_HOURS * 60 * 60 * 1000, HYPERLIQUID_MAX_CANDLES * intervalMs);
+  const computedStart = endTime - Math.min(lookbackHours * 60 * 60 * 1000, candleCount * intervalMs, maxRangeMs);
+  const unclampedStart = Math.max(0, Math.min(requestedStart || computedStart, endTime - intervalMs));
+  const startTime = Math.max(endTime - maxRangeMs, unclampedStart);
+  return {
+    coin,
+    interval,
+    intervalMs,
+    startTime,
+    endTime,
+    lookbackHours: Math.max(1 / 60, (endTime - startTime) / (60 * 60 * 1000)),
+    candles: Math.min(HYPERLIQUID_MAX_CANDLES, Math.ceil((endTime - startTime) / intervalMs)),
+  };
+}
+
+function syntheticCandles(seed, count, base, intervalMs = 15 * 60 * 1000, endTime = Date.now()) {
   return Array.from({ length: count }, (_, index) => {
     const open = base + seededFloat(`${seed}:open:${index}`, -base * 0.015, base * 0.015);
     const close = open + seededFloat(`${seed}:close:${index}`, -base * 0.009, base * 0.009);
     return {
-      t: Date.now() - (count - index) * 15 * 60 * 1000,
+      t: endTime - (count - index) * intervalMs,
       o: open.toFixed(2),
       h: Math.max(open, close + seededFloat(`${seed}:high:${index}`, 4, base * 0.004)).toFixed(2),
       l: Math.min(open, close - seededFloat(`${seed}:low:${index}`, 4, base * 0.004)).toFixed(2),
@@ -1852,15 +2028,21 @@ function syntheticCandles(seed, count, base) {
   });
 }
 
-function syntheticHyperliquidData(coin = "BTC") {
+function syntheticHyperliquidData(input = "BTC") {
+  const query = hyperliquidQueryFrom(typeof input === "string" ? { coin: input } : input);
+  const coin = query.coin;
   const base = coin === "ETH" ? 3400 : coin === "SOL" ? 155 : 68000;
   const mid = base + seededFloat(`${coin}:mid`, -base * 0.018, base * 0.018);
   return {
     coin,
+    interval: query.interval,
+    startTime: query.startTime,
+    endTime: query.endTime,
+    lookbackHours: query.lookbackHours,
     mid,
     spreadBps: seededFloat(`${coin}:spread`, 2.2, 8.8),
     depthUsd: seededFloat(`${coin}:depth`, 52000, 184000),
-    candles: syntheticCandles(coin, 34, mid),
+    candles: syntheticCandles(`${coin}:${query.interval}:${query.startTime}`, Math.max(12, Math.min(query.candles, 96)), mid, query.intervalMs, query.endTime),
     book: {
       levels: [
         Array.from({ length: 12 }, (_, index) => ({ px: (mid - index * mid * 0.00018).toFixed(2), sz: seededFloat(`${coin}:bid:${index}`, 0.2, 8.4).toFixed(4) })),
@@ -1872,13 +2054,12 @@ function syntheticHyperliquidData(coin = "BTC") {
 }
 
 async function getHyperliquidLiveData(req) {
-  const coin = String(req.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
-  const endTime = Date.now();
-  const startTime = endTime - 36 * 15 * 60 * 1000;
+  const query = hyperliquidQueryFrom(req);
+  const { coin, interval, startTime, endTime } = query;
   const [mids, book, candles] = await Promise.all([
     fetchHyperliquidInfo({ type: "allMids" }),
     fetchHyperliquidInfo({ type: "l2Book", coin }),
-    fetchHyperliquidInfo({ type: "candleSnapshot", req: { coin, interval: "15m", startTime, endTime } }),
+    fetchHyperliquidInfo({ type: "candleSnapshot", req: { coin, interval, startTime, endTime } }),
   ]);
   const bid = Number(book?.levels?.[0]?.[0]?.px);
   const ask = Number(book?.levels?.[1]?.[0]?.px);
@@ -1888,10 +2069,14 @@ async function getHyperliquidLiveData(req) {
 
   return {
     coin,
+    interval,
+    startTime,
+    endTime,
+    lookbackHours: query.lookbackHours,
     mid,
     spreadBps: mid && Number.isFinite(bid) && Number.isFinite(ask) ? ((ask - bid) / mid) * 10000 : 0,
     depthUsd,
-    candles: Array.isArray(candles) ? candles.slice(-36) : [],
+    candles: Array.isArray(candles) ? candles.slice(-HYPERLIQUID_MAX_CANDLES) : [],
     book,
     updatedAt: Date.now(),
   };
@@ -2258,8 +2443,15 @@ async function sendCachedLive(req, res, key, loader, fallback) {
 }
 
 app.get("/api/live/hyperliquid", (req, res) => {
-  const coin = String(req.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
-  sendCachedLive(req, res, `hyperliquid:${coin}`, getHyperliquidLiveData, () => syntheticHyperliquidData(coin));
+  const query = req.query || {};
+  const coin = sanitizeHyperliquidCoin(query.coin || "BTC");
+  const interval = sanitizeHyperliquidInterval(query.interval || query.timeframe || "15m");
+  const lookback = sanitizeLookbackHours(query.lookbackHours || query.hours || query.lookback || 24);
+  const candles = query.candles ? sanitizeCandleCount(query.candles) : "";
+  const start = parseMarketTimeMs(query.startTime || query.start) || "";
+  const end = parseMarketTimeMs(query.endTime || query.end) || "latest";
+  const cacheKey = `hyperliquid:${coin}:${interval}:${lookback}:${candles}:${start}:${end}`;
+  sendCachedLive(req, res, cacheKey, getHyperliquidLiveData, () => syntheticHyperliquidData(req));
 });
 
 app.get("/api/live/polymarket", (req, res) => {
@@ -2288,8 +2480,14 @@ function requestWithChannelDefaults(req, channel) {
 function channelLiveKey(channel, req) {
   const provider = channel.liveProvider;
   if (provider === "hyperliquid") {
-    const coin = String(req.query.coin || channel.defaultQuery?.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
-    return `${provider}:${channel.id}:${coin}`;
+    const query = { ...(channel.defaultQuery || {}), ...(req.query || {}) };
+    const coin = sanitizeHyperliquidCoin(query.coin || "BTC");
+    const interval = sanitizeHyperliquidInterval(query.interval || query.timeframe || "15m");
+    const lookback = sanitizeLookbackHours(query.lookbackHours || query.hours || query.lookback || 24);
+    const candles = query.candles ? sanitizeCandleCount(query.candles) : "";
+    const start = parseMarketTimeMs(query.startTime || query.start) || "";
+    const end = parseMarketTimeMs(query.endTime || query.end) || "latest";
+    return `${provider}:${channel.id}:${coin}:${interval}:${lookback}:${candles}:${start}:${end}`;
   }
   if (provider === "polymarket") return `${provider}:${channel.id}:markets`;
   if (provider === "pumpfun") return `${provider}:${channel.id}:tokens`;
@@ -2305,8 +2503,7 @@ async function getChannelProviderPayload(req, channel) {
   const providerReq = requestWithChannelDefaults(req, channel);
 
   if (provider === "hyperliquid") {
-    const coin = String(providerReq.query.coin || "BTC").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18) || "BTC";
-    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getHyperliquidLiveData, () => syntheticHyperliquidData(coin));
+    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getHyperliquidLiveData, () => syntheticHyperliquidData(providerReq));
   }
   if (provider === "polymarket") {
     return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPolymarketLiveData, syntheticPolymarketData);
@@ -2439,6 +2636,8 @@ function summarizeChannelLive(channel, envelope) {
 
   if (sourceIs(envelope, "hyperliquid") && data.mid !== undefined) {
     const coin = data.coin || "BTC";
+    const interval = data.interval || "15m";
+    const rangeHours = Number(data.lookbackHours || 0);
     const mid = Number(data.mid || 0);
     const spread = Number(data.spreadBps || 0);
     const depth = Number(data.depthUsd || 0);
@@ -2456,11 +2655,12 @@ function summarizeChannelLive(channel, envelope) {
     ]);
     summary.highlights = [
       `${coin} mid is ${formatUsd(mid)}.`,
+      `Chart window is ${rangeHours ? `${rangeHours.toFixed(rangeHours >= 24 ? 0 : 1)} hours` : "the current cached window"} at ${interval} candles.`,
       `Spread is ${spread.toFixed(2)} basis points.`,
       `Top depth summary is ${formatCompactUsd(depth)}.`,
       last ? `Latest candle close is ${formatUsd(last.c || last.close || mid)}.` : "No candle close is available.",
     ];
-    summary.dataShape = ["coin", "mid", "spreadBps", "depthUsd", "candles[]", "book.levels[][]"];
+    summary.dataShape = ["coin", "interval", "startTime", "endTime", "lookbackHours", "mid", "spreadBps", "depthUsd", "candles[]", "book.levels[][]"];
     return summary;
   }
 
@@ -3112,6 +3312,11 @@ async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
     if (!channel) throw new Error("unknown channel");
     const query = {};
     if (args.coin) query.coin = args.coin;
+    if (args.interval) query.interval = args.interval;
+    if (args.lookbackHours) query.lookbackHours = args.lookbackHours;
+    if (args.candles) query.candles = args.candles;
+    if (args.startTime) query.startTime = args.startTime;
+    if (args.endTime) query.endTime = args.endTime;
     if (args.respondent) query.respondent = args.respondent;
     const req = { query };
     const envelope = await getChannelLiveEnvelope(req, channel);
@@ -3317,8 +3522,8 @@ function looksLikeActiveDashboardQuestion(normalizedText) {
 
 function looksLikeDashboardMutation(normalizedText) {
   if (/\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage|columns?|metrics?|widgets?)\b/.test(normalizedText)) return true;
-  const changeVerb = /\b(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose)\b/.test(normalizedText);
-  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|charts?|graphs?|plots?|visuals?|graphics?|candles?|odds?|book|metrics?|kpis?|prices?|price|spread|depth|volume|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
+  const changeVerb = /\b(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose|switch|change|update|give|use|try)\b/.test(normalizedText);
+  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|odds?|book|metrics?|kpis?|prices?|price|spread|depth|volume|volatility|range|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
   return changeVerb && target;
 }
 
@@ -3359,7 +3564,7 @@ function mutationSlotFromText(normalizedText) {
 }
 
 function mutationComponentTypeFromText(normalizedText) {
-  if (/\b(charts?|graphs?|plots?|visuals?|graphics?|candles?)\b/.test(normalizedText)) return "vega-chart";
+  if (/\b(charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|volume|volatility|range)\b/.test(normalizedText)) return "vega-chart";
   if (/\btimeline|sequence|events?\b/.test(normalizedText)) return "event-timeline";
   if (/\bmap|city|cities|geo|location\b/.test(normalizedText)) return "map-brief";
   if (/\bmetrics?|kpis?|numbers?|strip|columns?|rows?|tables?\b/.test(normalizedText)) return "metric-strip";
@@ -3436,12 +3641,100 @@ function fallbackComponentForMutation(transcript, dashboardId) {
   return base;
 }
 
+function chartArgsFromText(normalizedText) {
+  const args = {
+    coin: /\beth\b/.test(normalizedText) ? "ETH" : /\bsol\b/.test(normalizedText) ? "SOL" : /\bbtc|bitcoin\b/.test(normalizedText) ? "BTC" : undefined,
+    respondent: (normalizedText.match(/\b(us48|cal|erco|pjm|miso|nyis|isne|caiso)\b/) || [])[1],
+  };
+  if (!args.coin) {
+    const oneWordCoin = normalizedText.match(/\b([a-z][a-z0-9]{2,17}coin)\b/);
+    const spacedCoin = normalizedText.match(/\b([a-z][a-z0-9]{1,12})\s+coin\b/);
+    const afterFor = normalizedText.match(/\b(?:for|of|on|about)\s+([a-z][a-z0-9]{1,17})\b/);
+    const candidate = oneWordCoin?.[1] || (spacedCoin ? `${spacedCoin[1]}coin` : afterFor?.[1]);
+    const ignored = new Set(["the", "this", "that", "price", "chart", "total", "token", "holders", "market", "meme", "moving"]);
+    if (candidate && !ignored.has(candidate)) args.coin = candidate.toUpperCase();
+  }
+  const intervalMatch = normalizedText.match(/\b(1m|3m|5m|15m|30m|1h|2h|4h|8h|12h|1d)\b/);
+  if (intervalMatch) args.interval = intervalMatch[1];
+  const lastMatch = normalizedText.match(/\b(?:last|past)\s+(\d+)\s*(minute|minutes|min|hour|hours|hr|hrs|day|days|week|weeks)\b/);
+  const wordNumbers = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, twelve: 12 };
+  const wordPeriodMatch = normalizedText.match(/\b(?:last|past)?\s*(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(minute|minutes|min|hour|hours|hr|hrs|day|days|week|weeks|month|months)\b/);
+  if (lastMatch) {
+    const n = Number(lastMatch[1]);
+    const unit = lastMatch[2];
+    if (/minute|min/.test(unit)) args.lookbackHours = Math.max(1 / 12, n / 60);
+    else if (/hour|hr/.test(unit)) args.lookbackHours = n;
+    else if (/day/.test(unit)) args.lookbackHours = n * 24;
+    else if (/week/.test(unit)) args.lookbackHours = n * 24 * 7;
+  } else if (wordPeriodMatch) {
+    const n = wordNumbers[wordPeriodMatch[1]] || 1;
+    const unit = wordPeriodMatch[2];
+    if (/minute|min/.test(unit)) args.lookbackHours = Math.max(1 / 12, n / 60);
+    else if (/hour|hr/.test(unit)) args.lookbackHours = n;
+    else if (/day/.test(unit)) args.lookbackHours = n * 24;
+    else if (/week/.test(unit)) args.lookbackHours = n * 24 * 7;
+    else if (/month/.test(unit)) args.lookbackHours = n * 24 * 30;
+  } else if (/\b24h|one day|today\b/.test(normalizedText)) {
+    args.lookbackHours = 24;
+  } else if (/\b7d|one week|week\b/.test(normalizedText)) {
+    args.lookbackHours = 24 * 7;
+  } else if (/\b30d|month\b/.test(normalizedText)) {
+    args.lookbackHours = 24 * 30;
+  }
+  if (!args.interval && args.lookbackHours) args.interval = defaultHyperliquidIntervalForLookback(args.lookbackHours);
+  if (/\b(moving\s*average|sma|average)\b/.test(normalizedText)) args.intent = "moving_average";
+  else if (/\b(candles?|candlestick|ohlc)\b/.test(normalizedText)) args.intent = "candlestick";
+  else if (/\b(volume|turnover|traded)\b/.test(normalizedText)) args.intent = "volume";
+  else if (/\b(volatility|range|wick|high\s*low|drawdown)\b/.test(normalizedText)) args.intent = "volatility";
+  return args;
+}
+
+function definedArgs(raw = {}) {
+  return Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+}
+
+function activeGeneratedChart(dashboardId) {
+  const id = cleanDashboardId(dashboardId);
+  const record = readDashboardOverrides().dashboards[id] || {};
+  const generated = sanitizeGeneratedDashboard(record.generated);
+  const components = [...(generated.slots.stageOverlay || []), ...(generated.slots.rail || [])];
+  return components.find((component) => component.type === "vega-chart" && component.chart) || null;
+}
+
+function chartArgsFromGenerated(component) {
+  const chart = component?.chart || {};
+  const query = chart.query || {};
+  let intent = "price_trend";
+  if (chart.type === "candlestick" || chart.variant === "ohlc") intent = "candlestick";
+  else if (chart.type === "volume" || chart.variant === "volume") intent = "volume";
+  else if (chart.variant === "range") intent = "volatility";
+  else if (chart.variant === "moving-average" || chart.y2 === "sma") intent = "moving_average";
+  else if (chart.type === "market-depth") intent = "market_depth";
+  return definedArgs({
+    intent,
+    coin: query.coin,
+    interval: query.interval,
+    lookbackHours: query.lookbackHours,
+    candles: query.candles,
+    startTime: query.startTime,
+    endTime: query.endTime,
+    style: chart.type,
+    variant: chart.variant,
+  });
+}
+
+function looksLikeGeneratedChartRefinement(normalizedText, dashboardId) {
+  if (!activeGeneratedChart(dashboardId)) return false;
+  return /\b(switch|change|update|make|show|give|use|try|actually|instead|last|past|btc|bitcoin|eth|sol|hours?|hrs?|days?|weeks?|months?|1m|3m|5m|15m|30m|1h|2h|4h|8h|12h|1d|candles?|candlestick|ohlc|volume|volatility|range|moving\s*average|sma|average)\b/.test(normalizedText);
+}
+
 function fallbackMutationDecision(transcript, dashboardId) {
   const normalizedText = normalizeAgentText(transcript);
-  if (!dashboardId || dashboardId === "landing" || !looksLikeDashboardMutation(normalizedText)) return null;
+  const chartRefinement = dashboardId && dashboardId !== "landing" && looksLikeGeneratedChartRefinement(normalizedText, dashboardId);
+  if (!dashboardId || dashboardId === "landing" || (!chartRefinement && !looksLikeDashboardMutation(normalizedText))) return null;
 
   const clear = /\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage)\b/.test(normalizedText);
-  const chartRequest = /\b(charts?|graphs?|plots?|visuals?|graphics?|candles?|depth|book|odds?)\b/.test(normalizedText);
+  const chartRequest = chartRefinement || /\b(charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|volume|volatility|range|moving\s*average|sma|average|depth|book|odds?)\b/.test(normalizedText);
   const instruction = clampText(transcript, 500);
   let mutation;
   let speech;
@@ -3451,12 +3744,18 @@ function fallbackMutationDecision(transcript, dashboardId) {
     speech = "Cleared the generated components.";
   } else if (chartRequest) {
     const channel = getChannel(dashboardId);
+    const existingChart = activeGeneratedChart(dashboardId);
+    const queryArgs = {
+      ...chartArgsFromGenerated(existingChart),
+      ...definedArgs(chartArgsFromText(normalizedText)),
+    };
     const chartArgs = {
-      intent: "auto",
+      intent: queryArgs.intent || "auto",
       slot: /\brail\b/.test(normalizedText) ? "rail" : "stageOverlay",
-      title: mutationTopicFromTranscript(transcript, normalizedText, dashboardId),
-      coin: /\beth\b/.test(normalizedText) ? "ETH" : /\bsol\b/.test(normalizedText) ? "SOL" : /\bbtc\b/.test(normalizedText) ? "BTC" : undefined,
-      respondent: (normalizedText.match(/\b(us48|cal|erco|pjm|miso|nyis|isne|caiso)\b/) || [])[1],
+      title: /\b(that|it|actually|instead)\b/.test(normalizedText) && existingChart?.title
+        ? existingChart.title
+        : mutationTopicFromTranscript(transcript, normalizedText, dashboardId),
+      ...queryArgs,
     };
     const override = applyDashboardChart(dashboardId, chartArgs, instruction, "kat-fallback-chart");
     return {
@@ -3496,12 +3795,13 @@ function fallbackMutationDecision(transcript, dashboardId) {
     };
     speech = `Built an investor briefing for ${topic}.`;
   } else {
+    const component = fallbackComponentForMutation(transcript, dashboardId);
     mutation = {
-      type: "add_component",
+      type: "replace_slot",
       slot: mutationSlotFromText(normalizedText),
-      component: fallbackComponentForMutation(transcript, dashboardId),
+      components: [component],
     };
-    speech = "Added a generated dashboard component.";
+    speech = "Replaced the generated dashboard component.";
   }
 
   const override = applyDashboardMutation(dashboardId, mutation, instruction, "kat-fallback-mutation");

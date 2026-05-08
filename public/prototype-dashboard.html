@@ -451,6 +451,12 @@
       gap: 8px;
       pointer-events: none;
     }
+    .generated-stage.has-chart {
+      inset: 14px;
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+      pointer-events: auto;
+    }
     .generated-component {
       min-width: 0;
       border: 1px solid color-mix(in srgb, var(--accent) 34%, rgba(255,255,255,0.12));
@@ -464,6 +470,14 @@
     .generated-stage .generated-component {
       background: rgba(4, 7, 10, 0.78);
       backdrop-filter: blur(14px);
+    }
+    .generated-stage.has-chart .generated-component {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 42%),
+        rgba(4, 7, 10, 0.64);
     }
     .generated-eyebrow,
     .generated-note,
@@ -549,6 +563,9 @@
     .generated-stage .generated-vega-chart {
       min-height: 210px;
     }
+    .generated-stage.has-chart .generated-vega-chart {
+      min-height: 0;
+    }
     .generated-chart-shell {
       width: 100%;
       height: 176px;
@@ -565,10 +582,17 @@
     .generated-stage .generated-chart-shell {
       height: 146px;
     }
+    .generated-stage.has-chart .generated-chart-shell {
+      height: auto;
+      min-height: 0;
+    }
     .generated-chart {
       width: 100%;
       height: 100%;
       min-height: 118px;
+    }
+    .generated-stage.has-chart .generated-chart {
+      min-height: 0;
     }
     .generated-chart canvas,
     .generated-chart svg {
@@ -589,6 +613,24 @@
       border-radius: 3px 3px 0 0;
       background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent2) 42%, transparent));
       opacity: 0.72;
+    }
+    .generated-chart-selection {
+      min-height: 28px;
+      margin-top: 8px;
+      padding: 7px 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.24);
+      color: rgba(243,246,248,0.76);
+      font: 10px/1.35 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .generated-chart-selection[hidden] {
+      display: none;
     }
 
     .insight-panel {
