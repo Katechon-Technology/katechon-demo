@@ -21,6 +21,7 @@ Provider compatibility routes still exist:
 | `GET` | `/api/live/hyperliquid?coin=BTC` | Hyperliquid mids, L2 book, and 15m candles |
 | `GET` | `/api/live/polymarket` | Polymarket active market discovery |
 | `GET` | `/api/live/pumpfun` | Indexed Pump.fun-style token market data |
+| `GET` | `/api/live/eia-grid?respondent=US48` | EIA hourly grid load, forecast, generation, interchange, and fuel mix |
 
 ## Live Envelope
 
@@ -103,6 +104,7 @@ For voice, Kat should normally speak from `liveSummary`. If the user asks for de
 | `dashboard123` | `hyperliquid` | `market-depth-v1` | Market Pulse starts from the same open market-data spine |
 | `polyrec` | `polymarket` | `prediction-markets-v1` | Public prediction-market discovery data |
 | `meme-coin` | `pumpfun` | `token-velocity-v1` | Open indexed token data; no wallet or trading flow |
+| `power-grid` | `eia-grid` | `power-grid-operational-v1` | EIA hourly electric grid monitor with visible fallback if `EIA_API_KEY` is absent |
 | all other channels | `channel-synthetic` | channel-specific fallback | Active fallback until real open adapters are attached |
 
 ## Provider Notes
@@ -124,6 +126,15 @@ Pump.fun-style data:
 - V1 uses open indexed token/pool data rather than wallet or trading APIs.
 - Current compatibility route uses CoinGecko category/indexed market data and synthetic fallback.
 - CoinGecko Pump.fun API overview: https://www.coingecko.com/en/api/launchpads/pump-fun
+
+EIA Power Grid:
+
+- Uses EIA Open Data hourly electric-system operating data.
+- Set `EIA_API_KEY` for live EIA reads; optional `EIA_GRID_RESPONDENT` defaults to `US48`.
+- Current requests read `electricity/rto/region-data` and `electricity/rto/fuel-type-data`.
+- EIA fields include load (`D`), load forecast (`DF`), net generation (`NG`), and total interchange (`TI`).
+- Frequency and corridor stress are dashboard display proxies derived from the normalized packet, not raw EIA measurements.
+- Public docs: https://www.eia.gov/opendata/index.php/browser/electricity/electric-power-operational-data
 
 SPECTRE and OSINT:
 

@@ -353,7 +353,7 @@
     "power-grid": {
       palette: "grid",
       scene: "gridops",
-      api: null,
+      api: "eia-grid",
       video: "videos/power-grid.mp4",
       asset: "share-thumbnails/power-grid.jpg",
       kicker: "infrastructure operations / stability",
@@ -373,6 +373,10 @@
         ["30m", "Reserve margin stabilized after automated reroute.", "operator state"],
       ],
       caption: "Kat reads Power Grid as infrastructure stability: load, frequency, reserve, and cascade risk.",
+      identity: {
+        css: "dashboards/identities/power-grid.css",
+        script: "dashboards/identities/power-grid.js",
+      },
     },
     viral: {
       palette: "bio",

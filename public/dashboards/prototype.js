@@ -655,6 +655,7 @@
       if (provider === "hyperliquid") applyHyperliquidData(data);
       else if (provider === "polymarket") applyPolymarketData(data);
       else if (provider === "pumpfun") applyPumpfunData(data);
+      else if (provider === "eia-grid") applyPowerGridData(data);
       else applyChannelStateData(data);
       renderMetrics();
       renderFeed();
@@ -713,6 +714,33 @@
         `${token.name || token.symbol || "Token"} moved through the social market watchlist.`,
         `mcap ${token.marketCap || "synthetic"} / read-only`,
       ]);
+    }
+
+    function formatGridMw(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "n/a";
+      if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(2)}TW`;
+      if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)}GW`;
+      return `${Math.round(n)}MW`;
+    }
+
+    function applyPowerGridData(data) {
+      const latest = data.latest || (Array.isArray(data.series) ? data.series[data.series.length - 1] : null);
+      if (!latest) return;
+      state.metrics[0] = ["Load", formatGridMw(latest.loadMw), data.respondent || "EIA"];
+      state.metrics[1] = ["Frequency", `${Number(latest.frequencyHz || 60).toFixed(3)}`, "hz proxy"];
+      state.metrics[2] = ["Reserve", `${Number(latest.operatingMarginPct || 0).toFixed(1)}%`, "margin proxy"];
+      if (Array.isArray(data.feed) && data.feed.length) {
+        state.feed = data.feed.slice(0, 6).map((item) => Array.isArray(item)
+          ? [item[0] ?? "", item[1] ?? "", item[2] ?? ""]
+          : [item.time ?? "", item.title ?? item.message ?? "", item.meta ?? item.source ?? ""]);
+      } else if (Array.isArray(data.series) && data.series.length) {
+        state.feed = data.series.slice(-5).reverse().map((row, index) => [
+          index === 0 ? "now" : `${index}h`,
+          `${data.respondentName || data.respondent || "Grid"} load at ${formatGridMw(row.loadMw)}; forecast ${formatGridMw(row.forecastMw)}.`,
+          `${Number(row.stressPct || 0).toFixed(0)}% stress proxy`,
+        ]);
+      }
     }
 
     window.addEventListener("message", (event) => {

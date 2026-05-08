@@ -17,6 +17,7 @@ loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_API_KEY");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_MODEL_ID");
 loadEnvKeyFromFile(katechonAppEnv, "ANTHROPIC_API_KEY");
 loadEnvKeyFromFile(katechonAppEnv, "OPENAI_API_KEY");
+loadEnvKeyFromFile(katechonAppEnv, "EIA_API_KEY");
 
 const express = require("express");
 const fetch = require("node-fetch");
@@ -1207,7 +1208,15 @@ function appendSearch(url, search) {
   return `${url}${url.includes("?") ? "&" : "?"}${search.slice(1)}`;
 }
 
+function redactLiveErrorMessage(message) {
+  return String(message || "live provider unavailable")
+    .replace(/([?&]api_key=)[^&\s]+/gi, "$1<redacted>")
+    .replace(/(api_key=)[^&\s]+/gi, "$1<redacted>")
+    .replace(/(authorization:\s*bearer\s+)[^\s]+/gi, "$1<redacted>");
+}
+
 const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 900);
+const EIA_API_TIMEOUT_MS = Number(process.env.EIA_API_TIMEOUT_MS || Math.max(3500, LIVE_API_TIMEOUT_MS));
 const LIVE_API_TTL_MS = Number(process.env.LIVE_API_TTL_MS || 12000);
 const LIVE_API_CACHE = new Map();
 
@@ -1392,6 +1401,257 @@ async function getPumpfunLiveData() {
   };
 }
 
+function cleanEiaRespondent(value) {
+  return String(value || process.env.EIA_GRID_RESPONDENT || "US48")
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, "")
+    .slice(0, 12) || "US48";
+}
+
+function eiaApiKey() {
+  return process.env.EIA_API_KEY || process.env.EIA_KEY || "";
+}
+
+function eiaGridDatasetUrl(route, respondent, options = {}) {
+  const url = new URL(`https://api.eia.gov/v2/${route}/data/`);
+  url.searchParams.set("frequency", options.frequency || "hourly");
+  url.searchParams.append("data[0]", "value");
+  url.searchParams.append("facets[respondent][]", respondent);
+  (options.types || []).forEach((type) => url.searchParams.append("facets[type][]", type));
+  url.searchParams.append("sort[0][column]", "period");
+  url.searchParams.append("sort[0][direction]", "desc");
+  url.searchParams.set("offset", "0");
+  url.searchParams.set("length", String(options.length || 96));
+  if (eiaApiKey()) url.searchParams.set("api_key", eiaApiKey());
+  return url.toString();
+}
+
+async function fetchEiaGridDataset(route, respondent, options = {}) {
+  if (!eiaApiKey()) throw new Error("EIA_API_KEY is not configured");
+  const json = await fetchLiveJson(eiaGridDatasetUrl(route, respondent, options), { timeout: EIA_API_TIMEOUT_MS });
+  const rows = json?.response?.data;
+  if (!Array.isArray(rows) || !rows.length) throw new Error(`EIA ${route} returned no rows for ${respondent}`);
+  return rows;
+}
+
+function asNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function eiaPeriodTime(period) {
+  const text = String(period || "");
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})/);
+  if (!match) return Date.now();
+  return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]));
+}
+
+function displayGridPeriod(period) {
+  const time = eiaPeriodTime(period);
+  if (!Number.isFinite(time)) return String(period || "now");
+  return new Date(time).toISOString().slice(5, 13).replace("T", " ");
+}
+
+function deriveGridRow(row, index, respondent) {
+  const loadMw = asNumber(row.loadMw) || seededFloat(`${respondent}:load:${index}`, 318000, 512000);
+  const forecastMw = asNumber(row.forecastMw) || loadMw * (1 + seededFloat(`${respondent}:forecast:${index}`, -0.018, 0.024));
+  const netGenerationMw = asNumber(row.netGenerationMw) || loadMw * (1 + seededFloat(`${respondent}:net:${index}`, -0.022, 0.028));
+  const interchangeMw = asNumber(row.interchangeMw);
+  const interchange = interchangeMw === null ? netGenerationMw - loadMw : interchangeMw;
+  const operatingMarginPct = clampNumber(((netGenerationMw + Math.max(0, interchange) - loadMw) / Math.max(1, loadMw)) * 100, -12, 32);
+  const forecastGapPct = Math.abs(forecastMw - loadMw) / Math.max(1, loadMw) * 100;
+  const interchangePct = Math.abs(interchange) / Math.max(1, loadMw) * 100;
+  const stressPct = clampNumber(34 + forecastGapPct * 4.2 + Math.max(0, -operatingMarginPct) * 2.4 + interchangePct * 0.7 + seededFloat(`${respondent}:stress:${row.period || index}`, -7, 9), 8, 96);
+  const frequencyHz = clampNumber(60 + seededFloat(`${respondent}:hz:${row.period || index}`, -0.026, 0.026) - (stressPct - 50) / 3600, 59.92, 60.08);
+
+  return {
+    ...row,
+    loadMw,
+    forecastMw,
+    netGenerationMw,
+    interchangeMw: interchange,
+    operatingMarginPct,
+    stressPct,
+    frequencyHz,
+    time: eiaPeriodTime(row.period),
+    label: displayGridPeriod(row.period),
+  };
+}
+
+function normalizeEiaRegionRows(rows, respondent) {
+  const byPeriod = new Map();
+  rows.forEach((row) => {
+    const period = row.period;
+    if (!period) return;
+    const entry = byPeriod.get(period) || {
+      period,
+      respondent,
+      respondentName: row["respondent-name"] || row.respondentName || respondent,
+    };
+    const type = String(row.type || "").toUpperCase();
+    const typeName = String(row["type-name"] || "").toLowerCase();
+    const value = asNumber(row.value);
+    if (value === null) return;
+    if (type === "DF" || typeName.includes("forecast")) entry.forecastMw = value;
+    else if (type === "D" || typeName === "demand" || typeName === "load") entry.loadMw = value;
+    else if (type === "NG" || typeName.includes("net generation")) entry.netGenerationMw = value;
+    else if (type === "TI" || typeName.includes("interchange")) entry.interchangeMw = value;
+    byPeriod.set(period, entry);
+  });
+
+  return Array.from(byPeriod.values())
+    .sort((a, b) => eiaPeriodTime(a.period) - eiaPeriodTime(b.period))
+    .slice(-36)
+    .map((row, index) => deriveGridRow(row, index, respondent));
+}
+
+function normalizeEiaFuelMixRows(rows) {
+  const latestPeriod = rows.map((row) => row.period).filter(Boolean).sort().pop();
+  const periodRows = rows.filter((row) => row.period === latestPeriod);
+  const total = periodRows.reduce((sum, row) => sum + Math.max(0, asNumber(row.value) || 0), 0) || 1;
+  return periodRows
+    .map((row) => ({
+      fueltype: row.fueltype || row.series || "UNK",
+      label: row["type-name"] || row.fueltype || "Other",
+      mw: Math.max(0, asNumber(row.value) || 0),
+      sharePct: (Math.max(0, asNumber(row.value) || 0) / total) * 100,
+      period: row.period || latestPeriod,
+    }))
+    .filter((row) => row.mw > 0)
+    .sort((a, b) => b.mw - a.mw)
+    .slice(0, 8);
+}
+
+function syntheticGridCorridors(respondent, latest = {}) {
+  const names = respondent === "US48"
+    ? [["PJM", "MISO"], ["SPP", "ERCOT"], ["CAISO", "BANC"], ["NYISO", "ISONE"], ["SERC", "FRCC"]]
+    : [[respondent, "NORTH"], [respondent, "SOUTH"], [respondent, "WEST"], [respondent, "EAST"], [respondent, "RESERVE"]];
+  return names.map(([from, to], index) => {
+    const mw = seededFloat(`${respondent}:corridor:${from}:${to}`, 800, 9400);
+    const stress = clampNumber((latest.stressPct || 48) + seededFloat(`${respondent}:corridor:stress:${index}`, -18, 22), 7, 98);
+    return { from, to, mw, stressPct: stress };
+  });
+}
+
+function gridInsights(data) {
+  const latest = data.latest || {};
+  const fuel = Array.isArray(data.fuelMix) && data.fuelMix[0] ? data.fuelMix[0] : null;
+  const margin = asNumber(latest.operatingMarginPct);
+  const stress = asNumber(latest.stressPct);
+  const load = asNumber(latest.loadMw);
+  const forecast = asNumber(latest.forecastMw);
+  return [
+    load ? `${data.respondentName || data.respondent} load is ${(load / 1000).toFixed(1)} GW.` : "Load is unavailable in the current grid packet.",
+    forecast && load ? `Forecast delta is ${((forecast - load) / load * 100).toFixed(1)}%.` : "Forecast delta is unavailable.",
+    margin !== null ? `Operating margin proxy is ${margin.toFixed(1)}%.` : "Operating margin proxy is unavailable.",
+    stress !== null ? `Corridor stress proxy is ${stress.toFixed(0)}%.` : "Corridor stress proxy is unavailable.",
+    fuel ? `${fuel.label} leads fuel mix at ${fuel.sharePct.toFixed(0)}%.` : "Fuel mix was not included in this refresh.",
+  ];
+}
+
+function gridFeed(data) {
+  const latest = data.latest || {};
+  const respondent = data.respondentName || data.respondent || "grid";
+  const corridors = Array.isArray(data.corridors) ? data.corridors : [];
+  return [
+    ["now", `${respondent} refreshed load, forecast, generation, and interchange state.`, data.sourceNote || "EIA"],
+    ["01h", `Load sits near ${formatMegawatts(latest.loadMw)} with forecast at ${formatMegawatts(latest.forecastMw)}.`, "balancing"],
+    ["02h", `Operating margin proxy is ${formatSignedPercent(latest.operatingMarginPct)}.`, "reserve proxy"],
+    ["03h", corridors[0] ? `${corridors[0].from}-${corridors[0].to} corridor stress proxy is ${Math.round(corridors[0].stressPct)}%.` : "Corridor stress proxy refreshed.", "corridors"],
+    ["04h", `Frequency display is modeled at ${Number(latest.frequencyHz || 60).toFixed(3)} Hz from grid stress.`, "modeled"],
+  ];
+}
+
+function syntheticPowerGridData(input = {}) {
+  const respondent = cleanEiaRespondent(input?.query?.respondent || input?.respondent || input);
+  const now = Date.now();
+  const hour = 60 * 60 * 1000;
+  const series = Array.from({ length: 30 }, (_, index) => {
+    const time = now - (29 - index) * hour;
+    const period = new Date(time).toISOString().slice(0, 13);
+    const base = respondent === "US48" ? 422000 : 28000;
+    const wave = Math.sin((index / 29) * Math.PI * 2 - 0.7);
+    const loadMw = base + wave * base * 0.08 + seededFloat(`${respondent}:synthetic:${index}`, -base * 0.025, base * 0.025);
+    return deriveGridRow({
+      period,
+      respondent,
+      respondentName: respondent === "US48" ? "United States Lower 48" : respondent,
+      loadMw,
+      forecastMw: loadMw * (1 + seededFloat(`${respondent}:synthetic:forecast:${index}`, -0.012, 0.018)),
+      netGenerationMw: loadMw * (1 + seededFloat(`${respondent}:synthetic:net:${index}`, -0.016, 0.026)),
+      interchangeMw: seededFloat(`${respondent}:synthetic:interchange:${index}`, -6500, 7200),
+    }, index, respondent);
+  });
+  const latest = series[series.length - 1];
+  const fuelMix = [
+    ["Natural Gas", "NG", 0.36],
+    ["Nuclear", "NUC", 0.19],
+    ["Coal", "COL", 0.16],
+    ["Wind", "WND", 0.12],
+    ["Solar", "SUN", 0.09],
+    ["Hydro", "HYC", 0.05],
+    ["Other", "OTH", 0.03],
+  ].map(([label, fueltype, share]) => ({
+    label,
+    fueltype,
+    mw: Math.round((latest.netGenerationMw || latest.loadMw) * share),
+    sharePct: share * 100,
+    period: latest.period,
+  }));
+  const data = {
+    kind: "power-grid-operational-v1",
+    mode: "synthetic-grid",
+    sourceNote: "EIA-compatible fallback",
+    respondent,
+    respondentName: respondent === "US48" ? "United States Lower 48" : respondent,
+    series,
+    latest,
+    fuelMix,
+    corridors: syntheticGridCorridors(respondent, latest),
+    updatedAt: now,
+  };
+  data.insights = gridInsights(data);
+  data.feed = gridFeed(data);
+  return data;
+}
+
+async function getEIAGridLiveData(req) {
+  const respondent = cleanEiaRespondent(req.query.respondent || "US48");
+  const regionRows = await fetchEiaGridDataset("electricity/rto/region-data", respondent, {
+    length: 192,
+    types: ["D", "DF", "NG", "TI"],
+  });
+  let fuelRows = [];
+  try {
+    fuelRows = await fetchEiaGridDataset("electricity/rto/fuel-type-data", respondent, { length: 128 });
+  } catch (err) {
+    console.warn(`EIA fuel mix unavailable for ${respondent}: ${redactLiveErrorMessage(err.message)}`);
+  }
+
+  const series = normalizeEiaRegionRows(regionRows, respondent);
+  if (!series.length) throw new Error(`EIA region-data could not be normalized for ${respondent}`);
+  const latest = series[series.length - 1];
+  const data = {
+    kind: "power-grid-operational-v1",
+    mode: "eia-live",
+    sourceNote: "EIA hourly operating data",
+    respondent,
+    respondentName: latest.respondentName || respondent,
+    series,
+    latest,
+    fuelMix: normalizeEiaFuelMixRows(fuelRows),
+    corridors: syntheticGridCorridors(respondent, latest),
+    updatedAt: Date.now(),
+  };
+  data.insights = gridInsights(data);
+  data.feed = gridFeed(data);
+  return data;
+}
+
 async function getCachedLive(req, key, loader, fallback) {
   const source = key.split(":")[0];
   const cached = LIVE_API_CACHE.get(key);
@@ -1428,6 +1688,11 @@ app.get("/api/live/pumpfun", (req, res) => {
   sendCachedLive(req, res, "pumpfun:tokens", getPumpfunLiveData, syntheticPumpfunData);
 });
 
+app.get("/api/live/eia-grid", (req, res) => {
+  const respondent = cleanEiaRespondent(req.query.respondent || "US48");
+  sendCachedLive(req, res, `eia-grid:${respondent}`, getEIAGridLiveData, syntheticPowerGridData);
+});
+
 function requestWithChannelDefaults(req, channel) {
   return {
     ...req,
@@ -1446,6 +1711,10 @@ function channelLiveKey(channel, req) {
   }
   if (provider === "polymarket") return `${provider}:${channel.id}:markets`;
   if (provider === "pumpfun") return `${provider}:${channel.id}:tokens`;
+  if (provider === "eia-grid") {
+    const respondent = cleanEiaRespondent(req.query.respondent || channel.defaultQuery?.respondent || "US48");
+    return `${provider}:${channel.id}:${respondent}`;
+  }
   return `${provider}:${channel.id}`;
 }
 
@@ -1462,6 +1731,9 @@ async function getChannelProviderPayload(req, channel) {
   }
   if (provider === "pumpfun") {
     return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPumpfunLiveData, syntheticPumpfunData);
+  }
+  if (provider === "eia-grid") {
+    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getEIAGridLiveData, syntheticPowerGridData);
   }
 
   return {
@@ -1546,10 +1818,22 @@ function formatCompactUsd(value) {
   return `$${Math.round(n).toLocaleString()}`;
 }
 
+function formatMegawatts(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "n/a";
+  if (Math.abs(n) >= 1000000) return `${(n / 1000000).toFixed(2)} TW`;
+  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(1)} GW`;
+  return `${Math.round(n).toLocaleString()} MW`;
+}
+
 function formatPercent(value, decimals = 1) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "n/a";
   return `${n >= 0 ? "+" : ""}${n.toFixed(decimals)}%`;
+}
+
+function formatSignedPercent(value, decimals = 1) {
+  return formatPercent(value, decimals);
 }
 
 function sourceIs(envelope, provider) {
@@ -1636,6 +1920,42 @@ function summarizeChannelLive(channel, envelope) {
     return summary;
   }
 
+  if (sourceIs(envelope, "eia-grid") && data.latest) {
+    const latest = data.latest || {};
+    const respondent = data.respondentName || data.respondent || channel.label;
+    summary.metrics = [
+      ["Load", formatMegawatts(latest.loadMw), respondent],
+      ["Forecast", formatMegawatts(latest.forecastMw), "hourly"],
+      ["Margin", formatSignedPercent(latest.operatingMarginPct), "proxy"],
+    ];
+    summary.feed = Array.isArray(data.feed) && data.feed.length
+      ? data.feed.slice(0, 5)
+      : (Array.isArray(data.series) ? data.series.slice(-5).reverse().map((row, index) => [
+        index === 0 ? "now" : `${index}h`,
+        `${respondent} load was ${formatMegawatts(row.loadMw)} with ${formatSignedPercent(row.operatingMarginPct)} margin proxy.`,
+        row.label || "EIA",
+      ]) : []);
+    summary.highlights = Array.isArray(data.insights) && data.insights.length
+      ? data.insights.slice(0, 5)
+      : [
+        `${respondent} load is ${formatMegawatts(latest.loadMw)}.`,
+        `Forecast is ${formatMegawatts(latest.forecastMw)}.`,
+        `Operating margin proxy is ${formatSignedPercent(latest.operatingMarginPct)}.`,
+      ];
+    summary.highlights.push("Frequency and corridor stress are modeled display proxies derived from the live grid packet.");
+    summary.dataShape = [
+      "respondent",
+      "series[].loadMw",
+      "series[].forecastMw",
+      "series[].netGenerationMw",
+      "series[].interchangeMw",
+      "series[].stressPct",
+      "fuelMix[]",
+      "corridors[]",
+    ];
+    return summary;
+  }
+
   if (Array.isArray(data.metrics)) summary.metrics = data.metrics.slice(0, 3);
   if (Array.isArray(data.feed)) summary.feed = data.feed.slice(0, 5);
   summary.highlights = summary.feed.map((item) => Array.isArray(item) ? item[1] : item.title || item.message || String(item)).filter(Boolean).slice(0, 4);
@@ -1659,6 +1979,13 @@ function compactChannelLiveEnvelope(envelope) {
     compactData = { ...data, markets: Array.isArray(data.markets) ? data.markets.slice(0, 8) : [] };
   } else if (sourceIs(envelope, "pumpfun")) {
     compactData = { ...data, tokens: Array.isArray(data.tokens) ? data.tokens.slice(0, 10) : [] };
+  } else if (sourceIs(envelope, "eia-grid")) {
+    compactData = {
+      ...data,
+      series: Array.isArray(data.series) ? data.series.slice(-18) : [],
+      fuelMix: Array.isArray(data.fuelMix) ? data.fuelMix.slice(0, 8) : [],
+      corridors: Array.isArray(data.corridors) ? data.corridors.slice(0, 8) : [],
+    };
   }
 
   return {

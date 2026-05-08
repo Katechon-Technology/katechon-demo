@@ -92,6 +92,9 @@ Edit `.env` and fill in:
 | `DASHBOARD_NARRATION_TTS` | No | Defaults on. Set to `0` to disable ElevenLabs dashboard narration |
 | `SPEECH_CACHE_MAX` | No | Defaults to `250`; max in-memory ElevenLabs responses cached by text/voice/model |
 | `DASHBOARD_OVERRIDES_FILE` | No | Defaults to `data/dashboard-overrides.json`; stores safe voice-generated dashboard edits |
+| `EIA_API_KEY` | No | Enables live EIA hourly data for the Power Grid channel; otherwise visible synthetic fallback is used |
+| `EIA_GRID_RESPONDENT` | No | Defaults to `US48`; pass an EIA balancing authority/respondent code for Power Grid |
+| `EIA_API_TIMEOUT_MS` | No | Defaults to `3500`; Power Grid gets a longer timeout than the fast market-data providers |
 | `PITCH_DECK_URL` | No | Defaults to `http://127.0.0.1:5174/deck/`; live-linked Vite deck from `../katechon-pitch` |
 | `PITCH_DECK_DIST_DIR` | No | Defaults to `../katechon-pitch/dist`; used as a snapshot fallback when the live deck is not running |
 | `ENABLE_HLS_AUDIO` | No | Experimental remote audio mux. Defaults off to preserve smooth avatar rendering |
