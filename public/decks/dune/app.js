@@ -5,6 +5,10 @@ const next = document.getElementById('next');
 const sound = document.getElementById('sound');
 const narrator = document.getElementById('narrator');
 const params = new URLSearchParams(window.location.search);
+const truthyParam = name => /^(1|true|yes)$/i.test(String(params.get(name) || ''));
+const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
+const isLocalDevelopment = LOCAL_DEV_HOSTS.has(window.location.hostname) || window.location.protocol === 'file:';
+const localDevPauseAutoNarration = isLocalDevelopment && !truthyParam('narration');
 const useParentAvatar = window.parent !== window && params.get('avatar') !== '0';
 const animeApi = window.anime || {};
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -339,13 +343,13 @@ function goTo(index) {
   if (!slides.length) return;
   const nextIndex = Math.max(0, Math.min(slides.length - 1, index));
   if (nextIndex === current) {
-    playNarration(current);
+    if (!localDevPauseAutoNarration) playNarration(current);
     return;
   }
   const direction = nextIndex > current ? 1 : -1;
   current = nextIndex;
   update({ direction });
-  playNarration(current);
+  if (!localDevPauseAutoNarration) playNarration(current);
 }
 
 prev.addEventListener('click', () => goTo(current - 1));
@@ -392,7 +396,7 @@ async function init() {
   update({ animate: false });
   startAmbientMotion();
   window.setTimeout(() => animateSlide(current, 1), 80);
-  window.setTimeout(() => playNarration(current), 180);
+  if (!localDevPauseAutoNarration) window.setTimeout(() => playNarration(current), 180);
 }
 
 init();

@@ -2403,6 +2403,11 @@
     const MOBILE_GATE_QUERY = '(max-width: 860px), (pointer: coarse) and (max-width: 1024px)';
     const mobileGateMedia = window.matchMedia(MOBILE_GATE_QUERY);
     const pageParams = new URLSearchParams(window.location.search);
+    const truthyPageParam = name => /^(1|true|yes)$/i.test(String(pageParams.get(name) || ''));
+    const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
+    const isLocalDevelopment = LOCAL_DEV_HOSTS.has(window.location.hostname) || window.location.protocol === 'file:';
+    const localDevSkipEntryGate = isLocalDevelopment && !truthyPageParam('login');
+    const localDevPauseAutoNarration = isLocalDevelopment && !truthyPageParam('narration');
     const forceMotion = /^(1|true|yes)$/i.test(String(pageParams.get('motion') || pageParams.get('transitions') || '')) ||
       pageParams.get('demo') === '1';
     if (forceMotion) document.documentElement.classList.add('force-motion');
@@ -2960,7 +2965,7 @@
 
     if (pageParams.get('tools') === '1') document.body.classList.add('debug-tools');
 
-    if (pageParams.get('demo') === '1') {
+    if (pageParams.get('demo') === '1' || localDevSkipEntryGate) {
       document.getElementById('email-overlay').classList.add('hidden');
       const main = document.getElementById('main-overlay');
       main.classList.remove('hidden');
@@ -3160,7 +3165,7 @@
     }
 
     function paramEnabled(name) {
-      return /^(1|true|yes)$/i.test(String(pageParams.get(name) || ''));
+      return truthyPageParam(name);
     }
 
     function dashboardShareUrl(dashboardId) {
@@ -3648,6 +3653,7 @@
     }
 
     function queueWelcomeMessage(payload) {
+      if (localDevPauseAutoNarration) return;
       if (!payload?.text) return;
       if (!payload.pending) {
         playWelcomeMessage(payload);
@@ -4405,6 +4411,10 @@
     function startDashboardNarration(dashboardId, options = {}) {
       const dashboard = DASHBOARDS[dashboardId];
       stopDashboardNarration();
+      if (localDevPauseAutoNarration) {
+        hideStartupAudioPrompt();
+        return;
+      }
       if (dashboard?.narration === false || dashboard?.deckNarration) return;
       narration.active = true;
       narration.dashboard = dashboardId;
@@ -4414,6 +4424,10 @@
 
     function scheduleDashboardNarrationStart(dashboardId, delay = 0, options = {}) {
       stopDashboardNarration();
+      if (localDevPauseAutoNarration) {
+        hideStartupAudioPrompt();
+        return;
+      }
       if (delay <= 0) {
         startDashboardNarration(dashboardId, options);
         return;
@@ -4492,7 +4506,7 @@
         preferParentAudio: autoplayAudio,
         showAudioPrompt: autoplayAudio,
       });
-      if (options.sharedLaunch) showStartupAudioPrompt(workspace);
+      if (options.sharedLaunch && !localDevPauseAutoNarration) showStartupAudioPrompt(workspace);
       scheduleDashboardNeighborPrefetch(workspace);
       if (!rapidNavigation || !dashboardPendingStepCount) showToast(`→ ${dashboard.label}`, '#00e87b');
       return Promise.resolve({ ok: true, workspace });
