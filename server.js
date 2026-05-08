@@ -32,6 +32,8 @@ const {
   renderDashboardShareHtml,
 } = require("./dashboard-share");
 const {
+  CHART_BINDINGS,
+  CHART_TYPES,
   channelGenerationSpec,
   channelDocs,
   componentRegistry,
@@ -693,8 +695,73 @@ function cleanComponentId(value) {
 
 function sanitizeBinding(value) {
   const binding = String(value || "none");
-  const allowed = new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"]);
+  const allowed = new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed", ...CHART_BINDINGS]);
   return allowed.has(binding) ? binding : "none";
+}
+
+function sanitizeChartBinding(value) {
+  const binding = String(value || "none");
+  return CHART_BINDINGS.includes(binding) ? binding : "none";
+}
+
+function sanitizeChartField(value, fallback = "") {
+  const field = String(value || fallback).trim().replace(/[^\w.-]/g, "").slice(0, 40);
+  return field || fallback;
+}
+
+function sanitizeChartData(value) {
+  if (!Array.isArray(value)) return null;
+  const rows = value.slice(0, 96).map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+    const clean = {};
+    for (const [key, rawValue] of Object.entries(row).slice(0, 12)) {
+      const cleanKey = sanitizeChartField(key);
+      if (!cleanKey) continue;
+      if (typeof rawValue === "number" && Number.isFinite(rawValue)) clean[cleanKey] = rawValue;
+      else if (typeof rawValue === "boolean") clean[cleanKey] = rawValue;
+      else if (rawValue !== null && rawValue !== undefined) clean[cleanKey] = clampText(rawValue, 96);
+    }
+    return Object.keys(clean).length ? clean : null;
+  }).filter(Boolean);
+  return rows.length ? rows : null;
+}
+
+function sanitizeChartQuery(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const query = {};
+  if (raw.coin !== undefined) {
+    const coin = String(raw.coin || "").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18);
+    if (coin) query.coin = coin;
+  }
+  if (raw.respondent !== undefined) {
+    const respondent = cleanEiaRespondent(raw.respondent);
+    if (respondent) query.respondent = respondent;
+  }
+  return Object.keys(query).length ? query : null;
+}
+
+function sanitizeChart(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const type = cleanComponentId(raw.type || raw.kind || "bar");
+  if (!CHART_TYPES.includes(type)) return null;
+
+  const chart = {
+    type,
+    binding: sanitizeChartBinding(raw.binding),
+  };
+
+  for (const field of ["title", "x", "y", "y2", "color", "label"]) {
+    if (raw[field] !== undefined) {
+      const value = field === "title" ? clampText(raw[field], 120) : sanitizeChartField(raw[field]);
+      if (value) chart[field] = value;
+    }
+  }
+
+  const data = sanitizeChartData(raw.data);
+  if (data) chart.data = data;
+  const query = sanitizeChartQuery(raw.query);
+  if (query) chart.query = query;
+  return chart;
 }
 
 function sanitizeColorToken(value) {
@@ -741,6 +808,8 @@ function sanitizeComponent(raw) {
   if (items) component.items = items;
 
   component.binding = sanitizeBinding(raw.binding);
+  const chart = sanitizeChart(raw.chart);
+  if (chart) component.chart = chart;
   return component;
 }
 
@@ -964,10 +1033,172 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
   return db.dashboards[id];
 }
 
+const DASHBOARD_CHART_INTENTS = [
+  "auto",
+  "price_trend",
+  "market_depth",
+  "market_odds",
+  "token_velocity",
+  "grid_load",
+  "fuel_mix",
+  "corridor_stress",
+  "metrics",
+  "feed_timeline",
+];
+
+function chartIntentForText(channel, rawIntent, instruction = "") {
+  const intent = cleanComponentId(rawIntent || "auto");
+  if (DASHBOARD_CHART_INTENTS.includes(intent) && intent !== "auto") return intent;
+
+  const text = normalizeAgentText(instruction);
+  if (/\b(depth|book|order\s*book|bid|ask|liquidity)\b/.test(text)) return "market_depth";
+  if (/\b(odds?|probabilit|yes|markets?)\b/.test(text) && channel.liveProvider === "polymarket") return "market_odds";
+  if (/\b(tokens?|velocity|meme|change|gainers?)\b/.test(text) && channel.liveProvider === "pumpfun") return "token_velocity";
+  if (/\b(fuel|generation mix|mix)\b/.test(text)) return "fuel_mix";
+  if (/\b(corridor|stress|transmission)\b/.test(text)) return "corridor_stress";
+  if (/\b(load|forecast|grid|reserve|margin)\b/.test(text) && channel.liveProvider === "eia-grid") return "grid_load";
+  if (/\b(timeline|feed|events?|queue)\b/.test(text)) return "feed_timeline";
+  if (/\b(price|trend|candles?|chart|graph|plot|btc|eth|sol)\b/.test(text) && channel.liveProvider === "hyperliquid") return "price_trend";
+
+  if (channel.liveProvider === "hyperliquid") return "price_trend";
+  if (channel.liveProvider === "polymarket") return "market_odds";
+  if (channel.liveProvider === "pumpfun") return "token_velocity";
+  if (channel.liveProvider === "eia-grid") return "grid_load";
+  return "metrics";
+}
+
+function defaultChartQuery(channel, args = {}) {
+  const query = {};
+  if (channel.liveProvider === "hyperliquid") {
+    const coin = String(args.coin || channel.defaultQuery?.coin || "").toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18);
+    if (coin) query.coin = coin;
+  }
+  if (channel.liveProvider === "eia-grid") {
+    const respondent = cleanEiaRespondent(args.respondent || channel.defaultQuery?.respondent || "");
+    if (respondent) query.respondent = respondent;
+  }
+  return Object.keys(query).length ? query : null;
+}
+
+function chartComponentForIntent(channel, raw = {}, instruction = "") {
+  const intent = chartIntentForText(channel, raw.intent, instruction);
+  const title = clampText(raw.title, 96);
+  const query = defaultChartQuery(channel, raw);
+  const withQuery = (chart) => query ? { ...chart, query } : chart;
+  const component = {
+    id: `vega-chart-${Date.now().toString(36)}`,
+    type: "vega-chart",
+    eyebrow: "generated graph",
+    title: title || "Channel Chart",
+    note: "Rendered from normalized channel data. Provider fallback stays visible in the source chip.",
+  };
+
+  if (intent === "price_trend") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Candle Trend`,
+      chart: withQuery({ type: "line", binding: "liveData.candles", x: "label", y: "close" }),
+    };
+  }
+  if (intent === "market_depth") {
+    return {
+      ...component,
+      title: title || `${query?.coin || "BTC"} Book Depth`,
+      chart: withQuery({ type: "market-depth", binding: "liveData.book", x: "label", y: "notional", color: "side" }),
+    };
+  }
+  if (intent === "market_odds") {
+    return {
+      ...component,
+      title: title || "Active Market Odds",
+      chart: { type: "horizontal-bar", binding: "liveData.markets", x: "yes", y: "label" },
+    };
+  }
+  if (intent === "token_velocity") {
+    return {
+      ...component,
+      title: title || "Token Velocity",
+      chart: { type: "bar", binding: "liveData.tokens", x: "label", y: "change" },
+    };
+  }
+  if (intent === "grid_load") {
+    return {
+      ...component,
+      title: title || `${query?.respondent || "US48"} Load vs Forecast`,
+      chart: withQuery({ type: "area", binding: "liveData.series", x: "label", y: "loadMw", y2: "forecastMw" }),
+      note: "Load, forecast, and margin come from the normalized grid channel; stress and frequency remain display proxies.",
+    };
+  }
+  if (intent === "fuel_mix") {
+    return {
+      ...component,
+      title: title || "Fuel Mix",
+      chart: withQuery({ type: "bar", binding: "liveData.fuelMix", x: "label", y: "value" }),
+    };
+  }
+  if (intent === "corridor_stress") {
+    return {
+      ...component,
+      title: title || "Corridor Stress",
+      chart: withQuery({ type: "bar", binding: "liveData.corridors", x: "label", y: "stressPct" }),
+      note: "Corridor stress is a modeled display proxy derived from the normalized grid packet.",
+    };
+  }
+  if (intent === "feed_timeline") {
+    return {
+      ...component,
+      title: title || "Feed Timeline",
+      chart: { type: "bar", binding: "liveSummary.feed", x: "label", y: "value" },
+    };
+  }
+  return {
+    ...component,
+    title: title || "Metric Snapshot",
+    chart: { type: "bar", binding: "liveSummary.metrics", x: "label", y: "value" },
+  };
+}
+
+function applyDashboardChart(dashboardId, raw = {}, instruction = "", source = "kat-realtime") {
+  const id = cleanDashboardId(dashboardId);
+  if (!id || !PANELS.some((panel) => panel.id === id)) throw new Error("unknown dashboard");
+  const channel = getChannel(id);
+  if (!channel) throw new Error("unknown channel");
+  const slot = raw.slot === "rail" ? "rail" : "stageOverlay";
+  const component = chartComponentForIntent(channel, raw, instruction);
+  const mutation = raw.replace === false
+    ? { type: "add_component", slot, component }
+    : { type: "replace_slot", slot, components: [component] };
+  return applyDashboardMutation(id, mutation, instruction || `Create ${component.title}.`, source);
+}
+
 function realtimeTools() {
   const workspaceEnum = PANELS.map((panel) => panel.id);
   const componentTypes = Object.keys(componentRegistry());
   const views = Object.keys(viewPresets());
+  const bindingEnum = Array.from(new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed", ...CHART_BINDINGS]));
+  const chartSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      type: { type: "string", enum: CHART_TYPES },
+      binding: { type: "string", enum: CHART_BINDINGS },
+      title: { type: "string" },
+      x: { type: "string", description: "Optional data field for the x axis." },
+      y: { type: "string", description: "Optional data field for the primary y/value axis." },
+      y2: { type: "string", description: "Optional secondary value field, used for overlays when supported." },
+      color: { type: "string", description: "Optional data field for color grouping." },
+      label: { type: "string", description: "Optional label field." },
+      query: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          coin: { type: "string" },
+          respondent: { type: "string" },
+        },
+      },
+    },
+    required: ["type"],
+  };
   return [
     {
       type: "function",
@@ -1018,6 +1249,7 @@ function realtimeTools() {
           dashboardId: { type: "string", enum: workspaceEnum },
           detail: { type: "string", enum: ["summary", "compact"], description: "summary is preferred for voice; compact includes trimmed data." },
           coin: { type: "string", description: "Optional Hyperliquid coin, for example BTC or ETH." },
+          respondent: { type: "string", description: "Optional EIA grid respondent, for example US48, CAL, ERCO, or PJM." },
         },
       },
     },
@@ -1060,6 +1292,31 @@ function realtimeTools() {
           },
         },
         required: ["dashboardId", "instruction", "patch"],
+      },
+    },
+    {
+      type: "function",
+      name: "apply_dashboard_chart",
+      description:
+        "Deterministically add a useful generated Vega chart. Prefer this over apply_dashboard_mutation whenever the user asks for a chart, graph, plot, visual, graphic, candle chart, market depth, odds chart, token chart, or grid chart.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          instruction: { type: "string" },
+          intent: {
+            type: "string",
+            enum: DASHBOARD_CHART_INTENTS,
+            description: "Use auto when unsure; the server maps the intent to the active channel provider.",
+          },
+          slot: { type: "string", enum: ["rail", "stageOverlay"] },
+          title: { type: "string" },
+          replace: { type: "boolean", description: "Replace the target slot instead of appending." },
+          coin: { type: "string", description: "Optional Hyperliquid coin, for example BTC, ETH, or SOL." },
+          respondent: { type: "string", description: "Optional EIA respondent, for example US48, CAL, ERCO, or PJM." },
+        },
+        required: ["dashboardId", "instruction", "intent"],
       },
     },
     {
@@ -1122,8 +1379,9 @@ function realtimeTools() {
                   variant: { type: "string" },
                   binding: {
                     type: "string",
-                    enum: ["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"],
+                    enum: bindingEnum,
                   },
+                  chart: chartSchema,
                   metrics: {
                     type: "array",
                     maxItems: 6,
@@ -1155,8 +1413,9 @@ function realtimeTools() {
                     variant: { type: "string" },
                     binding: {
                       type: "string",
-                      enum: ["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"],
+                      enum: bindingEnum,
                     },
+                    chart: chartSchema,
                     metrics: {
                       type: "array",
                       maxItems: 6,
@@ -1201,7 +1460,9 @@ function realtimeInstructions(dashboardId) {
     "When answering about a dashboard, ground yourself in the provided channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.",
     "If the user asks for current data that is not in liveSummary, call get_channel_live before answering.",
     "When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.",
-    "Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, bindings, and theme tokens.",
+    "When the user asks for a chart, graph, plot, visual, graphic, candle chart, depth chart, odds chart, token chart, or grid chart, call apply_dashboard_chart. Do not use generic widgets for chart requests.",
+    "For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent.",
+    "Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, chart bindings, and theme tokens.",
     "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
     `Current channel context:\n${JSON.stringify(context, null, 2)}`,
     `Available dashboards:\n${panelCatalog}`,
@@ -1215,6 +1476,7 @@ function realtimeSessionConfig(dashboardId) {
     instructions: realtimeInstructions(dashboardId),
     audio: {
       input: {
+        format: { type: "audio/pcm", rate: 24000 },
         transcription: { model: OPENAI_REALTIME_TRANSCRIBE_MODEL },
         turn_detection: null,
       },
@@ -2329,6 +2591,7 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
     docs: {
       summary: docs.summary,
       contract: docs.contract,
+      apiIdeas: docs.apiIdeas,
       providers: docs.providers.map((provider) => ({
         id: provider.id,
         label: provider.label,
@@ -2847,7 +3110,10 @@ async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
     const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
     const channel = getChannel(dashboardId);
     if (!channel) throw new Error("unknown channel");
-    const req = { query: args.coin ? { coin: args.coin } : {} };
+    const query = {};
+    if (args.coin) query.coin = args.coin;
+    if (args.respondent) query.respondent = args.respondent;
+    const req = { query };
     const envelope = await getChannelLiveEnvelope(req, channel);
     const summary = summarizeChannelLive(channel, envelope);
     if (args.detail === "compact") {
@@ -2865,6 +3131,22 @@ async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
       applied: override.patch,
       updatedAt: override.updatedAt,
       message: "Dashboard override applied.",
+    };
+  }
+
+  if (name === "apply_dashboard_chart") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const override = applyDashboardChart(dashboardId, args, args.instruction, "kat-realtime-chart");
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      generated: sanitizeGeneratedDashboard(override.generated),
+      applied: {
+        patch: override.patch || {},
+        chart: chartComponentForIntent(getChannel(dashboardId), args, args.instruction),
+      },
+      updatedAt: override.updatedAt,
+      message: "Dashboard chart applied.",
     };
   }
 
@@ -3036,7 +3318,7 @@ function looksLikeActiveDashboardQuestion(normalizedText) {
 function looksLikeDashboardMutation(normalizedText) {
   if (/\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage|columns?|metrics?|widgets?)\b/.test(normalizedText)) return true;
   const changeVerb = /\b(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose)\b/.test(normalizedText);
-  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|metrics?|kpis?|prices?|price|spread|depth|volume|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
+  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|charts?|graphs?|plots?|visuals?|graphics?|candles?|odds?|book|metrics?|kpis?|prices?|price|spread|depth|volume|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
   return changeVerb && target;
 }
 
@@ -3077,6 +3359,7 @@ function mutationSlotFromText(normalizedText) {
 }
 
 function mutationComponentTypeFromText(normalizedText) {
+  if (/\b(charts?|graphs?|plots?|visuals?|graphics?|candles?)\b/.test(normalizedText)) return "vega-chart";
   if (/\btimeline|sequence|events?\b/.test(normalizedText)) return "event-timeline";
   if (/\bmap|city|cities|geo|location\b/.test(normalizedText)) return "map-brief";
   if (/\bmetrics?|kpis?|numbers?|strip|columns?|rows?|tables?\b/.test(normalizedText)) return "metric-strip";
@@ -3158,6 +3441,7 @@ function fallbackMutationDecision(transcript, dashboardId) {
   if (!dashboardId || dashboardId === "landing" || !looksLikeDashboardMutation(normalizedText)) return null;
 
   const clear = /\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage)\b/.test(normalizedText);
+  const chartRequest = /\b(charts?|graphs?|plots?|visuals?|graphics?|candles?|depth|book|odds?)\b/.test(normalizedText);
   const instruction = clampText(transcript, 500);
   let mutation;
   let speech;
@@ -3165,6 +3449,27 @@ function fallbackMutationDecision(transcript, dashboardId) {
   if (clear) {
     mutation = { type: "clear_generated" };
     speech = "Cleared the generated components.";
+  } else if (chartRequest) {
+    const channel = getChannel(dashboardId);
+    const chartArgs = {
+      intent: "auto",
+      slot: /\brail\b/.test(normalizedText) ? "rail" : "stageOverlay",
+      title: mutationTopicFromTranscript(transcript, normalizedText, dashboardId),
+      coin: /\beth\b/.test(normalizedText) ? "ETH" : /\bsol\b/.test(normalizedText) ? "SOL" : /\bbtc\b/.test(normalizedText) ? "BTC" : undefined,
+      respondent: (normalizedText.match(/\b(us48|cal|erco|pjm|miso|nyis|isne|caiso)\b/) || [])[1],
+    };
+    const override = applyDashboardChart(dashboardId, chartArgs, instruction, "kat-fallback-chart");
+    return {
+      action: "dashboard_mutation",
+      workspace: null,
+      dashboardId,
+      dashboard: dashboardContextFor(dashboardId),
+      generated: sanitizeGeneratedDashboard(override.generated),
+      applied: { chart: chartComponentForIntent(channel, chartArgs, instruction), patch: override.patch || {} },
+      updatedAt: override.updatedAt,
+      speech: "Added a generated chart.",
+      source: "fallback-chart",
+    };
   } else if (/\binvestor|briefing|bangladesh|check\s*in\b/.test(normalizedText)) {
     const topic = mutationTopicFromTranscript(transcript, normalizedText, dashboardId);
     mutation = {

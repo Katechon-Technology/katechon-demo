@@ -1058,15 +1058,20 @@
       pointer-events: all;
       position: relative;
       background:
-        linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0) 82px),
-        var(--panel-strong);
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 86px),
+        linear-gradient(135deg, #071017 0%, #05080c 56%, #081015 100%);
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 18px 18px 20px;
       width: 376px;
-      box-shadow: 0 18px 60px rgba(0,0,0,0.34);
+      box-shadow: 0 20px 70px rgba(0,0,0,0.44), inset 0 1px 0 rgba(255,255,255,0.055);
       backdrop-filter: blur(14px);
       overflow: hidden;
+      isolation: isolate;
+    }
+    .email-card > * {
+      position: relative;
+      z-index: 1;
     }
     .email-card::before,
     .email-card::after {
@@ -1075,14 +1080,40 @@
       pointer-events: none;
     }
     .email-card::before {
-      inset: 0;
+      inset: -18%;
       border-radius: inherit;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      z-index: 0;
+      background:
+        linear-gradient(112deg, transparent 0 38%, rgba(125,232,255,0.12) 46%, rgba(0,232,123,0.08) 52%, transparent 64%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 18px),
+        repeating-linear-gradient(90deg, rgba(0,232,123,0.025) 0 1px, transparent 1px 24px);
+      background-size: 210% 100%, 36px 36px, 48px 48px;
+      opacity: 0.34;
+      mix-blend-mode: screen;
+      animation: email-card-field 18s ease-in-out infinite alternate;
+      will-change: transform, background-position;
     }
     .email-card::after {
       left: 18px; right: 18px; top: 48px;
       height: 1px;
+      z-index: 2;
       background: linear-gradient(90deg, transparent, rgba(125,232,255,0.35), transparent);
+      background-size: 180% 100%;
+      animation: email-card-line 9s ease-in-out infinite;
+    }
+    @keyframes email-card-field {
+      0% {
+        transform: translate3d(-2%, -1%, 0);
+        background-position: 0% 0%, 0 0, 0 0;
+      }
+      100% {
+        transform: translate3d(2%, 1%, 0);
+        background-position: 100% 0%, 0 36px, 48px 0;
+      }
+    }
+    @keyframes email-card-line {
+      0%, 100% { background-position: 0% 0; opacity: 0.55; }
+      50% { background-position: 100% 0; opacity: 0.9; }
     }
     .window-row {
       display: flex; align-items: center; justify-content: space-between;
@@ -1233,6 +1264,51 @@
       letter-spacing: 0.12em; color: rgba(255,255,255,0.4);
       text-transform: uppercase; pointer-events: none;
     }
+    #voice-mode-toggle {
+      position: fixed;
+      right: 138px;
+      bottom: 57px;
+      z-index: 50;
+      height: 44px;
+      min-width: 104px;
+      padding: 0 13px;
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 999px;
+      background: rgba(9,12,15,0.88);
+      color: rgba(242,244,247,0.72);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.2s, color 0.2s, transform 0.15s, background 0.2s;
+    }
+    #voice-mode-toggle:hover {
+      transform: translateY(-1px);
+      border-color: rgba(125,232,255,0.62);
+      color: rgba(242,244,247,0.94);
+    }
+    #voice-mode-toggle.openai {
+      border-color: rgba(125,232,255,0.48);
+      color: var(--cyan);
+      background: rgba(125,232,255,0.09);
+    }
+    .voice-mode-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(242,244,247,0.38);
+      box-shadow: 0 0 0 transparent;
+    }
+    #voice-mode-toggle.openai .voice-mode-dot {
+      background: var(--cyan);
+      box-shadow: 0 0 12px rgba(125,232,255,0.62);
+    }
 
     /* ── TRANSCRIPT TOAST ── */
     #transcript {
@@ -1252,10 +1328,85 @@
       width: 68.75%;
       padding: 32px 38px;
       display: flex; flex-direction: column; gap: 28px;
-      overflow: auto;
+      overflow: hidden;
       pointer-events: all;
       scrollbar-width: thin;
       scrollbar-color: rgba(0,232,123,0.42) transparent;
+      position: fixed;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 8px;
+      background-color: #05080c;
+      background-image:
+        radial-gradient(ellipse at 78% 44%, rgba(0,0,0,0.48) 0 8%, rgba(0,232,123,0.055) 13%, rgba(0,0,0,0) 28%),
+        radial-gradient(ellipse at 15% 0%, rgba(125,232,255,0.10), transparent 38%),
+        radial-gradient(ellipse at 86% 10%, rgba(0,232,123,0.10), transparent 36%),
+        linear-gradient(135deg, #071017 0%, #05080c 52%, #041012 100%);
+      box-shadow: 0 22px 76px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.06);
+      isolation: isolate;
+      overscroll-behavior: contain;
+    }
+    #main-overlay > * {
+      position: relative;
+      z-index: 1;
+    }
+    #main-overlay::before,
+    #main-overlay::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    #main-overlay::before {
+      inset: -34%;
+      background:
+        repeating-radial-gradient(ellipse at 78% 44%, transparent 0 10%, rgba(125,232,255,0.070) 12%, transparent 17%),
+        radial-gradient(ellipse at 78% 44%, rgba(0,232,123,0.18) 0 6%, rgba(0,0,0,0.28) 12%, transparent 46%);
+      opacity: 0.48;
+      mix-blend-mode: screen;
+      transform-origin: 78% 44%;
+      animation: main-panel-tunnel 6.8s ease-in-out infinite alternate;
+      will-change: transform, opacity;
+    }
+    #main-overlay::after {
+      inset: -30%;
+      background:
+        conic-gradient(from 18deg at 78% 44%,
+          transparent 0deg,
+          rgba(125,232,255,0.14) 24deg,
+          transparent 48deg,
+          transparent 118deg,
+          rgba(0,232,123,0.11) 150deg,
+          transparent 178deg,
+          transparent 238deg,
+          rgba(125,232,255,0.09) 268deg,
+          transparent 300deg,
+          transparent 360deg),
+        radial-gradient(ellipse at 78% 44%, transparent 0 15%, rgba(0,232,123,0.10) 24%, transparent 54%);
+      opacity: 0.48;
+      mix-blend-mode: screen;
+      transform-origin: 78% 44%;
+      filter: blur(0.6px);
+      animation: main-panel-flow 11s linear infinite;
+      will-change: transform;
+      mask-image: radial-gradient(ellipse at 78% 44%, black 0 64%, transparent 82%);
+    }
+    @keyframes main-panel-tunnel {
+      0% {
+        opacity: 0.30;
+        transform: scale(0.95) rotate(0.001deg);
+      }
+      45% {
+        opacity: 0.43;
+      }
+      100% {
+        opacity: 0.34;
+        transform: scale(1.14) rotate(0.001deg);
+      }
+    }
+    @keyframes main-panel-flow {
+      from { transform: rotate(0deg) scale(1.04); }
+      to { transform: rotate(360deg) scale(1.04); }
     }
     #main-narration {
       position: absolute;
@@ -1385,7 +1536,9 @@
     .gif-groups {
       display: grid;
       gap: 13px;
+      flex: 1 1 auto;
       min-height: 0;
+      overscroll-behavior: contain;
     }
     .gif-group {
       display: grid;
@@ -1456,7 +1609,7 @@
       display: flex;
       flex-direction: column;
       gap: 18px;
-      max-height: 62vh;
+      max-height: none;
       overflow-y: auto;
       overflow-x: hidden;
       padding: 0 6px 18px 0;
@@ -1495,7 +1648,7 @@
     }
     #main-overlay[data-layout="rows"] .gif-groups {
       gap: 18px;
-      max-height: 61vh;
+      max-height: none;
       overflow-y: auto;
       padding-right: 4px;
       scrollbar-width: thin;
@@ -1541,7 +1694,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      max-height: 62vh;
+      max-height: none;
       overflow-y: auto;
       overflow-x: hidden;
       padding: 0 8px 22px 0;
@@ -1865,6 +2018,7 @@
     body.mobile-gated #transcript,
     body.mobile-gated #startup-audio,
     body.mobile-gated #avatar-tools,
+    body.mobile-gated #voice-mode-toggle,
     body.mobile-gated #speech-btn {
       display: none !important;
     }
@@ -2391,6 +2545,10 @@
   </div>
 
   <!-- ── SPEECH BUTTON ── -->
+  <button id="voice-mode-toggle" type="button" aria-pressed="false" title="Switch voice mode">
+    <span class="voice-mode-dot" aria-hidden="true"></span>
+    <span id="voice-mode-label">legacy</span>
+  </button>
   <button id="speech-btn" title="Push to talk">
     <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#00e87b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="9" y="2" width="6" height="11" rx="3"/>
@@ -4684,6 +4842,8 @@
 
     // ── VOICE / PUSH-TO-TALK ──────────────────────────────────────────────────
     const micBtn       = document.getElementById('speech-btn');
+    const voiceModeToggle = document.getElementById('voice-mode-toggle');
+    const voiceModeLabel = document.getElementById('voice-mode-label');
     const transcriptEl = document.getElementById('transcript');
     let mediaRecorder  = null;
     let audioChunks    = [];
@@ -4691,17 +4851,24 @@
     let replyAudioCtx  = null;
     let replySource    = null;
     let realtimeVoiceEnabled = false;
+    let realtimeDebugEnabled = false;
     try {
       const params = new URLSearchParams(window.location.search);
       realtimeVoiceEnabled = params.get('realtime') === '1' || localStorage.getItem('KAT_REALTIME_VOICE') === '1';
+      realtimeDebugEnabled = params.get('realtimeDebug') === '1' || localStorage.getItem('KAT_REALTIME_DEBUG') === '1';
     } catch (_) {
       realtimeVoiceEnabled = false;
+      realtimeDebugEnabled = false;
     }
+    const REALTIME_INPUT_RATE = 24000;
+    const REALTIME_INPUT_CHUNK_SAMPLES = 12000;
     const realtimeVoice = {
       pc: null,
       dc: null,
       micStream: null,
       micTrack: null,
+      inputRecorder: null,
+      inputChunks: [],
       audioEl: null,
       connected: false,
       recording: false,
@@ -4714,6 +4881,30 @@
       awaitingResponse: false,
       responseWatchdog: 0,
     };
+
+    function syncVoiceModeToggle() {
+      if (!voiceModeToggle) return;
+      voiceModeToggle.classList.toggle('openai', realtimeVoiceEnabled);
+      voiceModeToggle.setAttribute('aria-pressed', String(realtimeVoiceEnabled));
+      voiceModeToggle.title = realtimeVoiceEnabled
+        ? 'Voice mode: OpenAI Realtime. Click for legacy.'
+        : 'Voice mode: legacy. Click for OpenAI Realtime.';
+      if (voiceModeLabel) voiceModeLabel.textContent = realtimeVoiceEnabled ? 'openai' : 'legacy';
+    }
+
+    function toggleVoiceMode() {
+      const nextRealtimeMode = !realtimeVoiceEnabled;
+      try {
+        localStorage.setItem('KAT_REALTIME_VOICE', nextRealtimeMode ? '1' : '0');
+      } catch (_) {}
+      const url = new URL(window.location.href);
+      if (nextRealtimeMode) url.searchParams.set('realtime', '1');
+      else url.searchParams.delete('realtime');
+      showToast(`voice: ${nextRealtimeMode ? 'OpenAI Realtime' : 'legacy'}`, nextRealtimeMode ? '#7de8ff' : '#e8e8ec');
+      setTimeout(() => window.location.assign(url.toString()), 180);
+    }
+
+    syncVoiceModeToggle();
 
     function realtimeDashboardSnapshot(id = currentDashboardId) {
       const dashboard = id ? DASHBOARDS[id] : null;
@@ -4755,7 +4946,9 @@
         'Ground dashboard answers in the active channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.',
         'If the user asks for current data not present in liveSummary, call get_channel_live before answering.',
         'When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.',
-        'Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, bindings, and theme tokens.',
+        'When the user asks for a chart, graph, plot, visual, graphic, candle chart, depth chart, odds chart, token chart, or grid chart, call apply_dashboard_chart. Do not use generic widgets for chart requests.',
+        'For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent.',
+        'Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, chart bindings, and theme tokens.',
         'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
         `Active channel context:\n${JSON.stringify(context, null, 2)}`,
       ].join('\n\n');
@@ -4763,7 +4956,147 @@
 
     function realtimeSend(event) {
       if (!realtimeVoice.dc || realtimeVoice.dc.readyState !== 'open') return false;
+      if (realtimeDebugEnabled) {
+        const logged = event.type === 'input_audio_buffer.append'
+          ? { type: event.type, audioBytes: Math.floor((event.audio?.length || 0) * 3 / 4) }
+          : event;
+        console.log('realtime send:', logged);
+      }
       realtimeVoice.dc.send(JSON.stringify(event));
+      return true;
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = '';
+      const step = 0x8000;
+      for (let i = 0; i < bytes.length; i += step) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
+      }
+      return btoa(binary);
+    }
+
+    async function decodeRealtimeAudioBlob(blob) {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) throw new Error('Audio decoding is not available in this browser');
+      const ctx = new AudioCtor();
+      try {
+        const buffer = await blob.arrayBuffer();
+        return await ctx.decodeAudioData(buffer);
+      } finally {
+        if (ctx.close) ctx.close().catch(() => {});
+      }
+    }
+
+    function realtimeBlobToPcm16(audioBuffer) {
+      const sourceRate = audioBuffer.sampleRate || REALTIME_INPUT_RATE;
+      const channels = Math.max(1, audioBuffer.numberOfChannels || 1);
+      const sourceLength = audioBuffer.length;
+      const targetLength = Math.max(1, Math.round(sourceLength * REALTIME_INPUT_RATE / sourceRate));
+      const channelData = [];
+      for (let channel = 0; channel < channels; channel++) {
+        channelData.push(audioBuffer.getChannelData(channel));
+      }
+
+      const pcm = new Int16Array(targetLength);
+      const ratio = sourceLength > 1 && targetLength > 1 ? (sourceLength - 1) / (targetLength - 1) : 1;
+      for (let i = 0; i < targetLength; i++) {
+        const sourcePos = i * ratio;
+        const index = Math.floor(sourcePos);
+        const nextIndex = Math.min(index + 1, sourceLength - 1);
+        const frac = sourcePos - index;
+        let sample = 0;
+        for (let channel = 0; channel < channels; channel++) {
+          const data = channelData[channel];
+          sample += data[index] + (data[nextIndex] - data[index]) * frac;
+        }
+        sample = Math.max(-1, Math.min(1, sample / channels));
+        pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      }
+      return pcm;
+    }
+
+    function stopRealtimeInputStream() {
+      try { realtimeVoice.micStream?.getTracks().forEach(track => track.stop()); } catch (_) {}
+      realtimeVoice.micStream = null;
+      realtimeVoice.micTrack = null;
+    }
+
+    async function startRealtimeInputRecording() {
+      stopRealtimeInputStream();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      const chunks = [];
+      const recorder = new MediaRecorder(stream, MIME ? { mimeType: MIME } : {});
+      realtimeVoice.micStream = stream;
+      realtimeVoice.micTrack = stream.getAudioTracks()[0] || null;
+      realtimeVoice.inputRecorder = recorder;
+      realtimeVoice.inputChunks = chunks;
+      recorder.addEventListener('dataavailable', event => {
+        if (event.data?.size) chunks.push(event.data);
+      });
+      recorder.start();
+      if (realtimeDebugEnabled) console.log('realtime recorder started:', recorder.mimeType || 'default');
+    }
+
+    function stopRealtimeInputRecording() {
+      const recorder = realtimeVoice.inputRecorder;
+      if (!recorder) {
+        stopRealtimeInputStream();
+        return Promise.resolve(null);
+      }
+      return new Promise((resolve) => {
+        const finish = () => {
+          const blob = new Blob(realtimeVoice.inputChunks || [], { type: recorder.mimeType });
+          if (realtimeVoice.inputRecorder === recorder) {
+            realtimeVoice.inputRecorder = null;
+            realtimeVoice.inputChunks = [];
+          }
+          stopRealtimeInputStream();
+          resolve(blob);
+        };
+        if (recorder.state === 'inactive') {
+          finish();
+          return;
+        }
+        recorder.addEventListener('stop', finish, { once: true });
+        recorder.stop();
+      });
+    }
+
+    async function appendRealtimeAudioBlob(blob) {
+      if (!blob || blob.size < 1000) {
+        micBtn.classList.remove('thinking');
+        showToast('too short - hold longer', '#6b6b78');
+        return null;
+      }
+      const audioBuffer = await decodeRealtimeAudioBlob(blob);
+      const pcm = realtimeBlobToPcm16(audioBuffer);
+      if (pcm.length < REALTIME_INPUT_RATE * 0.12) {
+        micBtn.classList.remove('thinking');
+        showToast('too short - hold longer', '#6b6b78');
+        return null;
+      }
+
+      if (!realtimeSend({ type: 'input_audio_buffer.clear' })) return false;
+      for (let start = 0; start < pcm.length; start += REALTIME_INPUT_CHUNK_SAMPLES) {
+        const end = Math.min(start + REALTIME_INPUT_CHUNK_SAMPLES, pcm.length);
+        const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset + start * 2, (end - start) * 2);
+        if (!realtimeSend({ type: 'input_audio_buffer.append', audio: bytesToBase64(bytes) })) return false;
+      }
+      if (realtimeDebugEnabled) {
+        console.log('realtime pcm append:', {
+          blobBytes: blob.size,
+          pcmBytes: pcm.byteLength,
+          seconds: Number((pcm.length / REALTIME_INPUT_RATE).toFixed(2)),
+          sampleRate: REALTIME_INPUT_RATE,
+        });
+      }
       return true;
     }
 
@@ -4776,12 +5109,15 @@
       console.warn('realtime voice fallback:', reason);
       clearRealtimeResponseWatchdog();
       try { realtimeVoice.pc?.close(); } catch (_) {}
-      try { realtimeVoice.micStream?.getTracks().forEach(track => track.stop()); } catch (_) {}
+      if (realtimeVoice.inputRecorder && realtimeVoice.inputRecorder.state !== 'inactive') {
+        try { realtimeVoice.inputRecorder.stop(); } catch (_) {}
+      }
+      stopRealtimeInputStream();
       if (realtimeVoice.mouthSyncFrame) cancelAnimationFrame(realtimeVoice.mouthSyncFrame);
       realtimeVoice.pc = null;
       realtimeVoice.dc = null;
-      realtimeVoice.micStream = null;
-      realtimeVoice.micTrack = null;
+      realtimeVoice.inputRecorder = null;
+      realtimeVoice.inputChunks = [];
       realtimeVoice.connected = false;
       realtimeVoice.recording = false;
       realtimeVoice.responding = false;
@@ -4835,10 +5171,10 @@
       if (result.workspace && DASHBOARDS[result.workspace] && result.workspace !== currentDashboardId) {
         await openDashboard(result.workspace, { skipNarration: true });
       }
-      if (name === 'apply_dashboard_edit' || name === 'apply_dashboard_mutation') {
+      if (name === 'apply_dashboard_edit' || name === 'apply_dashboard_mutation' || name === 'apply_dashboard_chart') {
         const dashboardId = result.dashboard?.id || currentDashboardId;
         notifyDashboardOverridesUpdated(dashboardId, { forceReload: true });
-        showToast(name === 'apply_dashboard_mutation' ? 'dashboard regenerated' : 'dashboard updated', '#00e87b');
+        showToast(name === 'apply_dashboard_chart' ? 'chart added' : name === 'apply_dashboard_mutation' ? 'dashboard regenerated' : 'dashboard updated', '#00e87b');
       }
       sendRealtimeDashboardContext(result.dashboard?.id || result.workspace || currentDashboardId).catch(() => {});
     }
@@ -5018,7 +5354,9 @@
       });
       realtimeVoice.dc.addEventListener('message', (message) => {
         try {
-          handleRealtimeServerEvent(JSON.parse(message.data));
+          const event = JSON.parse(message.data);
+          if (realtimeDebugEnabled) console.log('realtime event:', event.type, event);
+          handleRealtimeServerEvent(event);
         } catch (err) {
           console.warn('bad realtime event:', err);
         }
@@ -5035,10 +5373,7 @@
         startRealtimeMouthSync(stream);
       };
 
-      realtimeVoice.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      realtimeVoice.micTrack = realtimeVoice.micStream.getAudioTracks()[0];
-      realtimeVoice.micTrack.enabled = false;
-      pc.addTrack(realtimeVoice.micTrack, realtimeVoice.micStream);
+      pc.addTransceiver('audio', { direction: 'recvonly' });
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -5069,17 +5404,24 @@
         enterLegacyVoiceFallback('realtime data channel unavailable');
         throw new Error('Realtime voice fallback');
       }
-      realtimeVoice.micTrack.enabled = true;
+      await startRealtimeInputRecording();
       setListening(true);
       showToast('listening…', '#ff4444');
     }
 
-    function stopRealtimeTalk() {
+    async function stopRealtimeTalk() {
       if (!realtimeVoice.recording) return;
       realtimeVoice.recording = false;
-      if (realtimeVoice.micTrack) realtimeVoice.micTrack.enabled = false;
       setListening(false);
       micBtn.classList.add('thinking');
+      showToast('processing voice…', '#6b6b78');
+      const blob = await stopRealtimeInputRecording();
+      const appended = await appendRealtimeAudioBlob(blob);
+      if (appended === false) {
+        enterLegacyVoiceFallback('realtime data channel unavailable');
+        return;
+      }
+      if (!appended) return;
       showToast('Kat is thinking…', '#6b6b78');
       const committed = realtimeSend({ type: 'input_audio_buffer.commit' });
       const created = realtimeSend({ type: 'response.create' });
@@ -5109,7 +5451,10 @@
 
     function stopPushToTalk() {
       if (realtimeVoice.recording) {
-        stopRealtimeTalk();
+        stopRealtimeTalk().catch(err => {
+          console.warn('realtime stop failed:', err);
+          enterLegacyVoiceFallback(err.message || 'realtime stop failed');
+        });
         return;
       }
       stopRecording();
@@ -5353,6 +5698,7 @@
       setListening(false);
     }
 
+    voiceModeToggle?.addEventListener('click', () => toggleVoiceMode());
     micBtn.addEventListener('mousedown',  (e) => {
       e.preventDefault();
       startPushToTalk().catch(() => showToast('mic access denied', '#ff4444'));

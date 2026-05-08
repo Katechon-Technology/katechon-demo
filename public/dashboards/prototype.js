@@ -238,6 +238,345 @@
       return [];
     }
 
+    function generatedComponents() {
+      const slots = state.generated.slots || {};
+      return [...(slots.rail || []), ...(slots.stageOverlay || [])];
+    }
+
+    function componentByGeneratedId(id) {
+      return generatedComponents().find(component => String(component.id || "") === String(id || "")) || null;
+    }
+
+    function numericValue(value) {
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+      const parsed = Number(String(value || "").replace(/[$,%\s,]/g, ""));
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function chartRowsForBinding(component) {
+      const chart = component.chart || {};
+      const binding = chart.binding || component.binding || "none";
+      const data = component._chartPayload?.data || state.livePayload?.data || {};
+      if (Array.isArray(chart.data) && chart.data.length) return chart.data.slice(0, 96);
+
+      if (binding === "liveData.candles" && Array.isArray(data.candles)) {
+        return data.candles.slice(-48).map((candle, index) => ({
+          index,
+          label: candle.t ? new Date(Number(candle.t)).toISOString().slice(11, 16) : String(index + 1),
+          open: numericValue(candle.o || candle.open),
+          high: numericValue(candle.h || candle.high),
+          low: numericValue(candle.l || candle.low),
+          close: numericValue(candle.c || candle.close),
+          volume: numericValue(candle.v || candle.volume),
+        }));
+      }
+
+      if (binding === "liveData.book" && Array.isArray(data.book?.levels)) {
+        const bids = Array.isArray(data.book.levels[0]) ? data.book.levels[0].slice(0, 10) : [];
+        const asks = Array.isArray(data.book.levels[1]) ? data.book.levels[1].slice(0, 10) : [];
+        return [
+          ...bids.map((level, index) => ({ side: "bid", label: `B${index + 1}`, price: numericValue(level.px), size: numericValue(level.sz), notional: numericValue(level.px) * numericValue(level.sz) })),
+          ...asks.map((level, index) => ({ side: "ask", label: `A${index + 1}`, price: numericValue(level.px), size: numericValue(level.sz), notional: numericValue(level.px) * numericValue(level.sz) })),
+        ];
+      }
+
+      if (binding === "liveData.series" && Array.isArray(data.series)) {
+        return data.series.slice(-48).map((row, index) => ({
+          index,
+          label: row.label || (row.time ? new Date(Number(row.time)).toISOString().slice(5, 13).replace("T", " ") : String(index + 1)),
+          loadMw: numericValue(row.loadMw),
+          forecastMw: numericValue(row.forecastMw),
+          stressPct: numericValue(row.stressPct),
+          marginPct: numericValue(row.operatingMarginPct),
+          frequencyHz: numericValue(row.frequencyHz),
+        }));
+      }
+
+      if (binding === "liveData.markets" && Array.isArray(data.markets)) {
+        return data.markets.slice(0, 12).map((market, index) => ({
+          index,
+          label: String(market.question || market.title || `Market ${index + 1}`).slice(0, 42),
+          yes: numericValue(market.yes) * 100,
+          no: numericValue(market.no) * 100,
+          volume: numericValue(market.volume),
+        }));
+      }
+
+      if (binding === "liveData.tokens" && Array.isArray(data.tokens)) {
+        return data.tokens.slice(0, 12).map((token, index) => ({
+          index,
+          label: String(token.symbol || token.name || `Token ${index + 1}`).toUpperCase().slice(0, 16),
+          change: numericValue(token.change1h || token.change24h),
+          price: numericValue(token.price),
+          marketCap: numericValue(token.marketCap),
+        }));
+      }
+
+      if (binding === "liveData.fuelMix" && Array.isArray(data.fuelMix)) {
+        return data.fuelMix.slice(0, 10).map((fuel, index) => ({
+          index,
+          label: String(fuel.label || fuel.fueltype || `Fuel ${index + 1}`).slice(0, 24),
+          value: numericValue(fuel.sharePct || fuel.mw),
+          mw: numericValue(fuel.mw),
+        }));
+      }
+
+      if (binding === "liveData.corridors" && Array.isArray(data.corridors)) {
+        return data.corridors.slice(0, 10).map((corridor, index) => ({
+          index,
+          label: `${corridor.from || "A"}-${corridor.to || "B"}`.slice(0, 24),
+          stressPct: numericValue(corridor.stressPct),
+          mw: numericValue(corridor.mw),
+        }));
+      }
+
+      if (binding === "liveSummary.metrics" || binding === "dashboard.metrics") {
+        return visibleMetrics().map(([label, value, note], index) => ({ index, label, value: numericValue(value), note }));
+      }
+
+      if (binding === "liveSummary.feed" || binding === "dashboard.feed") {
+        return state.feed.slice(0, 12).map(([time, title, meta], index) => ({ index, label: time || String(index + 1), value: index + 1, title, meta }));
+      }
+
+      return [];
+    }
+
+    function chartQuery(component) {
+      const query = component.chart?.query;
+      if (!query || typeof query !== "object") return "";
+      const params = new URLSearchParams();
+      if (query.coin) params.set("coin", String(query.coin).toUpperCase().replace(/[^A-Z0-9:_-]/g, "").slice(0, 18));
+      if (query.respondent) params.set("respondent", String(query.respondent).toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 12));
+      return params.toString();
+    }
+
+    async function ensureChartPayload(component) {
+      const query = chartQuery(component);
+      if (!query) return;
+      if (component._chartPayloadKey === query && component._chartPayload) return;
+      const url = `/api/channels/${encodeURIComponent(dashboardId)}/live?${query}`;
+      const resp = await fetch(appUrl(url), { cache: "no-store" });
+      if (!resp.ok) throw new Error(`chart live ${resp.status}`);
+      component._chartPayload = await resp.json();
+      component._chartPayloadKey = query;
+    }
+
+    function chartDefaults(component, rows) {
+      const chart = component.chart || {};
+      const binding = chart.binding || component.binding || "none";
+      if (binding === "liveData.candles") return { type: chart.type || "line", x: chart.x || "label", y: chart.y || "close" };
+      if (binding === "liveData.book") return { type: chart.type || "market-depth", x: chart.x || "label", y: chart.y || "notional", color: chart.color || "side" };
+      if (binding === "liveData.series") return { type: chart.type || "area", x: chart.x || "label", y: chart.y || "loadMw", y2: chart.y2 || "forecastMw" };
+      if (binding === "liveData.markets") return { type: chart.type || "horizontal-bar", x: chart.x || "yes", y: chart.y || "label" };
+      if (binding === "liveData.tokens") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "change" };
+      if (binding === "liveData.fuelMix") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "value" };
+      if (binding === "liveData.corridors") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "stressPct" };
+      const first = rows[0] || {};
+      return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || (Object.prototype.hasOwnProperty.call(first, "value") ? "value" : "index") };
+    }
+
+    function cssToken(name, fallback) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+    }
+
+    function chartBaseSpec(rows, width, height) {
+      const accent = cssToken("--accent", "#00e87b");
+      const accent2 = cssToken("--accent2", "#7de8ff");
+      const accent3 = cssToken("--accent3", "#ffbf5f");
+      const text = cssToken("--text", "#f3f6f8");
+      const muted = "rgba(243,246,248,0.56)";
+      return {
+        $schema: "https://vega.github.io/schema/vega/v6.json",
+        background: "transparent",
+        width,
+        height,
+        padding: { left: 36, right: 12, top: 12, bottom: 30 },
+        autosize: { type: "fit", contains: "padding" },
+        data: [{ name: "table", values: rows }],
+        config: {
+          axis: {
+            domainColor: "rgba(255,255,255,0.14)",
+            gridColor: "rgba(255,255,255,0.07)",
+            labelColor: muted,
+            labelFont: "SFMono-Regular, Consolas, monospace",
+            labelFontSize: 9,
+            tickColor: "rgba(255,255,255,0.14)",
+            titleColor: muted,
+            titleFont: "SFMono-Regular, Consolas, monospace",
+            titleFontSize: 9,
+          },
+          style: { guideLabel: { fill: muted }, guideTitle: { fill: text } },
+          range: { category: [accent, accent2, accent3, "#ff625f"] },
+        },
+      };
+    }
+
+    function buildVegaSpec(component, rows, width, height) {
+      const defaults = chartDefaults(component, rows);
+      const type = defaults.type;
+      const x = defaults.x;
+      const y = defaults.y;
+      const y2 = defaults.y2;
+      const color = defaults.color;
+      const accent = cssToken("--accent", "#00e87b");
+      const accent2 = cssToken("--accent2", "#7de8ff");
+      const danger = cssToken("--danger", "#ff625f");
+      const spec = chartBaseSpec(rows, width, height);
+      const numericScale = { name: "y", type: "linear", domain: { data: "table", field: y }, nice: true, range: "height", zero: type !== "line" };
+      const xBand = { name: "x", type: "band", domain: { data: "table", field: x }, range: "width", padding: 0.22 };
+      const xPoint = { name: "x", type: "point", domain: { data: "table", field: x }, range: "width", padding: 0.45 };
+
+      if (type === "horizontal-bar") {
+        spec.padding = { left: 94, right: 18, top: 12, bottom: 24 };
+        spec.scales = [
+          { name: "x", type: "linear", domain: { data: "table", field: x }, nice: true, range: "width", zero: true },
+          { name: "y", type: "band", domain: { data: "table", field: y }, range: "height", padding: 0.22 },
+        ];
+        spec.axes = [{ orient: "bottom", scale: "x", grid: true, ticks: false }, { orient: "left", scale: "y", ticks: false, labelLimit: 86 }];
+        spec.marks = [{
+          type: "rect",
+          from: { data: "table" },
+          encode: {
+            enter: { y: { scale: "y", field: y }, height: { scale: "y", band: 1 }, x: { scale: "x", value: 0 }, x2: { scale: "x", field: x }, fill: { value: accent }, fillOpacity: { value: 0.72 }, cornerRadius: { value: 3 } },
+            update: { fillOpacity: { value: 0.78 } },
+            hover: { fillOpacity: { value: 1 } },
+          },
+        }];
+        return spec;
+      }
+
+      if (type === "market-depth") {
+        spec.scales = [
+          xBand,
+          numericScale,
+          { name: "sideColor", type: "ordinal", domain: ["bid", "ask"], range: [accent, danger] },
+        ];
+        spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelAngle: 0 }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.marks = [{
+          type: "rect",
+          from: { data: "table" },
+          encode: {
+            enter: {
+              x: { scale: "x", field: x },
+              width: { scale: "x", band: 1 },
+              y: { scale: "y", field: y },
+              y2: { scale: "y", value: 0 },
+              fill: { scale: "sideColor", field: color || "side" },
+              fillOpacity: { value: 0.72 },
+              cornerRadius: { value: 3 },
+            },
+          },
+        }];
+        return spec;
+      }
+
+      if (type === "line" || type === "area") {
+        spec.scales = [xPoint, numericScale];
+        spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelOverlap: "parity" }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.marks = [];
+        if (type === "area") {
+          spec.marks.push({
+            type: "area",
+            from: { data: "table" },
+            encode: {
+              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, y2: { scale: "y", value: 0 }, fill: { value: accent }, fillOpacity: { value: 0.18 } },
+            },
+          });
+        }
+        spec.marks.push({
+          type: "line",
+          from: { data: "table" },
+          encode: {
+            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, stroke: { value: accent }, strokeWidth: { value: 2.2 }, interpolate: { value: "monotone" } },
+          },
+        });
+        if (y2 && rows.some(row => Number.isFinite(Number(row[y2])))) {
+          spec.marks.push({
+            type: "line",
+            from: { data: "table" },
+            encode: {
+              enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y2 }, stroke: { value: accent2 }, strokeWidth: { value: 1.4 }, strokeOpacity: { value: 0.72 }, interpolate: { value: "monotone" } },
+            },
+          });
+        }
+        return spec;
+      }
+
+      if (type === "scatter") {
+        spec.scales = [
+          { name: "x", type: "linear", domain: { data: "table", field: x }, nice: true, range: "width", zero: false },
+          numericScale,
+        ];
+        spec.axes = [{ orient: "bottom", scale: "x", grid: true, ticks: false }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.marks = [{
+          type: "symbol",
+          from: { data: "table" },
+          encode: {
+            enter: { x: { scale: "x", field: x }, y: { scale: "y", field: y }, size: { value: 72 }, fill: { value: accent2 }, fillOpacity: { value: 0.72 }, stroke: { value: accent }, strokeWidth: { value: 1 } },
+          },
+        }];
+        return spec;
+      }
+
+      spec.scales = [xBand, numericScale];
+      spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelOverlap: "parity" }, { orient: "left", scale: "y", grid: true, ticks: false }];
+      spec.marks = [{
+        type: "rect",
+        from: { data: "table" },
+        encode: {
+          enter: {
+            x: { scale: "x", field: x },
+            width: { scale: "x", band: 1 },
+            y: { scale: "y", field: y },
+            y2: { scale: "y", value: 0 },
+            fill: { value: accent },
+            fillOpacity: { value: 0.72 },
+            cornerRadius: { value: 3 },
+          },
+          hover: { fill: { value: accent2 }, fillOpacity: { value: 0.95 } },
+        },
+      }];
+      return spec;
+    }
+
+    function fallbackChartHtml(rows) {
+      const values = rows.length ? rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.close ?? row.yes ?? row.change ?? row.loadMw ?? row.stressPct)))) : [24, 58, 36, 72, 46, 88, 54, 68];
+      const max = Math.max(...values, 1);
+      return `<div class="generated-chart-fallback">${values.map(value => `<span style="height:${Math.max(10, value / max * 100).toFixed(0)}%"></span>`).join("")}</div>`;
+    }
+
+    async function renderGeneratedCharts() {
+      const nodes = Array.from(document.querySelectorAll(".generated-chart[data-generated-id]"));
+      if (!nodes.length) return;
+      for (const node of nodes) {
+        const component = componentByGeneratedId(node.dataset.generatedId);
+        if (!component) continue;
+        try {
+          await ensureChartPayload(component);
+        } catch (_) {}
+        const rows = chartRowsForBinding(component);
+        if (!rows.length || typeof window.vega?.View !== "function" || typeof window.vega?.parse !== "function") {
+          node.innerHTML = fallbackChartHtml(rows);
+          continue;
+        }
+        const width = Math.max(160, Math.floor(node.clientWidth || 320));
+        const height = Math.max(118, Math.floor(node.clientHeight || 160));
+        try {
+          node.innerHTML = "";
+          const spec = buildVegaSpec(component, rows, width, height);
+          const view = new window.vega.View(window.vega.parse(spec), {
+            renderer: "canvas",
+            container: node,
+            hover: true,
+          });
+          await view.runAsync();
+          animate(node, { opacity: [0.65, 1], scale: [0.985, 1], duration: 520, ease: "out(3)" });
+        } catch (err) {
+          node.innerHTML = fallbackChartHtml(rows);
+        }
+      }
+    }
+
     function generatedMetricsHtml(rows) {
       if (!rows.length) return "";
       return `<div class="generated-metrics">${rows.map(([label, value, note]) => `
@@ -270,15 +609,18 @@
       const items = componentItems(component);
       const isMetric = component.type === "metric-strip" || component.type === "market-widget";
       const isRows = ["event-timeline", "source-confidence"].includes(component.type);
+      const isChart = component.type === "vega-chart";
+      const componentId = escapeHtml(component.id || "");
       return `
-        <article class="generated-component generated-${escapeHtml(component.type || "component")}">
+        <article class="generated-component generated-${escapeHtml(component.type || "component")}" data-generated-id="${componentId}">
           ${component.eyebrow ? `<div class="generated-eyebrow">${escapeHtml(component.eyebrow)}</div>` : ""}
           ${component.title ? `<div class="generated-title">${escapeHtml(component.title)}</div>` : ""}
           ${component.value ? `<div class="generated-metric-value">${escapeHtml(component.value)}</div>` : ""}
           ${component.body ? `<div class="generated-body">${escapeHtml(component.body)}</div>` : ""}
+          ${isChart ? `<div class="generated-chart-shell"><div class="generated-chart" data-generated-id="${componentId}"></div></div>` : ""}
           ${isMetric ? generatedMetricsHtml(rows) : ""}
           ${isRows ? generatedRowsHtml(rows) : ""}
-          ${!isMetric && !isRows && rows.length ? generatedRowsHtml(rows) : ""}
+          ${!isChart && !isMetric && !isRows && rows.length ? generatedRowsHtml(rows) : ""}
           ${generatedItemsHtml(items)}
           ${component.note ? `<div class="generated-note">${escapeHtml(component.note)}</div>` : ""}
         </article>
@@ -292,6 +634,7 @@
       rail.innerHTML = components.map(generatedComponentHtml).join("");
       rail.classList.toggle("hidden", !components.length);
       rail.closest(".rail")?.classList.toggle("has-generated", Boolean(components.length));
+      requestAnimationFrame(renderGeneratedCharts);
     }
 
     function generatedStageHtml() {
@@ -433,6 +776,7 @@
       $("stage").innerHTML = backdropHtml() + sceneHtml(config.scene) + generatedStageHtml();
       wireSceneInteractions();
       runSceneMotion();
+      requestAnimationFrame(renderGeneratedCharts);
     }
 
     function metricText(index) {

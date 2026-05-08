@@ -158,6 +158,132 @@ Kat-generated dashboard components should not:
 - Add trading, wallet, KYC, paid, or login-only flows in v1.
 - Hide fallback state from the user.
 
+## Kat Visualization Contract
+
+Generated visualizations use a constrained chart component instead of arbitrary browser code. Kat should query the normalized channel API, summarize what matters, then compose a `vega-chart` component through `apply_dashboard_mutation`.
+
+Runtime:
+
+- Vega renders the chart inside the dashboard iframe.
+- Anime.js handles chart/card entrance and update motion through the existing shell.
+- Chart data must come from `/api/channels/:channel/live`, `/api/channels/:channel/context`, or explicit safe rows in the generated component.
+- Generated components must not fetch provider APIs directly from the browser.
+
+Supported chart component:
+
+```json
+{
+  "type": "vega-chart",
+  "title": "BTC Candle Trend",
+  "chart": {
+    "type": "line",
+    "binding": "liveData.candles",
+    "x": "label",
+    "y": "close"
+  },
+  "note": "Read-only chart from normalized channel data."
+}
+```
+
+Supported chart types:
+
+| Type | Best For |
+|------|----------|
+| `line` | Candles, trends, and time series |
+| `area` | Load, forecast, volume, or intensity over time |
+| `bar` | Metrics, token movement, fuel mix, category comparisons |
+| `horizontal-bar` | Long labels such as prediction market questions |
+| `scatter` | Pairwise numeric comparisons |
+| `market-depth` | Bid/ask book summaries |
+
+Supported chart bindings:
+
+| Binding | Source |
+|---------|--------|
+| `liveData.candles` | Hyperliquid candle payload |
+| `liveData.book` | Hyperliquid L2 payload |
+| `liveData.markets` | Polymarket market discovery payload |
+| `liveData.tokens` | Pump.fun-style token payload |
+| `liveData.series` | EIA grid time series |
+| `liveData.fuelMix` | EIA grid fuel mix |
+| `liveData.corridors` | Grid corridor stress proxy |
+| `liveSummary.metrics` | Compact Kat context metrics |
+| `liveSummary.feed` | Compact Kat context rows |
+| `dashboard.metrics` | Dashboard catalog/override metrics |
+| `dashboard.feed` | Dashboard catalog/override feed |
+
+Kat workflow for graph requests:
+
+1. Call `get_channel_context` for normal dashboard state.
+2. Call `get_channel_live` with `detail: "compact"` when the user asks for a specific graph, market, token, grid respondent, or level.
+3. Prefer `apply_dashboard_chart` for chart requests; it maps a chart intent to a safe `vega-chart` component.
+4. Talk through the chart using `liveSummary.highlights`, visible chart axes, and `fallbackReason` if present.
+
+`apply_dashboard_chart` accepts these intents:
+
+| Intent | Default Binding |
+|--------|-----------------|
+| `auto` | Server chooses from active channel/provider and request text |
+| `price_trend` | `liveData.candles` |
+| `market_depth` | `liveData.book` |
+| `market_odds` | `liveData.markets` |
+| `token_velocity` | `liveData.tokens` |
+| `grid_load` | `liveData.series` |
+| `fuel_mix` | `liveData.fuelMix` |
+| `corridor_stress` | `liveData.corridors` |
+| `metrics` | `liveSummary.metrics` |
+| `feed_timeline` | `liveSummary.feed` |
+
+Example mutation:
+
+```json
+{
+  "dashboardId": "power-grid",
+  "instruction": "Show the grid load against forecast.",
+  "mutation": {
+    "type": "add_component",
+    "slot": "stageOverlay",
+    "component": {
+      "type": "vega-chart",
+      "title": "Load vs Forecast",
+      "chart": {
+        "type": "area",
+        "binding": "liveData.series",
+        "x": "label",
+        "y": "loadMw",
+        "y2": "forecastMw"
+      },
+      "note": "Frequency and corridor stress remain modeled display proxies."
+    }
+  }
+}
+```
+
+## API Roadmap Ideas
+
+These are recommended provider directions behind the normalized channel layer. Kat receives compact per-channel ideas in `/api/channels/:channel/context`, but implementation should still happen server-side.
+
+| Channel | API Ideas |
+|---------|-----------|
+| `spectre` | GDELT, ACLED, OpenStreetMap |
+| `news` | RSS, GDELT, NewsAPI/MediaStack-style search |
+| `dashboard123` | Hyperliquid, Finnhub/Polygon, FRED |
+| `world-monitor` | GDELT, ACLED, EIA/FRED |
+| `arena` | eval harness logs, model-router run data, GitHub Actions benchmark runs |
+| `glance` | RSS, Hacker News Algolia, Open-Meteo/NWS |
+| `crypto-trading` | Hyperliquid, CoinGecko, DefiLlama |
+| `polyrec` | Polymarket Gamma, Polymarket CLOB, Chainlink/reference prices |
+| `biotech` | ClinicalTrials.gov, PubMed/Europe PMC, UniProt/AlphaFold |
+| `space` | NASA Exoplanet Archive, MAST, JPL Horizons |
+| `iran` | GDELT, EIA, OpenStreetMap |
+| `meme-coin` | CoinGecko Pump.fun category, DexScreener, public social trend signals |
+| `quantum` | arXiv, OpenAlex, curated benchmark feeds |
+| `deep-sea` | NOAA NDBC, NOAA Tides & Currents, ERDDAP |
+| `power-grid` | EIA, NREL, NOAA weather |
+| `viral` | CDC, WHO, public mobility/open datasets |
+| `dark-forest` | MAST, NASA Exoplanet Archive, SIMBAD/VizieR |
+| `dune-deck` | local deck JSON, product analytics |
+
 ## Fast Dashboard Mutation Contract
 
 Kat should treat dashboard generation like composing a Roblox/Retool-style surface from predefined blocks, not like arbitrary source-code editing.
@@ -191,6 +317,7 @@ Current component types:
 | `scenario-cards` | Options, scenarios, or next-step cards |
 | `map-brief` | Stage overlay callouts for map/geospatial/network dashboards |
 | `market-widget` | Read-only market or prediction-market snippets |
+| `vega-chart` | Safe generated Vega visualization from normalized live/dashboard data |
 | `action-panel` | Suggested viewer questions, watchlist items, or workflow steps |
 
 Supported bindings:
@@ -200,6 +327,13 @@ Supported bindings:
 | `liveSummary.metrics` | Use the current channel metric summary |
 | `liveSummary.feed` | Use the current channel feed rows |
 | `liveSummary.highlights` | Use compact generated highlights from the current feed |
+| `liveData.candles` | Use compact Hyperliquid candles for Vega charts |
+| `liveData.book` | Use compact Hyperliquid L2 depth for Vega charts |
+| `liveData.markets` | Use compact Polymarket markets for Vega charts |
+| `liveData.tokens` | Use compact token rows for Vega charts |
+| `liveData.series` | Use compact EIA grid time series for Vega charts |
+| `liveData.fuelMix` | Use compact EIA fuel mix for Vega charts |
+| `liveData.corridors` | Use compact grid corridor rows for Vega charts |
 | `dashboard.metrics` | Use dashboard metrics |
 | `dashboard.feed` | Use dashboard feed rows |
 | `none` | Render only supplied component props |
