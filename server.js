@@ -32,11 +32,14 @@ const {
   renderDashboardShareHtml,
 } = require("./dashboard-share");
 const {
+  channelGenerationSpec,
   channelDocs,
+  componentRegistry,
   getChannel,
   listChannels,
   publicChannel,
   syntheticChannelData,
+  viewPresets,
 } = require("./lib/channel-registry");
 
 const app = express();
@@ -684,6 +687,125 @@ function sanitizeCustomCss(value) {
   return css;
 }
 
+function cleanComponentId(value) {
+  return String(value || "").toLowerCase().replace(/[^\w-]/g, "").slice(0, 48);
+}
+
+function sanitizeBinding(value) {
+  const binding = String(value || "none");
+  const allowed = new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"]);
+  return allowed.has(binding) ? binding : "none";
+}
+
+function sanitizeColorToken(value) {
+  const color = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(color)) return color;
+  if (/^#[0-9a-f]{3}$/i.test(color)) return color;
+  return null;
+}
+
+function sanitizeThemeTokens(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const tokens = {};
+  for (const key of ["accent", "accent2", "accent3"]) {
+    const color = sanitizeColorToken(raw[key]);
+    if (color) tokens[key] = color;
+  }
+  return Object.keys(tokens).length ? tokens : null;
+}
+
+function sanitizeComponent(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const registry = componentRegistry();
+  const type = cleanComponentId(raw.type);
+  if (!registry[type]) return null;
+
+  const component = {
+    id: cleanComponentId(raw.id) || `${type}-${Date.now().toString(36)}`,
+    type,
+  };
+  for (const field of ["eyebrow", "title", "body", "value", "note", "variant"]) {
+    if (raw[field] !== undefined) {
+      const value = clampText(raw[field], field === "body" ? 260 : 120);
+      if (value) component[field] = value;
+    }
+  }
+
+  const metrics = sanitizeTupleArray(raw.metrics, 6, 3, 64);
+  if (metrics) component.metrics = metrics;
+
+  const rows = sanitizeTupleArray(raw.rows, 8, 3, 120);
+  if (rows) component.rows = rows;
+
+  const items = sanitizeStringArray(raw.items, 8, 120);
+  if (items) component.items = items;
+
+  component.binding = sanitizeBinding(raw.binding);
+  return component;
+}
+
+function sanitizeComponents(value, maxItems = 4) {
+  if (!Array.isArray(value)) return [];
+  return value.map(sanitizeComponent).filter(Boolean).slice(0, maxItems);
+}
+
+function emptyGeneratedDashboard() {
+  return {
+    view: "default",
+    slots: {
+      rail: [],
+      stageOverlay: [],
+    },
+    themeTokens: {},
+  };
+}
+
+function sanitizeGeneratedDashboard(raw) {
+  const generated = emptyGeneratedDashboard();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return generated;
+  const views = viewPresets();
+  const view = cleanComponentId(raw.view);
+  if (views[view]) generated.view = view;
+  const slots = raw.slots && typeof raw.slots === "object" && !Array.isArray(raw.slots) ? raw.slots : {};
+  for (const slot of Object.keys(generated.slots)) {
+    generated.slots[slot] = sanitizeComponents(slots[slot], 4);
+  }
+  const themeTokens = sanitizeThemeTokens(raw.themeTokens);
+  if (themeTokens) generated.themeTokens = themeTokens;
+  return generated;
+}
+
+function sanitizeMutation(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const type = cleanComponentId(raw.type);
+  const allowed = new Set(["set_view", "set_copy", "replace_slot", "add_component", "set_theme_tokens", "clear_generated"]);
+  if (!allowed.has(type)) return null;
+
+  const mutation = { type };
+  const slots = new Set(["rail", "stageOverlay"]);
+  const slot = String(raw.slot || "");
+  if (slot && slots.has(slot)) mutation.slot = slot;
+
+  if (raw.view !== undefined) {
+    const view = cleanComponentId(raw.view);
+    if (viewPresets()[view]) mutation.view = view;
+  }
+
+  const patch = sanitizeDashboardPatch(raw.patch);
+  if (Object.keys(patch).length) mutation.patch = patch;
+
+  const component = sanitizeComponent(raw.component);
+  if (component) mutation.component = component;
+
+  const components = sanitizeComponents(raw.components, 4);
+  if (components.length) mutation.components = components;
+
+  const themeTokens = sanitizeThemeTokens(raw.themeTokens);
+  if (themeTokens) mutation.themeTokens = themeTokens;
+
+  return mutation;
+}
+
 function sanitizeDashboardPatch(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const patch = {};
@@ -726,7 +848,9 @@ function dashboardContextFor(dashboardId) {
   const catalogDashboard = catalog.dashboards?.[id] || null;
   const channel = catalog.channels?.[id] || null;
   const panel = PANELS.find((candidate) => candidate.id === id) || null;
-  const override = readDashboardOverrides().dashboards[id]?.patch || {};
+  const persisted = readDashboardOverrides().dashboards[id] || {};
+  const override = persisted.patch || {};
+  const generated = sanitizeGeneratedDashboard(persisted.generated);
   const merged = { ...(catalogDashboard || {}), ...override };
   return {
     id,
@@ -744,6 +868,7 @@ function dashboardContextFor(dashboardId) {
     visualLabel: merged.visualLabel || "",
     visualCopy: merged.visualCopy || "",
     override,
+    generated,
   };
 }
 
@@ -754,8 +879,10 @@ function applyDashboardOverride(dashboardId, rawPatch, instruction, source = "ka
   if (!Object.keys(patch).length) throw new Error("empty or unsupported dashboard edit");
 
   const db = readDashboardOverrides();
-  const existing = db.dashboards[id]?.patch || {};
+  const existingRecord = db.dashboards[id] || {};
+  const existing = existingRecord.patch || {};
   db.dashboards[id] = {
+    ...existingRecord,
     patch: { ...existing, ...patch },
     updatedAt: new Date().toISOString(),
     updatedBy: source,
@@ -773,8 +900,74 @@ function applyDashboardOverride(dashboardId, rawPatch, instruction, source = "ka
   return db.dashboards[id];
 }
 
+function applyDashboardMutation(dashboardId, rawMutation, instruction, source = "kat-realtime") {
+  const id = cleanDashboardId(dashboardId);
+  if (!id || !PANELS.some((panel) => panel.id === id)) throw new Error("unknown dashboard");
+  const mutation = sanitizeMutation(rawMutation);
+  if (!mutation) throw new Error("empty or unsupported dashboard mutation");
+
+  const db = readDashboardOverrides();
+  const existingRecord = db.dashboards[id] || {};
+  const patch = { ...(existingRecord.patch || {}) };
+  let generated = sanitizeGeneratedDashboard(existingRecord.generated);
+
+  if (mutation.type === "clear_generated") {
+    generated = emptyGeneratedDashboard();
+  }
+  if (mutation.type === "set_view") {
+    if (!mutation.view) throw new Error("set_view requires a supported view");
+    generated.view = mutation.view;
+  }
+  if (mutation.type === "set_copy") {
+    if (!mutation.patch) throw new Error("set_copy requires a patch");
+    Object.assign(patch, mutation.patch);
+  }
+  if (mutation.type === "replace_slot") {
+    if (!mutation.slot) throw new Error("replace_slot requires rail or stageOverlay");
+    generated.slots[mutation.slot] = mutation.components || [];
+  }
+  if (mutation.type === "add_component") {
+    if (!mutation.slot) throw new Error("add_component requires rail or stageOverlay");
+    if (!mutation.component) throw new Error("add_component requires a supported component");
+    generated.slots[mutation.slot] = [...(generated.slots[mutation.slot] || []), mutation.component].slice(-4);
+  }
+  if (mutation.type === "set_theme_tokens") {
+    if (!mutation.themeTokens) throw new Error("set_theme_tokens requires supported color tokens");
+    generated.themeTokens = { ...(generated.themeTokens || {}), ...mutation.themeTokens };
+  }
+  if (mutation.patch && mutation.type !== "set_copy") {
+    Object.assign(patch, mutation.patch);
+  }
+  if (mutation.themeTokens && mutation.type !== "set_theme_tokens") {
+    generated.themeTokens = { ...(generated.themeTokens || {}), ...mutation.themeTokens };
+  }
+
+  const hasPatch = Object.keys(patch).length > 0;
+  db.dashboards[id] = {
+    ...existingRecord,
+    patch,
+    generated,
+    updatedAt: new Date().toISOString(),
+    updatedBy: source,
+    instruction: clampText(instruction, 500),
+  };
+  if (!hasPatch) db.dashboards[id].patch = {};
+  db.events.push({
+    dashboard: id,
+    source,
+    instruction: clampText(instruction, 500),
+    mutation,
+    at: new Date().toISOString(),
+  });
+  db.events = db.events.slice(-100);
+  writeDashboardOverrides(db);
+  return db.dashboards[id];
+}
+
 function realtimeTools() {
   const workspaceEnum = PANELS.map((panel) => panel.id);
+  const componentTypes = Object.keys(componentRegistry());
+  const views = Object.keys(viewPresets());
   return [
     {
       type: "function",
@@ -869,6 +1062,132 @@ function realtimeTools() {
         required: ["dashboardId", "instruction", "patch"],
       },
     },
+    {
+      type: "function",
+      name: "apply_dashboard_mutation",
+      description:
+        "Fast dashboard generation tool. Compose a dashboard from prebuilt components and view presets. Prefer this over apply_dashboard_edit for user requests like add a panel, make an investor view, create a brief, show a timeline, or reshape this dashboard.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          instruction: { type: "string" },
+          mutation: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              type: {
+                type: "string",
+                enum: ["set_view", "set_copy", "replace_slot", "add_component", "set_theme_tokens", "clear_generated"],
+              },
+              view: { type: "string", enum: views },
+              slot: { type: "string", enum: ["rail", "stageOverlay"] },
+              patch: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  title: { type: "string" },
+                  subtitle: { type: "string" },
+                  kicker: { type: "string" },
+                  visualLabel: { type: "string" },
+                  visualCopy: { type: "string" },
+                  feedLabel: { type: "string" },
+                  lens: { type: "string" },
+                  caption: { type: "string" },
+                  tabs: { type: "array", items: { type: "string" }, maxItems: 6 },
+                  metrics: {
+                    type: "array",
+                    maxItems: 3,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                  feed: {
+                    type: "array",
+                    maxItems: 6,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                },
+              },
+              component: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  id: { type: "string" },
+                  type: { type: "string", enum: componentTypes },
+                  eyebrow: { type: "string" },
+                  title: { type: "string" },
+                  body: { type: "string" },
+                  value: { type: "string" },
+                  note: { type: "string" },
+                  variant: { type: "string" },
+                  binding: {
+                    type: "string",
+                    enum: ["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"],
+                  },
+                  metrics: {
+                    type: "array",
+                    maxItems: 6,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                  rows: {
+                    type: "array",
+                    maxItems: 8,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                  items: { type: "array", items: { type: "string" }, maxItems: 8 },
+                },
+                required: ["type"],
+              },
+              components: {
+                type: "array",
+                maxItems: 4,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "string" },
+                    type: { type: "string", enum: componentTypes },
+                    eyebrow: { type: "string" },
+                    title: { type: "string" },
+                    body: { type: "string" },
+                    value: { type: "string" },
+                    note: { type: "string" },
+                    variant: { type: "string" },
+                    binding: {
+                      type: "string",
+                      enum: ["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed"],
+                    },
+                    metrics: {
+                      type: "array",
+                      maxItems: 6,
+                      items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                    },
+                    rows: {
+                      type: "array",
+                      maxItems: 8,
+                      items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                    },
+                    items: { type: "array", items: { type: "string" }, maxItems: 8 },
+                  },
+                  required: ["type"],
+                },
+              },
+              themeTokens: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  accent: { type: "string" },
+                  accent2: { type: "string" },
+                  accent3: { type: "string" },
+                },
+              },
+            },
+            required: ["type"],
+          },
+        },
+        required: ["dashboardId", "instruction", "mutation"],
+      },
+    },
   ];
 }
 
@@ -878,10 +1197,11 @@ function realtimeInstructions(dashboardId) {
   return [
     "You are Kat, the voice-native agent inside Katechon.",
     "Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.",
-    "You can discuss the active dashboard, navigate between dashboards, and safely modify dashboard copy/config through tools.",
+    "You can discuss the active dashboard, navigate between dashboards, and rapidly compose dashboard views from prebuilt components.",
     "When answering about a dashboard, ground yourself in the provided channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.",
     "If the user asks for current data that is not in liveSummary, call get_channel_live before answering.",
-    "When the user asks to change a dashboard, call apply_dashboard_edit with a concrete patch and then briefly state what changed after the tool succeeds.",
+    "When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.",
+    "Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, bindings, and theme tokens.",
     "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
     `Current channel context:\n${JSON.stringify(context, null, 2)}`,
     `Available dashboards:\n${panelCatalog}`,
@@ -893,7 +1213,6 @@ function realtimeSessionConfig(dashboardId) {
     type: "realtime",
     model: OPENAI_REALTIME_MODEL,
     instructions: realtimeInstructions(dashboardId),
-    modalities: ["text", "audio"],
     audio: {
       input: {
         transcription: { model: OPENAI_REALTIME_TRANSCRIBE_MODEL },
@@ -1664,10 +1983,11 @@ async function getCachedLive(req, key, loader, fallback) {
     LIVE_API_CACHE.set(key, { time: Date.now(), source, data });
     return { ok: true, source, stale: false, data, fallbackReason: null };
   } catch (err) {
+    const fallbackReason = redactLiveErrorMessage(err.message);
     if (cached) {
-      return { ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason: err.message };
+      return { ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason };
     }
-    return { ok: true, source: `${source}-synthetic`, stale: true, data: fallback(req), fallbackReason: err.message };
+    return { ok: true, source: `${source}-synthetic`, stale: true, data: fallback(req), fallbackReason };
   }
 }
 
@@ -2003,7 +2323,9 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
     dashboard: {
       ...dashboard,
       editableFields: ["title", "subtitle", "kicker", "visualLabel", "visualCopy", "feedLabel", "lens", "caption", "tabs", "metrics", "feed", "customCss"],
+      generated: dashboard.generated,
     },
+    generation: channelGenerationSpec(channel),
     docs: {
       summary: docs.summary,
       contract: docs.contract,
@@ -2018,7 +2340,8 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
     rules: [
       "Use liveSummary for normal spoken answers.",
       "Call get_channel_live before making specific current-data claims not present in liveSummary.",
-      "Modify dashboard layout/copy only through apply_dashboard_edit or future generated renderer tools.",
+      "Use apply_dashboard_mutation for fast generated views, panels, widgets, bindings, and audience-specific layouts.",
+      "Use apply_dashboard_edit only for narrow copy, metric, feed, or tab edits.",
       "Do not call provider APIs directly from generated components.",
       "Do not add wallet, trading, paid, KYC, or login-only flows in v1.",
     ],
@@ -2430,12 +2753,29 @@ app.get("/api/dashboard-overrides/:dashboard", (req, res) => {
     res.json({
       dashboard: dashboardId,
       patch: override?.patch || {},
+      generated: sanitizeGeneratedDashboard(override?.generated),
       updatedAt: override?.updatedAt || null,
       instruction: override?.instruction || "",
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.get("/api/realtime/status", (req, res) => {
+  res.json({
+    ok: true,
+    configured: Boolean(process.env.OPENAI_API_KEY),
+    model: OPENAI_REALTIME_MODEL,
+    voice: OPENAI_REALTIME_VOICE,
+    currentWorkspace: state.currentWorkspace,
+    fallback: {
+      groqTranscription: Boolean(process.env.GROQ_API_KEY),
+      elevenLabsVoice: Boolean(process.env.ELEVENLABS_API_KEY),
+      elevenLabsVoiceId: ELEVENLABS_VOICE_ID,
+      elevenLabsModel: ELEVENLABS_MODEL_ID,
+    },
+  });
 });
 
 app.post("/api/realtime/session", async (req, res) => {
@@ -2448,8 +2788,10 @@ app.post("/api/realtime/session", async (req, res) => {
     }
 
     const form = new FormData();
+    const dashboard = cleanDashboardId(req.query.dashboard || state.currentWorkspace);
     form.append("sdp", req.body);
-    form.append("session", JSON.stringify(realtimeSessionConfig(req.query.dashboard || state.currentWorkspace)));
+    form.append("session", JSON.stringify(realtimeSessionConfig(dashboard)));
+    console.log(`OpenAI realtime session request: dashboard=${dashboard || "landing"}, model=${OPENAI_REALTIME_MODEL}, voice=${OPENAI_REALTIME_VOICE}`);
 
     const response = await fetch(OPENAI_REALTIME_URL, {
       method: "POST",
@@ -2461,6 +2803,7 @@ app.post("/api/realtime/session", async (req, res) => {
       timeout: 15000,
     });
     const text = await response.text();
+    console.log(`OpenAI realtime session response: status=${response.status}, dashboard=${dashboard || "landing"}, model=${OPENAI_REALTIME_MODEL}, voice=${OPENAI_REALTIME_VOICE}`);
     res.status(response.status);
     res.type(response.ok ? "application/sdp" : "text/plain");
     res.send(text);
@@ -2522,6 +2865,22 @@ async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
       applied: override.patch,
       updatedAt: override.updatedAt,
       message: "Dashboard override applied.",
+    };
+  }
+
+  if (name === "apply_dashboard_mutation") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const override = applyDashboardMutation(dashboardId, args.mutation, args.instruction, "kat-realtime");
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      generated: sanitizeGeneratedDashboard(override.generated),
+      applied: {
+        patch: override.patch || {},
+        mutation: sanitizeMutation(args.mutation),
+      },
+      updatedAt: override.updatedAt,
+      message: "Dashboard mutation applied.",
     };
   }
 
@@ -2629,16 +2988,30 @@ function workspaceForAction(action) {
   return null;
 }
 
-function fallbackAgentDecision(transcript) {
-  const text = transcript.toLowerCase().replace(/[^\w\s]/g, " ");
-  const wantsHome =
-    /\b(home|homepage|landing|menu)\b/.test(text) ||
-    /\bhome\s+page\b/.test(text) ||
-    /\bmain\s+(panel|board|screen|menu|dashboard|page)\b/.test(text) ||
-    /\b(back|return|close|exit)\b/.test(text);
-  const wantsSpectre =
-    /\b(osint|spectre|intel|intelligence)\b/.test(text) ||
-    /\bdashboard\b/.test(text);
+function normalizeAgentText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function activeDashboardForAgent(options = {}) {
+  const candidate = cleanDashboardId(options.dashboard || options.dashboardId || state.currentWorkspace);
+  if (candidate && PANELS.some((panel) => panel.id === candidate)) return candidate;
+  return state.currentWorkspace || "landing";
+}
+
+function panelMatchesTranscript(panel, normalizedText) {
+  const padded = ` ${normalizedText} `;
+  const aliases = [panel.id, panel.id.replace(/-/g, " "), panel.label]
+    .map(normalizeAgentText)
+    .filter((alias) => alias && alias !== "dashboard" && alias.length >= 3);
+  return aliases.some((alias) => padded.includes(` ${alias} `));
+}
+
+function findDashboardInTranscript(normalizedText) {
   const dashboardMatches = [
     ["news", /\b(news|broadcast|feed)\b/],
     ["world-monitor", /\b(world\s*monitor|geopolitical|geopolitics|world\s+map|instability)\b/],
@@ -2648,7 +3021,254 @@ function fallbackAgentDecision(transcript) {
     ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
     ["dune-deck", /\b(dune|pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
   ];
+  const matchedAlias = dashboardMatches.find(([, pattern]) => pattern.test(normalizedText));
+  if (matchedAlias) return matchedAlias[0];
+  const matchedPanel = PANELS.find((panel) => panel.id !== "landing" && panelMatchesTranscript(panel, normalizedText));
+  return matchedPanel?.id || null;
+}
 
+function looksLikeActiveDashboardQuestion(normalizedText) {
+  const hasDashboardReference = /\b(this|current|active|open|dashboard|panel|board|view)\b/.test(normalizedText);
+  const asksAboutState = /\b(what|whats|happening|showing|seeing|reading|summarize|explain|walk\s+me\s+through|tell\s+me)\b/.test(normalizedText);
+  return hasDashboardReference && asksAboutState;
+}
+
+function looksLikeDashboardMutation(normalizedText) {
+  if (/\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage|columns?|metrics?|widgets?)\b/.test(normalizedText)) return true;
+  const changeVerb = /\b(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose)\b/.test(normalizedText);
+  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|metrics?|kpis?|prices?|price|spread|depth|volume|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
+  return changeVerb && target;
+}
+
+function titleCaseWords(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 9)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function mutationTopicFromTranscript(transcript, normalizedText, dashboardId) {
+  if (/\beth\b/.test(normalizedText) && /\bprice\b/.test(normalizedText)) return "ETH Price";
+  if (/\b(btc|ptc)\b/.test(normalizedText) && /\bprice\b/.test(normalizedText)) return "BTC Price";
+  if (/\bspread\b/.test(normalizedText) && /\bbtc\b/.test(normalizedText)) return "BTC Spread";
+  if (/\bbangladesh\b/.test(normalizedText) && /\bcheck\s*in\b/.test(normalizedText)) return "Bangladesh Check-In Opportunity";
+  if (/\btrust\b/.test(normalizedText) && /\brisk/.test(normalizedText)) return "Launch Risks And Trust Signals";
+  if (/\bcit(y|ies)\b/.test(normalizedText)) return "City Launch Priorities";
+  if (/\bmissile\b/.test(normalizedText)) return "Missile Launch";
+
+  const cleaned = String(transcript || "")
+    .replace(/[.!?]+$/g, "")
+    .replace(/\b(to|on|in)\s+the\s+(right\s+)?(rail|stage|main stage|overlay|dashboard|panel|board)\b/ig, " ")
+    .replace(/\bwith\s+(one|two|three|four|five|\d+).*/ig, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const match = cleaned.match(/\b(?:for|about|around|called|named|tracking|showing)\s+(.+)$/i);
+  if (match?.[1]) return titleCaseWords(match[1]);
+  const stripped = cleaned.replace(/^(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose)\b\s*(this|the|a|an)?\s*/i, "");
+  const generic = stripped.replace(/\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|timeline|brief|briefing|view|dashboard)\b/ig, "").trim();
+  return titleCaseWords(generic) || dashboardContextFor(dashboardId).label || "Dashboard Update";
+}
+
+function mutationSlotFromText(normalizedText) {
+  if (/\b(map|main|stage|overlay|hero|over)\b/.test(normalizedText)) return "stageOverlay";
+  return "rail";
+}
+
+function mutationComponentTypeFromText(normalizedText) {
+  if (/\btimeline|sequence|events?\b/.test(normalizedText)) return "event-timeline";
+  if (/\bmap|city|cities|geo|location\b/.test(normalizedText)) return "map-brief";
+  if (/\bmetrics?|kpis?|numbers?|strip|columns?|rows?|tables?\b/.test(normalizedText)) return "metric-strip";
+  if (/\bscenario|options?|paths?\b/.test(normalizedText)) return "scenario-cards";
+  if (/\bsources?|confidence|verification\b/.test(normalizedText)) return "source-confidence";
+  if (/\baction|next|steps?|moves?\b/.test(normalizedText)) return "action-panel";
+  if (/\bmarket|price|trading|investor\b/.test(normalizedText)) return "market-widget";
+  return "insight-card";
+}
+
+function fallbackComponentForMutation(transcript, dashboardId) {
+  const normalizedText = normalizeAgentText(transcript);
+  const topic = mutationTopicFromTranscript(transcript, normalizedText, dashboardId);
+  const type = mutationComponentTypeFromText(normalizedText);
+  const base = {
+    type,
+    eyebrow: /\binvestor\b/.test(normalizedText) ? "investor lens" : "generated",
+    title: topic,
+    body: `Kat generated this ${topic.toLowerCase()} block from the current voice request.`,
+    items: ["Clarify the signal", "Separate evidence from speculation", "Keep the next action visible"],
+  };
+
+  if (type === "map-brief") {
+    return {
+      ...base,
+      eyebrow: "launch map",
+      body: "Prioritize launch motion by city-level trust, partner access, and repeat behavior.",
+      items: ["Dhaka: trust onboarding", "Chittagong: partner pilots", "Sylhet: retention loop"],
+    };
+  }
+  if (type === "event-timeline") {
+    return {
+      ...base,
+      rows: [["now", `${topic} added to the active watch path.`, "voice"], ["next", "Review supporting signals before escalation.", "operator"], ["later", "Promote into a persistent view if it remains useful.", "Kat"]],
+    };
+  }
+  if (type === "metric-strip") {
+    if (/\b(eth|btc|ptc|price|spread|depth|volume)\b/.test(normalizedText)) {
+      const asset = /\beth\b/.test(normalizedText) ? "ETH" : /\b(sol)\b/.test(normalizedText) ? "SOL" : "BTC";
+      const topicLabel = topic.toUpperCase().includes(asset) ? topic : `${asset} ${topic}`;
+      return {
+        ...base,
+        eyebrow: "market column",
+        title: topicLabel,
+        body: "A generated market column added from the voice request. Values should bind to live market data when the channel provider exposes the field.",
+        binding: "liveSummary.metrics",
+        metrics: [
+          [asset, "live", "price"],
+          ["Spread", "live", "book"],
+          ["Depth", "live", "liquidity"],
+        ],
+        items: ["Confirm provider coverage", "Promote to a native column when stable"],
+      };
+    }
+    return {
+      ...base,
+      metrics: [["Signal", "new", topic], ["Confidence", "review", "voice"], ["Action", "queued", "next"]],
+    };
+  }
+  if (type === "action-panel") {
+    return {
+      ...base,
+      items: ["Define the audience", "Pick the highest-signal widget", "Promote repeatable blocks"],
+    };
+  }
+  if (/\btrust\b/.test(normalizedText) || /\brisk/.test(normalizedText)) {
+    return {
+      ...base,
+      eyebrow: "risk lens",
+      body: "Track trust signals, launch friction, and weak evidence before treating the opportunity as ready.",
+      items: ["Verification clarity", "Repeat behavior", "Partner credibility", "Operational downside"],
+    };
+  }
+  return base;
+}
+
+function fallbackMutationDecision(transcript, dashboardId) {
+  const normalizedText = normalizeAgentText(transcript);
+  if (!dashboardId || dashboardId === "landing" || !looksLikeDashboardMutation(normalizedText)) return null;
+
+  const clear = /\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage)\b/.test(normalizedText);
+  const instruction = clampText(transcript, 500);
+  let mutation;
+  let speech;
+
+  if (clear) {
+    mutation = { type: "clear_generated" };
+    speech = "Cleared the generated components.";
+  } else if (/\binvestor|briefing|bangladesh|check\s*in\b/.test(normalizedText)) {
+    const topic = mutationTopicFromTranscript(transcript, normalizedText, dashboardId);
+    mutation = {
+      type: "replace_slot",
+      slot: "rail",
+      patch: {
+        title: topic,
+        subtitle: "A fast generated briefing assembled from reusable dashboard blocks.",
+      },
+      components: [
+        {
+          type: "insight-card",
+          eyebrow: "thesis",
+          title: topic,
+          body: "Frame the opportunity around observed behavior, trust signals, and repeat usage before writing custom product code.",
+          items: ["City launch queue", "Trust signal tracker", "Repeat check-in loops"],
+        },
+        {
+          type: "action-panel",
+          title: "Next proof points",
+          items: ["Map priority cities", "Add retention signals", "Create partner outreach view"],
+        },
+      ],
+    };
+    speech = `Built an investor briefing for ${topic}.`;
+  } else {
+    mutation = {
+      type: "add_component",
+      slot: mutationSlotFromText(normalizedText),
+      component: fallbackComponentForMutation(transcript, dashboardId),
+    };
+    speech = "Added a generated dashboard component.";
+  }
+
+  const override = applyDashboardMutation(dashboardId, mutation, instruction, "kat-fallback-mutation");
+  return {
+    action: "dashboard_mutation",
+    workspace: null,
+    dashboardId,
+    dashboard: dashboardContextFor(dashboardId),
+    generated: sanitizeGeneratedDashboard(override.generated),
+    applied: { mutation: sanitizeMutation(mutation), patch: override.patch || {} },
+    updatedAt: override.updatedAt,
+    speech,
+    source: "fallback-mutation",
+  };
+}
+
+function compactFallbackDashboardContext(dashboardId) {
+  const context = katContextBootstrap(dashboardId);
+  return {
+    activeDashboard: dashboardId,
+    channel: context.channel
+      ? {
+          id: context.channel.id,
+          label: context.channel.label,
+          category: context.channel.category,
+          description: context.channel.description,
+        }
+      : null,
+    liveSummary: context.liveSummary,
+    dashboard: {
+      id: context.dashboard?.id,
+      label: context.dashboard?.label,
+      title: context.dashboard?.title,
+      subtitle: context.dashboard?.subtitle,
+      metrics: context.dashboard?.metrics,
+      feed: context.dashboard?.feed,
+      generated: context.dashboard?.generated,
+    },
+  };
+}
+
+function fallbackActiveDashboardDecision(transcript, dashboardId) {
+  const context = compactFallbackDashboardContext(dashboardId);
+  const dashboard = context.dashboard || dashboardContextFor(dashboardId);
+  const highlights = Array.isArray(context.liveSummary?.highlights) ? context.liveSummary.highlights.filter(Boolean) : [];
+  const metrics = Array.isArray(context.liveSummary?.metrics) ? context.liveSummary.metrics : [];
+  const metricLine = metrics
+    .slice(0, 2)
+    .map((row) => Array.isArray(row) ? `${row[0]} ${row[1]}` : "")
+    .filter(Boolean)
+    .join(", ");
+  const highlight = highlights[0] || dashboard.subtitle || "the active channel state";
+  const speech = `${dashboard.label || dashboard.title || titleFromId(dashboardId)} is showing ${highlight}${metricLine ? ` Key metrics: ${metricLine}.` : "."}`;
+  return {
+    action: "unknown",
+    workspace: null,
+    speech: cleanSpeech(speech),
+    source: "fallback-context",
+  };
+}
+
+function fallbackAgentDecision(transcript, options = {}) {
+  const text = normalizeAgentText(transcript);
+  const activeDashboard = activeDashboardForAgent(options);
+  const wantsHome =
+    /\b(home|homepage|landing|menu)\b/.test(text) ||
+    /\bhome\s+page\b/.test(text) ||
+    /\bmain\s+(panel|board|screen|menu|dashboard|page)\b/.test(text) ||
+    /\b(back|return|close|exit)\b/.test(text);
+  const wantsSpectre =
+    /\b(osint|spectre|intel|intelligence)\b/.test(text) ||
+    /\bdashboard\b/.test(text);
   if (wantsHome && !/\b(osint|spectre|intel|intelligence)\b/.test(text)) {
     return {
       action: "go_home",
@@ -2658,15 +3278,19 @@ function fallbackAgentDecision(transcript) {
     };
   }
 
-  const matchedDashboard = dashboardMatches.find(([, pattern]) => pattern.test(text));
+  const matchedDashboard = findDashboardInTranscript(text);
   if (matchedDashboard) {
-    const panel = PANELS.find((candidate) => candidate.id === matchedDashboard[0]);
+    const panel = PANELS.find((candidate) => candidate.id === matchedDashboard);
     return {
-      action: matchedDashboard[0] === "spectre" ? "open_spectre" : "open_dashboard",
-      workspace: matchedDashboard[0],
-      speech: `Opening ${panel?.label || matchedDashboard[0]} now.`,
+      action: matchedDashboard === "spectre" ? "open_spectre" : "open_dashboard",
+      workspace: matchedDashboard,
+      speech: `Opening ${panel?.label || matchedDashboard} now.`,
       source: "fallback",
     };
+  }
+
+  if (activeDashboard && activeDashboard !== "landing" && looksLikeActiveDashboardQuestion(text)) {
+    return fallbackActiveDashboardDecision(transcript, activeDashboard);
   }
 
   if (wantsSpectre) {
@@ -2709,10 +3333,14 @@ function normalizeAgentDecision(raw, transcript, source) {
   };
 }
 
-async function routeWithKatAgent(transcript) {
+async function routeWithKatAgent(transcript, options = {}) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return fallbackAgentDecision(transcript);
+  if (!apiKey) return fallbackAgentDecision(transcript, options);
 
+  const activeDashboard = activeDashboardForAgent(options);
+  const activeContext = activeDashboard && activeDashboard !== "landing"
+    ? compactFallbackDashboardContext(activeDashboard)
+    : null;
   const panelCatalog = PANELS.map((panel) => `- ${panel.id}: ${panel.label}. ${panel.description}`).join("\n");
   const resp = await fetch(ANTHROPIC_URL, {
     method: "POST",
@@ -2728,8 +3356,12 @@ async function routeWithKatAgent(transcript) {
         "You are Kat, the VTuber agent operating a remote Linux desktop for the viewer. " +
         "Route each transcript into exactly one control decision. Be snappy. " +
         "If the user asks for an app/panel/dashboard, choose that panel. If they ask to go back/home/main, choose landing. " +
-        "If the request is unclear, do not change panels. Always produce one short spoken line in Kat's voice.\n\n" +
-        `Available panels:\n${panelCatalog}`,
+        "If the user asks about this/current/active dashboard and an active dashboard context is provided, do not ask which dashboard; " +
+        "answer from that context with action unknown and no workspace. " +
+        "If the request is unclear, do not change panels. Always produce one short spoken line in Kat's voice. " +
+        "Do not invent live facts outside the active context.\n\n" +
+        `Available panels:\n${panelCatalog}\n\n` +
+        `Active dashboard context:\n${activeContext ? JSON.stringify(activeContext, null, 2) : "landing panel / no active dashboard"}`,
       tools: [
         {
           name: "control_desktop",
@@ -2988,15 +3620,19 @@ async function dispatchRemoteSpeech(payload) {
   }
 }
 
-async function runKatAgent(transcript) {
+async function runKatAgent(transcript, options = {}) {
   const startedAt = Date.now();
   const id = `kat-${Date.now()}`;
-  let decision;
+  const activeDashboard = activeDashboardForAgent(options);
+  if (activeDashboard && PANELS.some((panel) => panel.id === activeDashboard)) {
+    state.currentWorkspace = activeDashboard;
+  }
+  let decision = fallbackMutationDecision(transcript, activeDashboard);
   try {
-    decision = await routeWithKatAgent(transcript);
+    if (!decision) decision = await routeWithKatAgent(transcript, { ...options, dashboard: activeDashboard });
   } catch (err) {
     console.warn("kat agent routing failed:", err.message);
-    decision = fallbackAgentDecision(transcript);
+    decision = fallbackAgentDecision(transcript, { ...options, dashboard: activeDashboard });
   }
 
   const workspace = decision.workspace || workspaceForAction(decision.action);
@@ -3004,13 +3640,16 @@ async function runKatAgent(transcript) {
 
   const routeMs = Date.now() - startedAt;
   const commandStartedAt = Date.now();
-  const commandRemotePromise = dispatchRemoteCommand({
-    id,
-    transcript,
-    action: decision.action,
-    speech: decision.speech,
-    workspace,
-  }).then((result) => ({ ...result, elapsedMs: Date.now() - commandStartedAt }));
+  const commandRemotePromise =
+    (decision.action === "unknown" && !workspace) || decision.action === "dashboard_mutation"
+      ? Promise.resolve({ ok: true, skipped: "no desktop command", elapsedMs: 0 })
+      : dispatchRemoteCommand({
+          id,
+          transcript,
+          action: decision.action,
+          speech: decision.speech,
+          workspace,
+        }).then((result) => ({ ...result, elapsedMs: Date.now() - commandStartedAt }));
 
   let audio = "";
   const ttsStartedAt = Date.now();
@@ -3041,6 +3680,11 @@ async function runKatAgent(transcript) {
     workspace,
     speech: decision.speech,
     source: decision.source,
+    dashboardId: decision.dashboardId,
+    dashboard: decision.dashboard,
+    generated: decision.generated,
+    applied: decision.applied,
+    updatedAt: decision.updatedAt,
     audio,
     muted: !audio,
     remote: {
@@ -3062,7 +3706,7 @@ app.post("/api/agent", async (req, res) => {
     const transcript = String(req.body?.transcript || "").trim();
     if (!transcript) return res.status(400).json({ error: "empty transcript" });
 
-    res.json(await runKatAgent(transcript));
+    res.json(await runKatAgent(transcript, { dashboard: req.body?.dashboard || req.body?.workspace }));
   } catch (err) {
     console.error("agent error:", err.message);
     res.status(500).json({ error: err.message });
@@ -3074,7 +3718,7 @@ app.post("/api/command", async (req, res) => {
   try {
     const transcript = String(req.body?.transcript || "").trim();
     if (!transcript) return res.status(400).json({ error: "empty transcript" });
-    res.json(await runKatAgent(transcript));
+    res.json(await runKatAgent(transcript, { dashboard: req.body?.dashboard || req.body?.workspace }));
   } catch (err) {
     console.error("command error:", err.message);
     res.status(500).json({ error: err.message });

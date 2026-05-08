@@ -102,6 +102,15 @@ Edit `.env` and fill in:
 | `HLS_CONTROL_URL` | No | Defaults to `http://localhost:9095` |
 | `USER_DB_FILE` | No | File-backed email store path. Defaults to `data/users.json` and is ignored by git |
 
+### Kat voice modes
+
+Kat has two push-to-talk paths:
+
+- **Legacy fallback, default:** `http://localhost:4148` uses browser recording, Groq transcription, `/api/agent`, ElevenLabs Kat TTS, and parent-driven avatar mouth sync. This is the stable demo mode and supports dashboard navigation, context answers, and generated dashboard components.
+- **OpenAI Realtime, opt-in:** `http://localhost:4148?realtime=1` opens the OpenAI WebRTC path with `gpt-realtime-2` and `marin`. You can also persist test mode with `localStorage.setItem("KAT_REALTIME_VOICE", "1")`; clear it with `localStorage.removeItem("KAT_REALTIME_VOICE")`.
+
+Current Realtime diagnosis: `/api/realtime/session` can create sessions successfully (`201` from OpenAI), so auth and the session broker are working. The observed failure happens after session creation: the browser sends push-to-talk control events but no `response.created` arrives before the watchdog, and Firefox can also report ICE failures. Keep legacy as the demo default until the Realtime path is moved to the OpenAI Agents Realtime SDK or changed to record audio chunks and append them explicitly before `input_audio_buffer.commit`.
+
 ### 3. Configure SSH
 
 Ensure `~/.ssh/config` has an entry for the stream server:
@@ -277,11 +286,15 @@ All endpoints are served by `server.js` on port 4040. Channel data routes are do
 | `GET`  | `/api/channels/:channel/live` | Fetch active normalized data for one channel |
 | `GET`  | `/api/channels/:channel/context` | Fetch compact Kat context with live summary, docs, dashboard state, and edit rules |
 | `GET`  | `/api/channels/:channel/docs` | Fetch structured docs for one channel and its providers |
+| `GET`  | `/api/realtime/status` | Check OpenAI Realtime config and legacy fallback availability |
+| `POST` | `/api/realtime/session` | Broker a WebRTC SDP offer to OpenAI Realtime `/v1/realtime/calls` |
+| `POST` | `/api/realtime/tool` | Execute Kat Realtime tools, including dashboard mutations |
 | `GET`  | `/api/live/hyperliquid` | Provider compatibility route for read-only Hyperliquid market data |
 | `GET`  | `/api/live/polymarket` | Provider compatibility route for Polymarket market discovery data |
 | `GET`  | `/api/live/pumpfun` | Provider compatibility route for indexed Pump.fun-style token data |
 | `POST` | `/api/switch/:workspace` | Switch active workspace (`spectre`, `minecraft`, `news`, `landing`) |
 | `POST` | `/api/transcribe` | Transcribe audio blob → text (Groq Whisper) |
+| `POST` | `/api/agent` | Parse transcript with active dashboard context, apply fast mutations, synthesize Kat reply |
 | `POST` | `/api/command` | Parse transcript → action, route to remote control server |
 | `POST` | `/api/speak` | Synthesize TTS (ElevenLabs) + forward to avatar |
 | `GET`  | `/api/narration/:dashboard` | Generate one generic or custom Kat narration payload with synced TTS audio |

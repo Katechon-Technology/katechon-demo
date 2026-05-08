@@ -148,7 +148,7 @@ Kat-generated dashboard components should:
 - Read channel state from `/api/channels/:channel/live`.
 - Read compact voice/build context from `/api/channels/:channel/context`.
 - Read docs and provider context from `/api/channels/:channel/docs`.
-- Render only from the normalized payload passed into the component.
+- Render only from the normalized payload or generated component config passed into the component.
 - Treat `stale`, `source`, and `fallbackReason` as first-class UI state.
 - Stay channel-scoped so a generated component can be enabled, replaced, or rolled back without changing the shared shell.
 
@@ -157,6 +157,85 @@ Kat-generated dashboard components should not:
 - Fetch Hyperliquid, Polymarket, CoinGecko, or other provider APIs directly from the browser component.
 - Add trading, wallet, KYC, paid, or login-only flows in v1.
 - Hide fallback state from the user.
+
+## Fast Dashboard Mutation Contract
+
+Kat should treat dashboard generation like composing a Roblox/Retool-style surface from predefined blocks, not like arbitrary source-code editing.
+
+The Realtime tool `apply_dashboard_mutation` accepts these mutation types:
+
+| Type | Purpose |
+|------|---------|
+| `set_view` | Pick a view preset such as `briefing`, `investor`, `operator`, `research`, or `market` |
+| `set_copy` | Update title, subtitle, labels, tabs, metrics, or feed rows |
+| `replace_slot` | Replace a dashboard slot with generated components |
+| `add_component` | Append one generated component to a slot |
+| `set_theme_tokens` | Set safe color tokens: `accent`, `accent2`, `accent3` |
+| `clear_generated` | Remove generated components and return to the base dashboard |
+
+Current slots:
+
+| Slot | Render Location |
+|------|-----------------|
+| `rail` | Right-side generated component stack between the feed and mini insight panel |
+| `stageOverlay` | Overlay cards inside the main visual stage |
+
+Current component types:
+
+| Component | Best For |
+|-----------|----------|
+| `metric-strip` | Compact KPIs, optionally bound to `liveSummary.metrics` |
+| `insight-card` | Generated framing, thesis, or user-specific explanation |
+| `event-timeline` | Time-ordered feed/source/task rows |
+| `source-confidence` | Source quality, assumptions, and uncertainty |
+| `scenario-cards` | Options, scenarios, or next-step cards |
+| `map-brief` | Stage overlay callouts for map/geospatial/network dashboards |
+| `market-widget` | Read-only market or prediction-market snippets |
+| `action-panel` | Suggested viewer questions, watchlist items, or workflow steps |
+
+Supported bindings:
+
+| Binding | Meaning |
+|---------|---------|
+| `liveSummary.metrics` | Use the current channel metric summary |
+| `liveSummary.feed` | Use the current channel feed rows |
+| `liveSummary.highlights` | Use compact generated highlights from the current feed |
+| `dashboard.metrics` | Use dashboard metrics |
+| `dashboard.feed` | Use dashboard feed rows |
+| `none` | Render only supplied component props |
+
+Example mutation:
+
+```json
+{
+  "dashboardId": "iran",
+  "instruction": "Make this an investor briefing for a Bangladesh check-in app opportunity.",
+  "mutation": {
+    "type": "replace_slot",
+    "slot": "rail",
+    "patch": {
+      "title": "Bangladesh Check-In Opportunity",
+      "subtitle": "A market-entry dashboard for check-in behavior, trust signals, and early growth loops.",
+      "visualLabel": "market entry signal map",
+      "visualCopy": "Kat is reframing this channel around audience behavior, adoption triggers, and launch sequencing."
+    },
+    "components": [
+      {
+        "type": "insight-card",
+        "eyebrow": "thesis",
+        "title": "Behavior-first market entry",
+        "body": "Use the dashboard to track trust, frequency, and social proof before writing product code.",
+        "items": ["Target repeat check-ins", "Measure invite loops", "Separate hype from retained behavior"]
+      },
+      {
+        "type": "action-panel",
+        "title": "Next dashboard blocks",
+        "items": ["Persona map", "City launch queue", "Retention signal tracker"]
+      }
+    ]
+  }
+}
+```
 
 ## Example Calls
 

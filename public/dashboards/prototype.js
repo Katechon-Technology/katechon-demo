@@ -31,6 +31,7 @@
       metrics: normalizeMetrics(config.metrics),
       feed: config.feed.map((item) => [...item]),
       livePayload: null,
+      generated: emptyGeneratedDashboard(),
     };
 
     const animeApi = window.anime || {};
@@ -82,6 +83,29 @@
       style.textContent = css;
     }
 
+    function emptyGeneratedDashboard() {
+      return {
+        view: "default",
+        slots: {
+          rail: [],
+          stageOverlay: [],
+        },
+        themeTokens: {},
+      };
+    }
+
+    function normalizeGeneratedDashboard(raw) {
+      const generated = emptyGeneratedDashboard();
+      if (!raw || typeof raw !== "object") return generated;
+      if (raw.view) generated.view = String(raw.view);
+      const slots = raw.slots && typeof raw.slots === "object" ? raw.slots : {};
+      ["rail", "stageOverlay"].forEach(slot => {
+        generated.slots[slot] = Array.isArray(slots[slot]) ? slots[slot].slice(0, 4) : [];
+      });
+      generated.themeTokens = raw.themeTokens && typeof raw.themeTokens === "object" ? raw.themeTokens : {};
+      return generated;
+    }
+
     async function loadDashboardOverride() {
       try {
         const resp = await fetch(appUrl(`/api/dashboard-overrides/${encodeURIComponent(dashboardId)}`), { cache: "no-store" });
@@ -92,6 +116,7 @@
         state.metrics = normalizeMetrics(config.metrics);
         state.feed = Array.isArray(config.feed) ? config.feed.map((item) => [...item]) : [];
         state.activeFeed = 0;
+        state.generated = normalizeGeneratedDashboard(payload.generated);
         applyDashboardCustomCss(payload.patch.customCss);
       } catch (_) {}
     }
@@ -100,6 +125,11 @@
       document.documentElement.style.setProperty("--accent", palette[0]);
       document.documentElement.style.setProperty("--accent2", palette[1]);
       document.documentElement.style.setProperty("--accent3", palette[2]);
+      Object.entries(state.generated.themeTokens || {}).forEach(([key, value]) => {
+        if (["accent", "accent2", "accent3"].includes(key) && /^#[0-9a-f]{3,6}$/i.test(String(value))) {
+          document.documentElement.style.setProperty(`--${key}`, value);
+        }
+      });
       document.documentElement.style.setProperty("--bg0", palette[3]);
       document.documentElement.style.setProperty("--bg1", palette[4]);
     }
@@ -135,6 +165,7 @@
     function render() {
       setTheme();
       document.title = `${config.title} - Katechon`;
+      document.body.dataset.generatedView = state.generated.view || "default";
       $("kicker").textContent = config.kicker;
       $("title").textContent = config.title;
       $("visual-label").textContent = config.visualLabel;
@@ -144,6 +175,7 @@
       renderFeed();
       renderStage();
       renderMiniVisual();
+      renderGeneratedRail();
       updateClock();
       runIntroMotion();
       loadLiveData();
@@ -181,6 +213,91 @@
         });
       });
       updateMiniFocus();
+    }
+
+    function bindingRows(binding) {
+      if (binding === "liveSummary.metrics" || binding === "dashboard.metrics") return visibleMetrics();
+      if (binding === "liveSummary.feed" || binding === "dashboard.feed") return state.feed.slice(0, 5);
+      if (binding === "liveSummary.highlights") {
+        return state.feed.slice(0, 4).map((item, index) => [`0${index + 1}`, item[1] || "", item[2] || "highlight"]);
+      }
+      return [];
+    }
+
+    function componentRows(component) {
+      const bound = bindingRows(component.binding);
+      if (bound.length) return bound;
+      if (Array.isArray(component.rows) && component.rows.length) return component.rows;
+      if (Array.isArray(component.metrics) && component.metrics.length) return component.metrics;
+      return [];
+    }
+
+    function componentItems(component) {
+      if (Array.isArray(component.items) && component.items.length) return component.items;
+      if (component.binding === "liveSummary.highlights") return state.feed.slice(0, 4).map(item => item[1]).filter(Boolean);
+      return [];
+    }
+
+    function generatedMetricsHtml(rows) {
+      if (!rows.length) return "";
+      return `<div class="generated-metrics">${rows.map(([label, value, note]) => `
+        <article class="generated-metric">
+          <div class="generated-row-k">${escapeHtml(label)}</div>
+          <div class="generated-metric-value">${escapeHtml(value)}</div>
+          <div class="generated-metric-note">${escapeHtml(note || "")}</div>
+        </article>
+      `).join("")}</div>`;
+    }
+
+    function generatedRowsHtml(rows) {
+      if (!rows.length) return "";
+      return `<div class="generated-rows">${rows.map(([time, title, meta]) => `
+        <article class="generated-row">
+          <div class="generated-row-k">${escapeHtml(time)}</div>
+          <div class="generated-row-v">${escapeHtml(title)}</div>
+          <div class="generated-row-m">${escapeHtml(meta || "")}</div>
+        </article>
+      `).join("")}</div>`;
+    }
+
+    function generatedItemsHtml(items) {
+      if (!items.length) return "";
+      return `<div class="generated-list">${items.map(item => `<div class="generated-item">${escapeHtml(item)}</div>`).join("")}</div>`;
+    }
+
+    function generatedComponentHtml(component) {
+      const rows = componentRows(component);
+      const items = componentItems(component);
+      const isMetric = component.type === "metric-strip" || component.type === "market-widget";
+      const isRows = ["event-timeline", "source-confidence"].includes(component.type);
+      return `
+        <article class="generated-component generated-${escapeHtml(component.type || "component")}">
+          ${component.eyebrow ? `<div class="generated-eyebrow">${escapeHtml(component.eyebrow)}</div>` : ""}
+          ${component.title ? `<div class="generated-title">${escapeHtml(component.title)}</div>` : ""}
+          ${component.value ? `<div class="generated-metric-value">${escapeHtml(component.value)}</div>` : ""}
+          ${component.body ? `<div class="generated-body">${escapeHtml(component.body)}</div>` : ""}
+          ${isMetric ? generatedMetricsHtml(rows) : ""}
+          ${isRows ? generatedRowsHtml(rows) : ""}
+          ${!isMetric && !isRows && rows.length ? generatedRowsHtml(rows) : ""}
+          ${generatedItemsHtml(items)}
+          ${component.note ? `<div class="generated-note">${escapeHtml(component.note)}</div>` : ""}
+        </article>
+      `;
+    }
+
+    function renderGeneratedRail() {
+      const rail = $("generated-rail");
+      if (!rail) return;
+      const components = state.generated.slots.rail || [];
+      rail.innerHTML = components.map(generatedComponentHtml).join("");
+      rail.classList.toggle("hidden", !components.length);
+      rail.closest(".rail")?.classList.toggle("has-generated", Boolean(components.length));
+    }
+
+    function generatedStageHtml() {
+      const components = state.generated.slots.stageOverlay || [];
+      if (!components.length) return "";
+      return `<div class="generated-stage">${components.map(generatedComponentHtml).join("")}</div>`;
     }
 
     function renderMiniVisual() {
@@ -313,7 +430,7 @@
     }
 
     function renderStage() {
-      $("stage").innerHTML = backdropHtml() + sceneHtml(config.scene);
+      $("stage").innerHTML = backdropHtml() + sceneHtml(config.scene) + generatedStageHtml();
       wireSceneInteractions();
       runSceneMotion();
     }
@@ -659,6 +776,7 @@
       else applyChannelStateData(data);
       renderMetrics();
       renderFeed();
+      renderGeneratedRail();
       renderStage();
       renderMiniVisual();
       animate(".metric, .feed-item.active", { scale: [1, 1.025, 1], duration: 520, ease: "out(3)" });
