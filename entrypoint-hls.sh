@@ -207,7 +207,7 @@ cat > /var/www/avatar/background.html << 'BGEOF'
   .content-frame {
     position: absolute;
     top: 80px; left: 60px;
-    width: 1100px; height: 880px;
+    width: 1320px; height: 880px;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 8px;
     background: rgba(13,13,15,0.55);
