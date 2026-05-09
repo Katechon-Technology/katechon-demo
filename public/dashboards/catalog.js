@@ -460,7 +460,7 @@
       tile: {
         group: "primary",
         variant: "hero",
-        kicker: "01 / OSINT CHANNEL",
+        kicker: "01 / OSINT",
         media: { type: "video", src: "videos/spectre.mp4", ariaLabel: "SPECTRE" },
       },
     },
@@ -472,7 +472,7 @@
       narration: true,
       tile: {
         group: "primary",
-        kicker: "02 / SITUATION ROOM",
+        kicker: "02 / NEWS",
         media: { type: "video", src: "videos/news.mp4", ariaLabel: "News Situation Room" },
       },
     },
@@ -484,7 +484,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "03 / MARKET PULSE",
+        kicker: "03 / MARKETS",
         previewTitle: "market pulse",
         media: { type: "video", src: "videos/dashboard123.mp4", ariaLabel: "Market Pulse" },
       },
@@ -497,7 +497,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "04 / WORLD STATE",
+        kicker: "04 / WORLD",
         previewTitle: "world monitor",
         media: { type: "video", src: "videos/world-monitor.mp4", ariaLabel: "World Monitor" },
       },
@@ -510,7 +510,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "05 / AGENT ARENA",
+        kicker: "05 / AGENTS",
         previewTitle: "ai arena",
         media: { type: "video", src: "videos/arena.mp4", ariaLabel: "AI Arena" },
       },
@@ -523,7 +523,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "06 / SOURCE WALL",
+        kicker: "06 / SOURCES",
         previewTitle: "glance",
         media: { type: "video", src: "videos/glance.mp4", ariaLabel: "Glance" },
       },
@@ -536,7 +536,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "07 / CRYPTO TAPE",
+        kicker: "07 / CRYPTO",
         previewTitle: "crypto trading",
         media: { type: "video", src: "videos/crypto-trading.mp4", ariaLabel: "Crypto Trading" },
       },
@@ -549,7 +549,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "08 / MARKET CLOCK",
+        kicker: "08 / PREDICTION",
         previewTitle: "polyrec",
         media: { type: "video", src: "videos/polyrec.mp4", ariaLabel: "Polyrec" },
       },
@@ -562,7 +562,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "09 / BIO SIGNALS",
+        kicker: "09 / BIO",
         previewTitle: "biotech",
         media: { type: "video", src: "videos/biotech.mp4", ariaLabel: "Biotech" },
       },
@@ -575,7 +575,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "10 / SPACE OBSERVATORY",
+        kicker: "10 / SPACE",
         previewTitle: "space",
         media: { type: "video", src: "videos/space.mp4", ariaLabel: "Deep Space" },
       },
@@ -588,20 +588,20 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "11 / GEO SIGNAL",
+        kicker: "11 / GEO",
         previewTitle: "iran signal",
         media: { type: "video", src: "videos/iran.mp4", ariaLabel: "Iran Signal" },
       },
     },
     "meme-coin": {
       label: "Meme Coin",
-      title: "// DEGEN - MEME COIN TEMPLE",
+      title: "// SOCIAL - MEME COIN",
       channel: "12 / SOCIAL",
       route: "prototype",
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "12 / SOCIAL MARKET",
+        kicker: "12 / SOCIAL",
         previewTitle: "meme coin",
         media: { type: "video", src: "videos/meme-coin.mp4", ariaLabel: "Meme Coin" },
       },
@@ -653,7 +653,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "16 / VIRAL MODEL",
+        kicker: "16 / VIRAL",
         previewTitle: "viral",
         media: { type: "video", src: "videos/viral.mp4", ariaLabel: "Viral Spread" },
       },
@@ -666,7 +666,7 @@
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "17 / VOID WATCH",
+        kicker: "17 / VOID",
         previewTitle: "dark forest",
         media: { type: "video", src: "videos/dark-forest.mp4", ariaLabel: "Dark Forest" },
       },
@@ -688,7 +688,7 @@
       ],
       tile: {
         group: "dashboard",
-        kicker: "18 / KATECHON TECHNOLOGY",
+        kicker: "18 / KATECHON",
         previewTitle: "katechon technology",
         media: {
           type: "image",
