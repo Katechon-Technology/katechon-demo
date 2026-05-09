@@ -71,30 +71,41 @@ function rewriteAppPrototypeScripts(file) {
     .replaceAll('src="/dashboards/prototype.js"', 'src="/app/dashboards/prototype.js"'));
 }
 
+function materializeDashboardRoutes(targetRoot, prototypeDashboard) {
+  for (const id of dashboardIds) {
+    const dashboardDir = path.join(targetRoot, "dashboards", id);
+    fs.mkdirSync(dashboardDir, { recursive: true });
+    fs.copyFileSync(prototypeDashboard, path.join(dashboardDir, "index.html"));
+  }
+}
+
 fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(siteSource, output, { recursive: true });
-fs.cpSync(appSource, appOutput, { recursive: true });
+fs.cpSync(appSource, output, { recursive: true, force: true });
+fs.cpSync(appSource, appOutput, { recursive: true, force: true });
 fs.cpSync(path.join(appSource, "share-thumbnails"), path.join(output, "share-thumbnails"), { recursive: true });
 fs.cpSync(path.join(appSource, "share-cards"), path.join(output, "share-cards"), { recursive: true });
+
+const rootPrototypeDashboard = path.join(output, "prototype-dashboard.html");
+materializeDashboardRoutes(output, rootPrototypeDashboard);
+fs.rmSync(path.join(output, "dashboards", "dune-deck"), { recursive: true, force: true });
+fs.cpSync(path.join(appSource, "decks", "dune"), path.join(output, "dashboards", "dune-deck"), { recursive: true, force: true });
+setHtmlBase(path.join(output, "decks", "dune", "index.html"), "/decks/dune/");
+setHtmlBase(path.join(output, "dashboards", "dune-deck", "index.html"), "/decks/dune/");
 
 const appIndex = path.join(appOutput, "index.html");
 const appIndexHtml = fs.readFileSync(appIndex, "utf8");
 fs.writeFileSync(appIndex, appIndexHtml.replace("<head>", '<head>\n  <base href="/app/">'));
 const appPrototypeDashboard = path.join(appOutput, "prototype-dashboard.html");
 rewriteAppPrototypeScripts(appPrototypeDashboard);
-
-for (const id of dashboardIds) {
-  const dashboardDir = path.join(appOutput, "dashboards", id);
-  fs.mkdirSync(dashboardDir, { recursive: true });
-  fs.copyFileSync(appPrototypeDashboard, path.join(dashboardDir, "index.html"));
-}
+materializeDashboardRoutes(appOutput, appPrototypeDashboard);
 
 fs.rmSync(path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
-fs.cpSync(path.join(appSource, "decks", "dune"), path.join(appOutput, "dashboards", "dune-deck"), { recursive: true });
+fs.cpSync(path.join(appSource, "decks", "dune"), path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
 setHtmlBase(path.join(appOutput, "decks", "dune", "index.html"), "/app/decks/dune/");
 setHtmlBase(path.join(appOutput, "dashboards", "dune-deck", "index.html"), "/app/decks/dune/");
 
-writeSharePages(output, "/app");
+writeSharePages(output, "");
 writeSharePages(appOutput, "/app");
 
-console.log(`Copied ${path.relative(root, siteSource)} to ${path.relative(root, output)} and ${path.relative(root, appSource)} to ${path.relative(root, appOutput)}`);
+console.log(`Copied ${path.relative(root, appSource)} to ${path.relative(root, output)} and ${path.relative(root, appOutput)}; preserved site data/pdf assets`);

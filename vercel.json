@@ -60,16 +60,56 @@
     },
     {
       "source": "/deck",
-      "destination": "/app/dashboards/dune-deck/",
+      "destination": "/dashboards/dune-deck/",
       "permanent": false
     },
     {
       "source": "/deck/",
-      "destination": "/app/dashboards/dune-deck/",
+      "destination": "/dashboards/dune-deck/",
       "permanent": false
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "http://176.57.184.142:4040/api/:path*"
+    },
+    {
+      "source": "/stream.m3u8",
+      "destination": "http://176.57.184.142:4040/stream.m3u8"
+    },
+    {
+      "source": "/:segment(seg[0-9]+\\.ts)",
+      "destination": "http://176.57.184.142:4040/:segment"
+    },
+    {
+      "source": "/dashboards/dune-deck",
+      "destination": "/decks/dune/index.html"
+    },
+    {
+      "source": "/dashboards/dune-deck/",
+      "destination": "/decks/dune/index.html"
+    },
+    {
+      "source": "/dashboards/dune-deck/:path*",
+      "destination": "/decks/dune/:path*"
+    },
+    {
+      "source": "/dashboards/identities/:path*",
+      "destination": "/dashboards/identities/:path*"
+    },
+    {
+      "source": "/dashboards/:dashboard",
+      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
+    },
+    {
+      "source": "/dashboards/:dashboard/",
+      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
+    },
+    {
+      "source": "/dashboards/:dashboard/:path*",
+      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
+    },
     {
       "source": "/app/api/:path*",
       "destination": "http://176.57.184.142:4040/api/:path*"

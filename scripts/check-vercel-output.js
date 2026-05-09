@@ -38,6 +38,13 @@ const requiredFiles = [
   "dist/katechon.pdf",
   "dist/og-data.jpg",
   "dist/brand/katechon-motion.gif",
+  "dist/prototype-dashboard.html",
+  "dist/dashboards/catalog.js",
+  "dist/dashboards/prototype.js",
+  "dist/dashboards/spectre/index.html",
+  "dist/dashboards/news/index.html",
+  "dist/dashboards/dune-deck/index.html",
+  "dist/decks/dune/deck.json",
   "dist/app/index.html",
   "dist/app/brand/katechon-motion.gif",
   "dist/app/prototype-dashboard.html",
@@ -68,12 +75,22 @@ for (const file of requiredFiles) {
   requireFile(file);
 }
 
-requireContains("dist/index.html", "KATECHON", "landing page brand");
-requireContains("dist/index.html", "/app/", "landing page app link");
+requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
+requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
 requireContains("dist/data/index.html", "https://katechon.technology/data/", "canonical data-room URL");
 requireContains("dist/data/index.html", "/app/dashboards/dune-deck/", "data-room deck link");
 requireContains("dist/pdf/index.html", "/katechon.pdf", "one-pager PDF link");
+requireContains("dist/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG", "root dashboard catalog registration");
+requireContains("dist/dashboards/prototype.js", "function appUrl", "root dashboard appUrl helper");
+requireContains("dist/prototype-dashboard.html", "/dashboards/catalog.js", "root catalog script include");
+requireContains("dist/dashboards/spectre/index.html", "/dashboards/catalog.js", "root dashboard catalog script include");
+requireContains("dist/share/spectre/index.html", "https://katechon.technology/share/spectre", "canonical root share URL");
+requireContains("dist/share/spectre/index.html", "https://katechon.technology/?dashboard=spectre", "root share launch URL");
+requireContains("dist/share/spectre/index.html", "https://katechon.technology/share-cards/spectre.jpg", "branded root share card");
+requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/share/dune-deck", "Dune deck root share URL");
+requireContains("dist/dashboards/dune-deck/index.html", '<base href="/decks/dune/">', "Dune deck root base tag");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");
+requireContains("dist/app/index.html", "dashboard-build-effects", "app dashboard transition layer");
 requireContains("dist/app/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG", "dashboard catalog registration");
 requireContains("dist/app/dashboards/prototype.js", "function appUrl", "dashboard appUrl helper");
 requireContains("dist/app/prototype-dashboard.html", "/app/dashboards/catalog.js", "app catalog script include");
@@ -83,6 +100,8 @@ requireContains("dist/app/share/spectre/index.html", "https://katechon.technolog
 requireContains("dist/app/share/dune-deck/index.html", "https://katechon.technology/app/share/dune-deck", "Dune deck /app share URL");
 requireContains("dist/app/dashboards/dune-deck/index.html", '<base href="/app/decks/dune/">', "Dune deck /app base tag");
 requireContains("dist/app/decks/dune/deck.json", '"slides"', "Dune deck slides manifest");
+requireNotHtml("dist/dashboards/catalog.js");
+requireNotHtml("dist/dashboards/prototype.js");
 requireNotHtml("dist/app/dashboards/catalog.js");
 requireNotHtml("dist/app/dashboards/prototype.js");
 
