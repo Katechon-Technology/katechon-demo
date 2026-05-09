@@ -25,6 +25,7 @@
     document.body.dataset.dashboard = dashboardId;
     if (identity.className) document.body.classList.add(identity.className);
     const palette = palettes[config.palette] || palettes.acid;
+    const generatedSlotNames = ["rail", "stageOverlay", "modal"];
     const state = {
       activeFeed: 0,
       tick: 0,
@@ -87,10 +88,7 @@
     function emptyGeneratedDashboard() {
       return {
         view: "default",
-        slots: {
-          rail: [],
-          stageOverlay: [],
-        },
+        slots: Object.fromEntries(generatedSlotNames.map((slot) => [slot, []])),
         themeTokens: {},
       };
     }
@@ -100,8 +98,9 @@
       if (!raw || typeof raw !== "object") return generated;
       if (raw.view) generated.view = String(raw.view);
       const slots = raw.slots && typeof raw.slots === "object" ? raw.slots : {};
-      ["rail", "stageOverlay"].forEach(slot => {
-        generated.slots[slot] = Array.isArray(slots[slot]) ? slots[slot].slice(0, 4) : [];
+      generatedSlotNames.forEach(slot => {
+        const max = slot === "modal" ? 1 : 4;
+        generated.slots[slot] = Array.isArray(slots[slot]) ? slots[slot].slice(0, max) : [];
       });
       generated.themeTokens = raw.themeTokens && typeof raw.themeTokens === "object" ? raw.themeTokens : {};
       return generated;
@@ -177,6 +176,7 @@
       renderStage();
       renderMiniVisual();
       renderGeneratedRail();
+      renderGeneratedModal();
       updateClock();
       runIntroMotion();
       loadLiveData();
@@ -242,7 +242,7 @@
 
     function generatedComponents() {
       const slots = state.generated.slots || {};
-      return [...(slots.rail || []), ...(slots.stageOverlay || [])];
+      return generatedSlotNames.flatMap((slot) => slots[slot] || []);
     }
 
     function componentByGeneratedId(id) {
@@ -253,6 +253,19 @@
       if (typeof value === "number" && Number.isFinite(value)) return value;
       const parsed = Number(String(value || "").replace(/[$,%\s,]/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function candleLabel(candle, index, component) {
+      if (candle.label) return String(candle.label).includes("T")
+        ? String(candle.label).slice(5, 10)
+        : String(candle.label).slice(0, 16);
+      const timestamp = Number(candle.t || candle.time);
+      if (!Number.isFinite(timestamp)) return String(index + 1);
+      const interval = String(component.chart?.query?.interval || candle.i || "").toLowerCase();
+      const iso = new Date(timestamp).toISOString();
+      if (/(?:^|[^0-9])\d+d$/.test(interval) || interval === "1d") return iso.slice(5, 10);
+      if (/(?:^|[^0-9])\d+h$/.test(interval)) return iso.slice(5, 13).replace("T", " ");
+      return iso.slice(11, 16);
     }
 
     function chartRowsForBinding(component) {
@@ -274,7 +287,7 @@
           const sma = smaWindow.length ? smaWindow.reduce((sum, value) => sum + value, 0) / smaWindow.length : close;
           return {
             index,
-            label: candle.t ? new Date(Number(candle.t)).toISOString().slice(11, 16) : String(index + 1),
+            label: candleLabel(candle, index, component),
             open,
             high,
             low,
@@ -744,6 +757,25 @@
       return `<div class="generated-list">${items.map(item => `<div class="generated-item">${escapeHtml(item)}</div>`).join("")}</div>`;
     }
 
+    function generatedSourceHtml(component) {
+      const source = component.sourceState && typeof component.sourceState === "object" ? component.sourceState : null;
+      const provenanceIds = Array.isArray(component.provenanceIds) ? component.provenanceIds : [];
+      if (!source && !provenanceIds.length) return "";
+      const sourceType = String(source?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
+      const label = source?.label || sourceType.replace(/_/g, " ");
+      const provider = source?.provider || provenanceIds[0] || "provenance attached";
+      const stale = source?.stale ? "stale" : "";
+      const fallback = source?.fallbackReason ? `<span>${escapeHtml(source.fallbackReason)}</span>` : "";
+      return `
+        <div class="generated-source generated-source-${escapeHtml(sourceType)}">
+          <strong>${escapeHtml(label)}</strong>
+          <span>${escapeHtml(provider)}</span>
+          ${stale ? `<span>${stale}</span>` : ""}
+          ${fallback}
+        </div>
+      `;
+    }
+
     function generatedComponentHtml(component) {
       const rows = componentRows(component);
       const items = componentItems(component);
@@ -754,6 +786,7 @@
       return `
         <article class="generated-component generated-${escapeHtml(component.type || "component")}" data-generated-id="${componentId}">
           ${component.eyebrow ? `<div class="generated-eyebrow">${escapeHtml(component.eyebrow)}</div>` : ""}
+          ${generatedSourceHtml(component)}
           ${component.title ? `<div class="generated-title">${escapeHtml(component.title)}</div>` : ""}
           ${component.value ? `<div class="generated-metric-value">${escapeHtml(component.value)}</div>` : ""}
           ${component.body ? `<div class="generated-body">${escapeHtml(component.body)}</div>` : ""}
@@ -775,6 +808,34 @@
       rail.innerHTML = components.map(generatedComponentHtml).join("");
       rail.classList.toggle("hidden", !components.length);
       rail.closest(".rail")?.classList.toggle("has-generated", Boolean(components.length));
+      requestAnimationFrame(renderGeneratedCharts);
+    }
+
+    function clearGeneratedModal() {
+      if (!state.generated.slots) state.generated.slots = {};
+      state.generated.slots.modal = [];
+      renderGeneratedModal();
+    }
+
+    function renderGeneratedModal() {
+      const modal = $("generated-modal");
+      if (!modal) return;
+      const components = state.generated.slots.modal || [];
+      if (!components.length) {
+        modal.hidden = true;
+        modal.innerHTML = "";
+        return;
+      }
+      modal.hidden = false;
+      modal.innerHTML = `
+        <div class="generated-modal-backdrop" data-modal-close></div>
+        <section class="generated-modal-panel" role="dialog" aria-modal="true" aria-label="Generated channel detail">
+          <button class="generated-modal-close" type="button" aria-label="Close generated detail">&times;</button>
+          <div class="generated-modal-content">${components.map(generatedComponentHtml).join("")}</div>
+        </section>
+      `;
+      modal.querySelector(".generated-modal-close")?.addEventListener("click", clearGeneratedModal);
+      modal.querySelector("[data-modal-close]")?.addEventListener("click", clearGeneratedModal);
       requestAnimationFrame(renderGeneratedCharts);
     }
 

@@ -13,6 +13,13 @@ All routes are served by `server.js`.
 | `GET` | `/api/channels/:channel/live` | Fetch the latest normalized live payload for one channel |
 | `GET` | `/api/channels/:channel/context` | Fetch Kat's compact channel context packet for voice and generated components |
 | `GET` | `/api/channels/:channel/docs` | Fetch structured docs for one channel and its providers |
+| `GET` | `/api/channels/:channel/manifest` | Fetch the runtime manifest: capabilities, layouts, surfaces, components, and rules |
+| `GET` | `/api/channels/:channel/agent` | Fetch the specialist channel agent manifest Kat routes through |
+| `GET` | `/api/channels/:channel/state?sessionId=local-session` | Inspect persisted channel session state |
+| `POST` | `/api/channels/:channel/turn` | Route one user turn through the specialist channel agent and return morph events |
+| `GET` | `/api/channels/:channel/turn/stream?sessionId=local-session&text=...` | Stream the same channel turn as Server-Sent Events |
+| `POST` | `/api/channels/:channel/query` | Query generic channel capabilities such as snapshot, timeseries, events, rankings, and historical state |
+| `POST` | `/api/channels/:channel/update` | Apply a validated channel update spec with layout, surface replacements, components, and theme tokens |
 
 Provider compatibility routes still exist:
 
@@ -94,7 +101,212 @@ The response is intentionally compact:
 
 Use `?fresh=1` when Kat needs a fresh provider read. Omit it for a fast cache-first context update.
 
-For voice, Kat should normally speak from `liveSummary`. If the user asks for details not present in the summary, Kat should call `get_channel_live` instead of guessing.
+For voice, Kat should normally speak from `liveSummary`. If the user asks for details not present in the summary, Kat should call `query_channel_capability` or `get_channel_live` instead of guessing.
+
+## Channel Runtime Manifest
+
+The channel runtime is the general contract Kat uses across all dashboards. It keeps the hardcoded layer focused on constraints and lets Kat choose the actual query plan and generated view.
+
+```bash
+curl "http://localhost:4040/api/channels/crypto-trading/manifest"
+```
+
+Each manifest exposes:
+
+| Field | Meaning |
+|-------|---------|
+| `runtime` | Runtime contract version, currently `channel-runtime-v1` |
+| `channel` | Public channel metadata and route paths |
+| `generation.capabilities` | Generic query actions Kat can use for the channel |
+| `generation.layouts` | Valid layout templates Kat can choose from |
+| `generation.surfaces` | Replaceable UI surfaces such as `stageOverlay`, `rail`, and `modal` |
+| `generation.availableComponents` | Safe component primitives Kat can compose |
+| `generation.updateContract` | Preferred tools and replacement/default behavior |
+
+## Channel Agent And Session State
+
+Each live channel has a specialist agent contract:
+
+```bash
+curl "http://localhost:4040/api/channels/crypto-trading/agent"
+```
+
+The response names Kat as the voice, exposes the specialist agent role, domain vocabulary, generic capabilities, allowed layouts, replaceable surfaces, component grammar, and provenance policy.
+
+Session state is inspectable:
+
+```bash
+curl "http://localhost:4040/api/channels/crypto-trading/state?sessionId=local-session"
+```
+
+The state packet includes active focus, entities, timeframe, layout, queried datasets, visible surfaces, conclusions, next actions, provenance records, recent turns, and turn traces. Every meaningful channel turn should update this state.
+
+Route a turn through the specialist runtime:
+
+```bash
+curl -X POST "http://localhost:4040/api/channels/crypto-trading/turn" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "local-session",
+    "userText": "Lets dive into the BTC three month price."
+  }'
+```
+
+The turn response returns:
+
+- parsed intent and selected layout
+- data query result with provenance
+- generated stage/rail/modal surface operations
+- updated session state
+- a full trace of morph events
+- Kat-ready narration
+
+The SSE form streams events progressively:
+
+```bash
+curl -N "http://localhost:4040/api/channels/crypto-trading/turn/stream?sessionId=local-session&text=BTC%203%20month%20price"
+```
+
+Required event types emitted by the runtime:
+
+- `channel.turn.started`
+- `channel.intent.parsed`
+- `channel.state.updated`
+- `channel.data.query.started`
+- `channel.data.query.completed` or `channel.data.query.failed`
+- `channel.layout.selected`
+- `channel.surface.replace`
+- `channel.surface.clear`
+- `channel.narration.delta`
+- `channel.next_actions.updated`
+- `channel.turn.completed`
+
+Generated charts and insight components include `provenanceIds` and `sourceState`. If the provider returns synthetic fallback or no data, `sourceState.sourceType` is `synthetic_fallback` or `unavailable`; it is displayed in the dashboard source chip and included in Kat's narration.
+
+Generic layouts:
+
+| Layout | Use |
+|--------|-----|
+| `overview` | Broad scan of current state, top entities, movement, and likely next drilldown |
+| `deep_dive` | One entity, source, asset, market, object, or issue gets primary focus |
+| `comparison` | Compare entities, metrics, sources, scenarios, or time windows |
+| `event_investigation` | Trace an event or anomaly through evidence, timeline, and uncertainty |
+| `historical_replay` | Reconstruct prior state or compare current vs historical windows |
+| `risk_anomaly` | Surface stress, weak signals, outliers, uncertainty, and next checks |
+| `relationship_map` | Show how entities, sources, locations, assets, or tasks connect |
+
+Generic surfaces:
+
+| Surface | Behavior |
+|---------|----------|
+| `stageOverlay` | Primary generated visual over the dashboard graphic; replace by default |
+| `rail` | Supporting stack for timelines, inspectors, metrics, and action panels |
+| `modal` | Single focused drilldown; each modal update replaces the prior modal |
+
+## Generic Capability Query
+
+Kat should prefer generic capability queries over provider-specific assumptions:
+
+```bash
+curl -X POST "http://localhost:4040/api/channels/crypto-trading/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "capability": "timeseries",
+    "detail": "compact",
+    "params": {
+      "entity": "ETH",
+      "interval": "1h",
+      "lookbackHours": 72
+    }
+  }'
+```
+
+Supported capability names:
+
+| Capability | Purpose |
+|------------|---------|
+| `snapshot` | Current normalized channel state |
+| `timeseries` | Historical/current series where the adapter supports it |
+| `events` | Feed, timeline, source, task, or incident rows |
+| `rankings` | Ranked entities, metrics, sources, markets, tokens, corridors, or records |
+| `entity_detail` | Focused inspection of one entity or object |
+| `relationships` | Rows suitable for a relationship map |
+| `search` | Search available normalized state |
+| `historical_state` | Prior window or current-vs-history inspection |
+
+The response includes `liveSummary`, `rows`, `bindingHints`, `source`, `stale`, and `fallbackReason`. For `detail: "compact"`, it also includes trimmed provider data.
+
+## Channel Update Spec
+
+Kat should now use `apply_channel_update` or `POST /api/channels/:channel/update` for generated views. This is the preferred path for arbitrary information feeds, not `apply_dashboard_chart`.
+
+```json
+{
+  "instruction": "Compare ETH structure over the last three days.",
+  "update": {
+    "layout": {
+      "template": "deep_dive",
+      "rationale": "The user asked for one asset and one historical window."
+    },
+    "dataRequests": [
+      {
+        "capability": "timeseries",
+        "detail": "compact",
+        "params": {
+          "entity": "ETH",
+          "interval": "1h",
+          "lookbackHours": 72
+        }
+      }
+    ],
+    "surfaces": [
+      {
+        "surface": "stageOverlay",
+        "mode": "replace",
+        "components": [
+          {
+            "type": "vega-chart",
+            "eyebrow": "generated",
+            "title": "ETH 72H Structure",
+            "chart": {
+              "type": "line",
+              "binding": "liveData.candles",
+              "x": "label",
+              "y": "close",
+              "query": {
+                "coin": "ETH",
+                "interval": "1h",
+                "lookbackHours": 72
+              }
+            },
+            "note": "Rendered from the normalized channel API."
+          }
+        ]
+      },
+      {
+        "surface": "rail",
+        "mode": "replace",
+        "components": [
+          {
+            "type": "entity-inspector",
+            "title": "What To Inspect Next",
+            "items": ["Depth", "Volume expansion", "Current range", "Prior window comparison"]
+          }
+        ]
+      }
+    ],
+    "narration": "I put ETH's 72-hour structure on the stage and kept follow-up checks in the rail."
+  }
+}
+```
+
+Rules:
+
+- `replace` is the default mode. Use `append` only when the user asks to keep multiple generated blocks.
+- Use `stageOverlay` for primary charts so they sit over the channel graphic.
+- Use `modal` for one focused drilldown; modal updates replace previous modal content.
+- Generated components must use supported component types and bindings.
+- `dataRequests` document the intended query plan and should match any chart query or explanation.
 
 ## Current Channels
 
@@ -162,13 +374,13 @@ Kat-generated dashboard components should not:
 
 ## Kat Visualization Contract
 
-Generated visualizations use a constrained chart component instead of arbitrary browser code. Kat should query the normalized channel API, summarize what matters, then compose a `vega-chart` component through `apply_dashboard_mutation`.
+Generated visualizations use a constrained chart component instead of arbitrary browser code. Kat should query the normalized channel capability layer, summarize what matters, then compose a `vega-chart` component through `apply_channel_update`.
 
 Runtime:
 
 - Vega renders the chart inside the dashboard iframe.
 - Anime.js handles chart/card entrance and update motion through the existing shell.
-- Chart data must come from `/api/channels/:channel/live`, `/api/channels/:channel/context`, or explicit safe rows in the generated component.
+- Chart data must come from `/api/channels/:channel/live`, `/api/channels/:channel/context`, `/api/channels/:channel/query`, or explicit safe rows in the generated component.
 - Generated components must not fetch provider APIs directly from the browser.
 - Primary generated charts should use the `stageOverlay` slot and replace the slot by default, so the chart becomes the active surface over the dashboard graphic instead of stacking multiple panels.
 - The dashboard refreshes live/channel state on the same short polling cadence as the server cache and generated charts can be clicked to inspect the selected row inline.
@@ -226,8 +438,8 @@ Supported chart bindings:
 Kat workflow for graph requests:
 
 1. Call `get_channel_context` for normal dashboard state.
-2. Call `get_channel_live` with `detail: "compact"` when the user asks for a specific graph, market, token, grid respondent, or level.
-3. Prefer `apply_dashboard_chart` for chart requests; it maps a chart intent to a safe `vega-chart` component.
+2. Call `query_channel_capability` when the user asks for a specific graph, feed, market, token, grid respondent, entity, ranking, relationship, or history.
+3. Prefer `apply_channel_update` for chart requests; it applies a complete layout and surface update spec.
 4. Talk through the chart using `liveSummary.highlights`, visible chart axes, and `fallbackReason` if present.
 
 `apply_dashboard_chart` accepts these intents:
@@ -301,6 +513,8 @@ These are recommended provider directions behind the normalized channel layer. K
 
 ## Fast Dashboard Mutation Contract
 
+This legacy dashboard mutation contract still exists for compatibility. New work should prefer the channel runtime: `query_channel_capability` followed by `apply_channel_update`.
+
 Kat should treat dashboard generation like composing a Roblox/Retool-style surface from predefined blocks, not like arbitrary source-code editing.
 
 The Realtime tool `apply_dashboard_mutation` accepts these mutation types:
@@ -309,7 +523,7 @@ The Realtime tool `apply_dashboard_mutation` accepts these mutation types:
 |------|---------|
 | `set_view` | Pick a view preset such as `briefing`, `investor`, `operator`, `research`, or `market` |
 | `set_copy` | Update title, subtitle, labels, tabs, metrics, or feed rows |
-| `replace_slot` | Replace a dashboard slot with generated components |
+| `replace_slot` | Replace a dashboard slot/surface with generated components |
 | `add_component` | Append one generated component to a slot |
 | `set_theme_tokens` | Set safe color tokens: `accent`, `accent2`, `accent3` |
 | `clear_generated` | Remove generated components and return to the base dashboard |
@@ -320,6 +534,7 @@ Current slots:
 |------|-----------------|
 | `rail` | Right-side generated component stack between the feed and mini insight panel |
 | `stageOverlay` | Overlay cards inside the main visual stage |
+| `modal` | Single replaceable generated drilldown modal |
 
 Current component types:
 
@@ -333,6 +548,10 @@ Current component types:
 | `map-brief` | Stage overlay callouts for map/geospatial/network dashboards |
 | `market-widget` | Read-only market or prediction-market snippets |
 | `vega-chart` | Safe generated Vega visualization from normalized live/dashboard data |
+| `data-table` | Dense rows for arbitrary channel query results |
+| `feed-stack` | Feed/watch queue assembled from channel events |
+| `entity-inspector` | Focused entity or object drilldown |
+| `relationship-graph` | Lightweight relationship map from rows/items |
 | `action-panel` | Suggested viewer questions, watchlist items, or workflow steps |
 
 Supported bindings:

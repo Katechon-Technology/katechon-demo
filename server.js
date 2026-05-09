@@ -34,12 +34,15 @@ const {
 const {
   CHART_BINDINGS,
   CHART_TYPES,
+  CHANNEL_RUNTIME_VERSION,
   channelGenerationSpec,
   channelDocs,
   componentRegistry,
+  dataCapabilitiesForChannel,
   getChannel,
   listChannels,
   publicChannel,
+  surfaceRegistry,
   syntheticChannelData,
   viewPresets,
 } = require("./lib/channel-registry");
@@ -79,6 +82,7 @@ const EXTERNAL_DASHBOARD_UPSTREAMS_ENABLED = process.env.EXTERNAL_DASHBOARD_UPST
 const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const DASHBOARD_OVERRIDES_FILE = path.resolve(__dirname, process.env.DASHBOARD_OVERRIDES_FILE || "data/dashboard-overrides.json");
+const CHANNEL_SESSIONS_FILE = path.resolve(__dirname, process.env.CHANNEL_SESSIONS_FILE || "data/channel-sessions.json");
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
@@ -662,6 +666,228 @@ function writeDashboardOverrides(db) {
   fs.renameSync(tmpFile, DASHBOARD_OVERRIDES_FILE);
 }
 
+function normalizeSessionId(value) {
+  return String(value || "local-session")
+    .toLowerCase()
+    .replace(/[^\w-]/g, "")
+    .slice(0, 64) || "local-session";
+}
+
+function emptyChannelSessionDb() {
+  return { sessions: {}, events: [] };
+}
+
+function readChannelSessionDb() {
+  if (!fs.existsSync(CHANNEL_SESSIONS_FILE)) return emptyChannelSessionDb();
+  const raw = fs.readFileSync(CHANNEL_SESSIONS_FILE, "utf8").trim();
+  if (!raw) return emptyChannelSessionDb();
+  const parsed = JSON.parse(raw);
+  return {
+    sessions: parsed.sessions && typeof parsed.sessions === "object" ? parsed.sessions : {},
+    events: Array.isArray(parsed.events) ? parsed.events : [],
+  };
+}
+
+function writeChannelSessionDb(db) {
+  fs.mkdirSync(path.dirname(CHANNEL_SESSIONS_FILE), { recursive: true });
+  const tmpFile = `${CHANNEL_SESSIONS_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpFile, `${JSON.stringify(db, null, 2)}\n`);
+  fs.renameSync(tmpFile, CHANNEL_SESSIONS_FILE);
+}
+
+function channelSessionKey(channelId, sessionId) {
+  return `${cleanDashboardId(channelId)}:${normalizeSessionId(sessionId)}`;
+}
+
+function domainForChannel(channel) {
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    return {
+      entities: ["BTC", "ETH", "SOL"],
+      vocabulary: ["price", "candles", "liquidity", "spread", "depth", "drawdown", "volatility", "market structure"],
+      defaultTimeframes: ["24h", "7d", "30d", "90d"],
+    };
+  }
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    return {
+      entities: ["US48", "PJM", "ERCO", "CAL", "MISO", "NYIS"],
+      vocabulary: ["load", "forecast", "generation", "interchange", "fuel mix", "operating margin", "corridor stress"],
+      defaultTimeframes: ["24h", "36h", "72h"],
+    };
+  }
+  return {
+    entities: [],
+    vocabulary: ["events", "metrics", "sources", "rankings", "relationships", "current state"],
+    defaultTimeframes: ["now", "24h", "7d"],
+  };
+}
+
+function openingPathsForChannel(channel) {
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    return ["price structure", "liquidity and depth", "volatility regime", "BTC vs ETH comparison", "historical replay"];
+  }
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    return ["load vs forecast", "operating margin", "fuel mix", "corridor stress", "last-day grid risk"];
+  }
+  return ["overview", "events", "rankings", "entity detail", "relationship map"];
+}
+
+function buildChannelAgentManifest(channel) {
+  const generation = channelGenerationSpec(channel);
+  const domain = domainForChannel(channel);
+  const providerIds = channel.providers || [];
+  return {
+    id: channel.id,
+    label: channel.label,
+    runtime: CHANNEL_RUNTIME_VERSION,
+    agent: {
+      name: `${channel.id}-channel-agent`,
+      voice: "Kat",
+      role: `Specialist agent for ${channel.label} channel state, data, layout, provenance, and next actions.`,
+      openingBehavior: {
+        brief: "Summarize current channel state in one short Kat-ready line.",
+        suggestedPaths: openingPathsForChannel(channel),
+      },
+    },
+    domain,
+    data: {
+      adapters: providerIds,
+      capabilities: dataCapabilitiesForChannel(channel).map((capability) => capability.id),
+      provenanceRequired: true,
+      syntheticPolicy: "label_only_never_claim_real",
+    },
+    layouts: generation.layouts.map((layout) => layout.id),
+    surfaces: generation.surfaces.map((surface) => surface.id),
+    components: generation.availableComponents.map((component) => component.id),
+    style: {
+      inherits: "katechon",
+      allowedTokens: ["accent", "accent2", "accent3", "danger", "muted", "panelGlass", "gridLine"],
+      rules: [
+        "Primary charts render over the stage graphic.",
+        "Generated surfaces replace by default.",
+        "Do not add decorative one-off themes.",
+        "Expose source/provenance state for generated charts and insights.",
+      ],
+    },
+    tools: ["query_channel_capability", "apply_channel_update", "route_channel_turn", "clear_channel_surfaces", "summarize_channel_state"],
+  };
+}
+
+function initialChannelSessionState(channel, sessionId = "local-session") {
+  return {
+    channelId: channel.id,
+    sessionId: normalizeSessionId(sessionId),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    focus: {
+      topic: `${channel.label} overview`,
+      entities: [],
+      timeframe: null,
+      mode: "overview",
+      intent: "overview",
+    },
+    layout: {
+      template: "overview",
+      rationale: "Initial channel overview.",
+    },
+    datasets: [],
+    surfaces: {
+      stageOverlay: [],
+      rail: [],
+      modal: [],
+      below: [],
+    },
+    conclusions: [],
+    unresolvedQuestions: [],
+    nextActions: openingPathsForChannel(channel),
+    provenance: [],
+    turns: [],
+    traces: [],
+  };
+}
+
+function getChannelSessionState(channel, sessionId = "local-session") {
+  const db = readChannelSessionDb();
+  const key = channelSessionKey(channel.id, sessionId);
+  const existing = db.sessions[key];
+  if (existing && typeof existing === "object") {
+    return {
+      ...initialChannelSessionState(channel, sessionId),
+      ...existing,
+      surfaces: {
+        ...initialChannelSessionState(channel, sessionId).surfaces,
+        ...(existing.surfaces || {}),
+      },
+    };
+  }
+  return initialChannelSessionState(channel, sessionId);
+}
+
+function saveChannelSessionState(channel, sessionId, sessionState, eventRecord = null) {
+  const db = readChannelSessionDb();
+  const normalizedSession = normalizeSessionId(sessionId);
+  const key = channelSessionKey(channel.id, normalizedSession);
+  const updated = {
+    ...sessionState,
+    channelId: channel.id,
+    sessionId: normalizedSession,
+    updatedAt: new Date().toISOString(),
+  };
+  db.sessions[key] = updated;
+  if (eventRecord) db.events.push(eventRecord);
+  db.events = db.events.slice(-300);
+  writeChannelSessionDb(db);
+  return updated;
+}
+
+function sourceTypeForEnvelope(envelope, capability = "snapshot") {
+  const source = String(envelope?.source || "");
+  if (!source || envelope?.ok === false) return "unavailable";
+  if (source.includes("synthetic") || source === "channel-synthetic") return "synthetic_fallback";
+  if (envelope.stale) return "cached_api";
+  if (["timeseries", "historical_state"].includes(capability)) return "historical_api";
+  return "live_api";
+}
+
+function sourceLabelForType(sourceType) {
+  if (sourceType === "synthetic_fallback") return "fallback data";
+  if (sourceType === "cached_api") return "cached provider data";
+  if (sourceType === "historical_api") return "historical provider data";
+  if (sourceType === "live_api") return "live provider data";
+  if (sourceType === "derived_from_api") return "derived provider data";
+  return "unavailable data";
+}
+
+function buildProvenanceRecord(channel, capability, params, envelope, rowCount = 0) {
+  const sourceType = sourceTypeForEnvelope(envelope, capability);
+  return {
+    id: `prov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    sourceType,
+    provider: String(envelope?.source || channel.liveProvider || "unavailable"),
+    capability,
+    params: sanitizeCapabilityParams(params || {}),
+    queriedAt: new Date().toISOString(),
+    cache: {
+      status: envelope?.stale ? "stale" : "fresh",
+      ttlMs: LIVE_API_TTL_MS,
+    },
+    rowCount: Math.max(0, Number(rowCount) || 0),
+    status: sourceType === "unavailable" ? "failed" : "success",
+    stale: Boolean(envelope?.stale),
+    fallbackReason: envelope?.fallbackReason || null,
+  };
+}
+
+function componentSourceState(provenance) {
+  return {
+    provenanceId: provenance.id,
+    sourceType: provenance.sourceType,
+    provider: provenance.provider,
+    label: sourceLabelForType(provenance.sourceType),
+    stale: Boolean(provenance.stale),
+    fallbackReason: provenance.fallbackReason || null,
+  };
+}
+
 function clampText(value, max = 220) {
   return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 }
@@ -777,6 +1003,38 @@ function sanitizeChart(raw) {
   return chart;
 }
 
+function sanitizeSourceState(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const sourceType = cleanComponentId(raw.sourceType || raw.type || "");
+  const allowed = new Set(["live_api", "historical_api", "cached_api", "user_supplied", "derived_from_api", "synthetic_fallback", "unavailable"]);
+  if (!allowed.has(sourceType)) return null;
+  const state = { sourceType };
+  for (const field of ["provider", "label", "fallbackReason", "provenanceId"]) {
+    if (raw[field] !== undefined) {
+      const value = clampText(raw[field], field === "fallbackReason" ? 180 : 80);
+      if (value) state[field] = value;
+    }
+  }
+  if (raw.stale !== undefined) state.stale = Boolean(raw.stale);
+  return state;
+}
+
+function sanitizeInteractions(value) {
+  if (!Array.isArray(value)) return null;
+  const interactions = value.map((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const type = cleanComponentId(raw.type);
+    const action = cleanComponentId(raw.action);
+    if (!type || !action) return null;
+    return {
+      type,
+      action,
+      label: clampText(raw.label, 80) || undefined,
+    };
+  }).filter(Boolean).slice(0, 4);
+  return interactions.length ? interactions : null;
+}
+
 function sanitizeColorToken(value) {
   const color = String(value || "").trim();
   if (/^#[0-9a-f]{6}$/i.test(color)) return color;
@@ -823,6 +1081,15 @@ function sanitizeComponent(raw) {
   component.binding = sanitizeBinding(raw.binding);
   const chart = sanitizeChart(raw.chart);
   if (chart) component.chart = chart;
+
+  const provenanceIds = sanitizeStringArray(raw.provenanceIds, 8, 80);
+  if (provenanceIds) component.provenanceIds = provenanceIds;
+
+  const sourceState = sanitizeSourceState(raw.sourceState);
+  if (sourceState) component.sourceState = sourceState;
+
+  const interactions = sanitizeInteractions(raw.interactions);
+  if (interactions) component.interactions = interactions;
   return component;
 }
 
@@ -831,13 +1098,18 @@ function sanitizeComponents(value, maxItems = 4) {
   return value.map(sanitizeComponent).filter(Boolean).slice(0, maxItems);
 }
 
+function generatedSurfaceNames() {
+  return Object.keys(surfaceRegistry());
+}
+
+function generatedSurfaceMax(surface) {
+  return surfaceRegistry()[surface]?.maxComponents || 4;
+}
+
 function emptyGeneratedDashboard() {
   return {
     view: "default",
-    slots: {
-      rail: [],
-      stageOverlay: [],
-    },
+    slots: Object.fromEntries(generatedSurfaceNames().map((slot) => [slot, []])),
     themeTokens: {},
   };
 }
@@ -850,7 +1122,7 @@ function sanitizeGeneratedDashboard(raw) {
   if (views[view]) generated.view = view;
   const slots = raw.slots && typeof raw.slots === "object" && !Array.isArray(raw.slots) ? raw.slots : {};
   for (const slot of Object.keys(generated.slots)) {
-    generated.slots[slot] = sanitizeComponents(slots[slot], 4);
+    generated.slots[slot] = sanitizeComponents(slots[slot], generatedSurfaceMax(slot));
   }
   const themeTokens = sanitizeThemeTokens(raw.themeTokens);
   if (themeTokens) generated.themeTokens = themeTokens;
@@ -864,7 +1136,7 @@ function sanitizeMutation(raw) {
   if (!allowed.has(type)) return null;
 
   const mutation = { type };
-  const slots = new Set(["rail", "stageOverlay"]);
+  const slots = new Set(generatedSurfaceNames());
   const slot = String(raw.slot || "");
   if (slot && slots.has(slot)) mutation.slot = slot;
 
@@ -1005,13 +1277,13 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
     Object.assign(patch, mutation.patch);
   }
   if (mutation.type === "replace_slot") {
-    if (!mutation.slot) throw new Error("replace_slot requires rail or stageOverlay");
+    if (!mutation.slot) throw new Error("replace_slot requires a supported surface");
     generated.slots[mutation.slot] = mutation.components || [];
   }
   if (mutation.type === "add_component") {
-    if (!mutation.slot) throw new Error("add_component requires rail or stageOverlay");
+    if (!mutation.slot) throw new Error("add_component requires a supported surface");
     if (!mutation.component) throw new Error("add_component requires a supported component");
-    generated.slots[mutation.slot] = [...(generated.slots[mutation.slot] || []), mutation.component].slice(-4);
+    generated.slots[mutation.slot] = [...(generated.slots[mutation.slot] || []), mutation.component].slice(-generatedSurfaceMax(mutation.slot));
   }
   if (mutation.type === "set_theme_tokens") {
     if (!mutation.themeTokens) throw new Error("set_theme_tokens requires supported color tokens");
@@ -1039,6 +1311,196 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
     source,
     instruction: clampText(instruction, 500),
     mutation,
+    at: new Date().toISOString(),
+  });
+  db.events = db.events.slice(-100);
+  writeDashboardOverrides(db);
+  return db.dashboards[id];
+}
+
+function sanitizeCapabilityParams(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const params = {};
+  for (const field of ["entity", "metric", "detail", "topic", "direction", "compareTo", "coin", "interval", "respondent"]) {
+    if (raw[field] !== undefined) {
+      const value = clampText(raw[field], 80);
+      if (value) params[field] = value;
+    }
+  }
+  if (raw.query !== undefined) {
+    const value = clampText(raw.query, 180);
+    if (value) params.query = value;
+  }
+  if (Array.isArray(raw.entities)) {
+    const entities = sanitizeStringArray(raw.entities, 8, 60);
+    if (entities) params.entities = entities;
+  }
+  for (const field of ["lookbackHours", "hours", "limit", "depth", "candles"]) {
+    if (raw[field] !== undefined) {
+      const value = Number(raw[field]);
+      if (Number.isFinite(value) && value > 0) params[field] = value;
+    }
+  }
+  for (const field of ["startTime", "endTime"]) {
+    if (raw[field] !== undefined) {
+      const value = clampText(raw[field], 80);
+      if (value) params[field] = value;
+    }
+  }
+  return params;
+}
+
+function sanitizeDataRequest(raw, channel) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const allowed = new Set(dataCapabilitiesForChannel(channel).map((capability) => capability.id));
+  const capability = cleanComponentId(raw.capability || raw.type || raw.name);
+  if (!allowed.has(capability)) return null;
+  const request = {
+    capability,
+    params: sanitizeCapabilityParams(raw.params || raw.query || raw),
+  };
+  if (raw.detail !== undefined) {
+    const detail = cleanComponentId(raw.detail);
+    if (["summary", "compact", "rows"].includes(detail)) request.detail = detail;
+  }
+  if (raw.reason !== undefined) {
+    const reason = clampText(raw.reason, 180);
+    if (reason) request.reason = reason;
+  }
+  return request;
+}
+
+function sanitizeProvenanceRecord(raw, channel) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const sourceType = cleanComponentId(raw.sourceType || "");
+  const allowed = new Set(["live_api", "historical_api", "cached_api", "user_supplied", "derived_from_api", "synthetic_fallback", "unavailable"]);
+  if (!allowed.has(sourceType)) return null;
+  const capability = cleanComponentId(raw.capability || "snapshot") || "snapshot";
+  return {
+    id: cleanComponentId(raw.id) || `prov_${Date.now().toString(36)}`,
+    sourceType,
+    provider: clampText(raw.provider || channel.liveProvider || "unavailable", 80),
+    capability,
+    params: sanitizeCapabilityParams(raw.params || {}),
+    queriedAt: clampText(raw.queriedAt, 40) || new Date().toISOString(),
+    cache: raw.cache && typeof raw.cache === "object" && !Array.isArray(raw.cache)
+      ? { status: clampText(raw.cache.status, 32), ttlMs: Number(raw.cache.ttlMs) || undefined }
+      : undefined,
+    rowCount: Math.max(0, Number(raw.rowCount) || 0),
+    status: clampText(raw.status || "success", 32),
+    stale: Boolean(raw.stale),
+    fallbackReason: clampText(raw.fallbackReason, 180) || null,
+  };
+}
+
+function sanitizeSurfaceUpdate(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const surface = String(raw.surface || raw.slot || "");
+  const surfaces = surfaceRegistry();
+  if (!surfaces[surface]) return null;
+  const mode = cleanComponentId(raw.mode || raw.operation || "replace");
+  if (!["replace", "append", "clear"].includes(mode)) return null;
+  const components = sanitizeComponents(
+    Array.isArray(raw.components) ? raw.components : raw.component ? [raw.component] : [],
+    generatedSurfaceMax(surface)
+  );
+  if (mode !== "clear" && !components.length) return null;
+  return {
+    surface,
+    mode,
+    components,
+  };
+}
+
+function sanitizeChannelUpdate(raw, channel) {
+  const source = raw?.update && typeof raw.update === "object" && !Array.isArray(raw.update) ? raw.update : raw;
+  if (!source || typeof source !== "object" || Array.isArray(source)) return null;
+
+  const update = {};
+  const layoutRaw = source.layout && typeof source.layout === "object" && !Array.isArray(source.layout)
+    ? source.layout
+    : { template: source.layoutTemplate || source.view };
+  const template = cleanComponentId(layoutRaw.template || layoutRaw.id || layoutRaw.view);
+  if (template && viewPresets()[template]) {
+    update.layout = {
+      template,
+    };
+    const rationale = clampText(layoutRaw.rationale, 180);
+    if (rationale) update.layout.rationale = rationale;
+  }
+
+  const patch = sanitizeDashboardPatch(source.patch);
+  if (Object.keys(patch).length) update.patch = patch;
+
+  const themeTokens = sanitizeThemeTokens(source.themeTokens);
+  if (themeTokens) update.themeTokens = themeTokens;
+
+  const surfaces = (Array.isArray(source.surfaces) ? source.surfaces : source.surface ? [source] : [])
+    .map(sanitizeSurfaceUpdate)
+    .filter(Boolean);
+  if (surfaces.length) update.surfaces = surfaces;
+
+  const dataRequests = (Array.isArray(source.dataRequests) ? source.dataRequests : source.dataRequest ? [source.dataRequest] : [])
+    .map((request) => sanitizeDataRequest(request, channel))
+    .filter(Boolean)
+    .slice(0, 6);
+  if (dataRequests.length) update.dataRequests = dataRequests;
+
+  const provenanceRecords = (Array.isArray(source.provenanceRecords) ? source.provenanceRecords : Array.isArray(source.provenance) ? source.provenance : [])
+    .map((record) => sanitizeProvenanceRecord(record, channel))
+    .filter(Boolean)
+    .slice(0, 12);
+  if (provenanceRecords.length) update.provenanceRecords = provenanceRecords;
+
+  const narration = clampText(source.narration || source.speech || source.explanation, 260);
+  if (narration) update.narration = narration;
+
+  if (!update.layout && !update.patch && !update.themeTokens && !update.surfaces) return null;
+  return update;
+}
+
+function applyChannelUpdate(dashboardId, rawUpdate, instruction, source = "kat-runtime") {
+  const id = cleanDashboardId(dashboardId);
+  if (!id || !PANELS.some((panel) => panel.id === id)) throw new Error("unknown dashboard");
+  const channel = getChannel(id);
+  if (!channel) throw new Error("unknown channel");
+  const update = sanitizeChannelUpdate(rawUpdate, channel);
+  if (!update) throw new Error("empty or unsupported channel update");
+
+  const db = readDashboardOverrides();
+  const existingRecord = db.dashboards[id] || {};
+  const patch = { ...(existingRecord.patch || {}) };
+  let generated = sanitizeGeneratedDashboard(existingRecord.generated);
+
+  if (update.layout?.template) generated.view = update.layout.template;
+  if (update.patch) Object.assign(patch, update.patch);
+  if (update.themeTokens) generated.themeTokens = { ...(generated.themeTokens || {}), ...update.themeTokens };
+
+  for (const surfaceUpdate of update.surfaces || []) {
+    const slot = surfaceUpdate.surface;
+    if (surfaceUpdate.mode === "clear") generated.slots[slot] = [];
+    if (surfaceUpdate.mode === "replace") generated.slots[slot] = surfaceUpdate.components;
+    if (surfaceUpdate.mode === "append") {
+      generated.slots[slot] = [...(generated.slots[slot] || []), ...surfaceUpdate.components].slice(-generatedSurfaceMax(slot));
+    }
+  }
+
+  db.dashboards[id] = {
+    ...existingRecord,
+    patch,
+    generated,
+    channelUpdate: update,
+    provenanceRecords: update.provenanceRecords || existingRecord.provenanceRecords || [],
+    updatedAt: new Date().toISOString(),
+    updatedBy: source,
+    instruction: clampText(instruction || update.narration, 500),
+  };
+  if (!Object.keys(patch).length) db.dashboards[id].patch = {};
+  db.events.push({
+    dashboard: id,
+    source,
+    instruction: clampText(instruction || update.narration, 500),
+    channelUpdate: update,
     at: new Date().toISOString(),
   });
   db.events = db.events.slice(-100);
@@ -1255,6 +1717,8 @@ function realtimeTools() {
   const workspaceEnum = PANELS.map((panel) => panel.id);
   const componentTypes = Object.keys(componentRegistry());
   const views = Object.keys(viewPresets());
+  const surfaceEnum = Object.keys(surfaceRegistry());
+  const capabilityEnum = ["snapshot", "timeseries", "events", "rankings", "entity_detail", "relationships", "search", "historical_state"];
   const bindingEnum = Array.from(new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed", ...CHART_BINDINGS]));
   const chartSchema = {
     type: "object",
@@ -1282,6 +1746,34 @@ function realtimeTools() {
           respondent: { type: "string" },
         },
       },
+    },
+    required: ["type"],
+  };
+  const componentSchema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { type: "string" },
+      type: { type: "string", enum: componentTypes },
+      eyebrow: { type: "string" },
+      title: { type: "string" },
+      body: { type: "string" },
+      value: { type: "string" },
+      note: { type: "string" },
+      variant: { type: "string" },
+      binding: { type: "string", enum: bindingEnum },
+      chart: chartSchema,
+      metrics: {
+        type: "array",
+        maxItems: 6,
+        items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+      },
+      rows: {
+        type: "array",
+        maxItems: 8,
+        items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+      },
+      items: { type: "array", items: { type: "string" }, maxItems: 8 },
     },
     required: ["type"],
   };
@@ -1342,6 +1834,204 @@ function realtimeTools() {
           endTime: { type: "string", description: "Optional historical end time as ISO, unix seconds, or unix milliseconds." },
           respondent: { type: "string", description: "Optional EIA grid respondent, for example US48, CAL, ERCO, or PJM." },
         },
+      },
+    },
+    {
+      type: "function",
+      name: "query_channel_capability",
+      description:
+        "Query the active channel through generic capabilities before composing a view. Prefer this over provider-specific assumptions when the user asks for arbitrary information, comparisons, history, rankings, events, or entity details.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          capability: { type: "string", enum: capabilityEnum },
+          detail: { type: "string", enum: ["summary", "compact", "rows"] },
+          params: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              entity: { type: "string" },
+              entities: { type: "array", items: { type: "string" }, maxItems: 8 },
+              query: { type: "string" },
+              topic: { type: "string" },
+              metric: { type: "string" },
+              direction: { type: "string" },
+              interval: { type: "string" },
+              lookbackHours: { type: "number" },
+              startTime: { type: "string" },
+              endTime: { type: "string" },
+              limit: { type: "number" },
+              depth: { type: "number" },
+              compareTo: { type: "string" },
+              coin: { type: "string" },
+              respondent: { type: "string" },
+              candles: { type: "number" },
+            },
+          },
+        },
+        required: ["dashboardId", "capability"],
+      },
+    },
+    {
+      type: "function",
+      name: "route_channel_turn",
+      description:
+        "Route a meaningful user request through the active specialist channel agent. This updates channel session state, queries data, replaces generated surfaces, and returns morph events.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          userText: { type: "string" },
+          sessionId: { type: "string" },
+        },
+        required: ["dashboardId", "userText"],
+      },
+    },
+    {
+      type: "function",
+      name: "summarize_channel_state",
+      description: "Read the current channel session state without changing generated surfaces.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          sessionId: { type: "string" },
+        },
+        required: ["dashboardId"],
+      },
+    },
+    {
+      type: "function",
+      name: "clear_channel_surfaces",
+      description: "Clear generated channel surfaces through the channel runtime when the user asks to reset or remove generated output.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          sessionId: { type: "string" },
+          surfaces: { type: "array", items: { type: "string", enum: surfaceEnum }, maxItems: 3 },
+          instruction: { type: "string" },
+        },
+        required: ["dashboardId"],
+      },
+    },
+    {
+      type: "function",
+      name: "apply_channel_update",
+      description:
+        "Apply a validated channel update spec. Use this for generated layouts, charts, components, tables, modals, rail updates, stage visuals, and personalized channel views. Generated surfaces replace by default.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          dashboardId: { type: "string", enum: workspaceEnum.filter((id) => id !== "landing") },
+          instruction: { type: "string" },
+          update: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              layout: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  template: { type: "string", enum: views },
+                  rationale: { type: "string" },
+                },
+              },
+              dataRequests: {
+                type: "array",
+                maxItems: 6,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    capability: { type: "string", enum: capabilityEnum },
+                    detail: { type: "string", enum: ["summary", "compact", "rows"] },
+                    params: {
+                      type: "object",
+                      additionalProperties: false,
+                      properties: {
+                        entity: { type: "string" },
+                        entities: { type: "array", items: { type: "string" }, maxItems: 8 },
+                        query: { type: "string" },
+                        topic: { type: "string" },
+                        metric: { type: "string" },
+                        direction: { type: "string" },
+                        interval: { type: "string" },
+                        lookbackHours: { type: "number" },
+                        startTime: { type: "string" },
+                        endTime: { type: "string" },
+                        limit: { type: "number" },
+                        depth: { type: "number" },
+                        compareTo: { type: "string" },
+                        coin: { type: "string" },
+                        respondent: { type: "string" },
+                        candles: { type: "number" },
+                      },
+                    },
+                    reason: { type: "string" },
+                  },
+                  required: ["capability"],
+                },
+              },
+              patch: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  title: { type: "string" },
+                  subtitle: { type: "string" },
+                  kicker: { type: "string" },
+                  visualLabel: { type: "string" },
+                  visualCopy: { type: "string" },
+                  feedLabel: { type: "string" },
+                  lens: { type: "string" },
+                  caption: { type: "string" },
+                  tabs: { type: "array", items: { type: "string" }, maxItems: 6 },
+                  metrics: {
+                    type: "array",
+                    maxItems: 3,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                  feed: {
+                    type: "array",
+                    maxItems: 6,
+                    items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                  },
+                },
+              },
+              surfaces: {
+                type: "array",
+                maxItems: 4,
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    surface: { type: "string", enum: surfaceEnum },
+                    mode: { type: "string", enum: ["replace", "append", "clear"] },
+                    components: { type: "array", maxItems: 4, items: componentSchema },
+                  },
+                  required: ["surface", "mode"],
+                },
+              },
+              themeTokens: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  accent: { type: "string" },
+                  accent2: { type: "string" },
+                  accent3: { type: "string" },
+                },
+              },
+              narration: { type: "string" },
+            },
+          },
+        },
+        required: ["dashboardId", "instruction", "update"],
       },
     },
     {
@@ -1554,16 +2244,17 @@ function realtimeInstructions(dashboardId) {
   return [
     "You are Kat, the voice-native agent inside Katechon.",
     "Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.",
-    "You can discuss the active dashboard, navigate between dashboards, and rapidly compose dashboard views from prebuilt components.",
+    "You can discuss the active dashboard, navigate between dashboards, query channel capabilities, and compose channel views from validated components.",
     "When answering about a dashboard, ground yourself in the provided channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.",
-    "If the user asks for current data that is not in liveSummary, call get_channel_live before answering.",
-    "When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.",
-    "When the user asks for a chart, graph, plot, visual, graphic, candle chart, depth chart, odds chart, token chart, or grid chart, call apply_dashboard_chart. Do not use generic widgets for chart requests.",
-    "Generated charts and components should replace the target generated slot by default; set replace=false only when the user explicitly asks to add multiple.",
-    "For primary charts, prefer slot=stageOverlay so the chart renders as a clean stage surface over the dashboard graphic.",
-    "For crypto charts, use coin, interval, lookbackHours, candles, startTime, or endTime when the user asks for historical context or a timeframe.",
-    "For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent and query parameters.",
-    "Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, chart bindings, and theme tokens.",
+    "For meaningful channel-specific user requests, prefer route_channel_turn so the specialist channel agent updates state, data, layout, surfaces, provenance, and next actions together.",
+    "If the user asks for current data that is not in liveSummary and does not need a full morph, call query_channel_capability before answering.",
+    "When manually composing a view, call apply_channel_update rather than legacy dashboard mutation tools.",
+    "Use apply_dashboard_chart, apply_dashboard_mutation, and apply_dashboard_edit only as legacy helpers when a narrow compatibility action is enough.",
+    "Generated charts and components should replace the target generated surface by default; append only when the user explicitly asks to keep multiple.",
+    "For primary charts, prefer surface=stageOverlay so the chart renders as a clean stage surface over the dashboard graphic.",
+    "Use dataRequests in apply_channel_update to document what you queried or intended to query, but do not invent unsupported data.",
+    "Every generated chart or insight must include provenance; synthetic fallback must be named as fallback.",
+    "Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.",
     "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
     `Current channel context:\n${JSON.stringify(context, null, 2)}`,
     `Available dashboards:\n${panelCatalog}`,
@@ -2776,6 +3467,857 @@ function compactChannelLiveEnvelope(envelope) {
   };
 }
 
+function firstEntity(params = {}) {
+  if (params.entity) return params.entity;
+  if (params.coin) return params.coin;
+  if (params.respondent) return params.respondent;
+  if (Array.isArray(params.entities) && params.entities[0]) return params.entities[0];
+  return "";
+}
+
+function providerQueryForCapability(channel, capability, params = {}) {
+  const query = {};
+  const entity = firstEntity(params);
+  if (channel.liveProvider === "hyperliquid") {
+    if (entity || params.coin) query.coin = sanitizeHyperliquidCoin(params.coin || entity || channel.defaultQuery?.coin, "");
+    if (params.interval) query.interval = params.interval;
+    if (params.lookbackHours || params.hours) query.lookbackHours = params.lookbackHours || params.hours;
+    if (params.candles || params.limit) query.candles = params.candles || params.limit;
+    if (params.startTime) query.startTime = params.startTime;
+    if (params.endTime) query.endTime = params.endTime;
+    if ((capability === "historical_state" || capability === "timeseries") && !query.lookbackHours && !query.startTime) {
+      query.lookbackHours = 24;
+    }
+  }
+  if (channel.liveProvider === "eia-grid") {
+    if (entity || params.respondent) query.respondent = cleanEiaRespondent(params.respondent || entity || channel.defaultQuery?.respondent || "");
+  }
+  return query;
+}
+
+function tupleRowsToObjects(rows = []) {
+  return rows.map((row, index) => Array.isArray(row)
+    ? { index, label: row[0] || String(index + 1), title: row[1] || "", meta: row[2] || "" }
+    : { index, value: row });
+}
+
+function summaryMetricObjects(summary) {
+  return tupleRowsToObjects(summary.metrics || []).map((row) => ({
+    label: row.label,
+    value: row.title,
+    note: row.meta,
+  }));
+}
+
+function hyperliquidCapabilityRows(capability, data) {
+  const candles = Array.isArray(data.candles) ? data.candles : [];
+  const book = data.book?.levels || [];
+  if (["timeseries", "historical_state"].includes(capability)) {
+    return candles.slice(-96).map((candle, index) => ({
+      index,
+      time: candle.t || candle.time || null,
+      label: candle.t ? new Date(Number(candle.t)).toISOString() : String(index + 1),
+      open: Number(candle.o || candle.open || 0),
+      high: Number(candle.h || candle.high || 0),
+      low: Number(candle.l || candle.low || 0),
+      close: Number(candle.c || candle.close || 0),
+      volume: Number(candle.v || candle.volume || 0),
+    }));
+  }
+  if (capability === "rankings" || capability === "entity_detail") {
+    const bids = Array.isArray(book[0]) ? book[0].slice(0, 8) : [];
+    const asks = Array.isArray(book[1]) ? book[1].slice(0, 8) : [];
+    return [...bids.map((level, index) => ({
+      index,
+      side: "bid",
+      label: `Bid ${index + 1}`,
+      price: Number(level.px || 0),
+      size: Number(level.sz || 0),
+      notional: Number(level.px || 0) * Number(level.sz || 0),
+    })), ...asks.map((level, index) => ({
+      index: index + bids.length,
+      side: "ask",
+      label: `Ask ${index + 1}`,
+      price: Number(level.px || 0),
+      size: Number(level.sz || 0),
+      notional: Number(level.px || 0) * Number(level.sz || 0),
+    }))];
+  }
+  return [];
+}
+
+function eiaCapabilityRows(capability, data) {
+  if (["timeseries", "historical_state"].includes(capability)) return Array.isArray(data.series) ? data.series.slice(-72) : [];
+  if (capability === "rankings") {
+    if (Array.isArray(data.corridors) && data.corridors.length) return data.corridors;
+    if (Array.isArray(data.fuelMix) && data.fuelMix.length) return data.fuelMix;
+  }
+  return [];
+}
+
+function providerRowsForCapability(channel, capability, envelope, summary) {
+  const data = envelope.data || {};
+  if (sourceIs(envelope, "hyperliquid")) return hyperliquidCapabilityRows(capability, data);
+  if (sourceIs(envelope, "eia-grid")) return eiaCapabilityRows(capability, data);
+  if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) return data.markets.slice(0, 12);
+  if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) return data.tokens.slice(0, 12);
+  if (capability === "events" || capability === "search") return tupleRowsToObjects(summary.feed || []);
+  if (capability === "rankings" || capability === "snapshot") return summaryMetricObjects(summary);
+  return tupleRowsToObjects(summary.feed || []);
+}
+
+function relationshipRowsForChannel(summary) {
+  const metrics = summary.metrics || [];
+  const feed = summary.feed || [];
+  const rows = [];
+  metrics.forEach((metric, index) => {
+    if (!Array.isArray(metric)) return;
+    rows.push({
+      source: metric[0] || `Metric ${index + 1}`,
+      target: metric[2] || "channel state",
+      relationship: "measured by",
+      value: metric[1] || "",
+    });
+  });
+  feed.slice(0, 5).forEach((item, index) => {
+    if (!Array.isArray(item)) return;
+    rows.push({
+      source: item[2] || "feed",
+      target: item[1] || `Event ${index + 1}`,
+      relationship: item[0] || "recent",
+      value: item[1] || "",
+    });
+  });
+  return rows.slice(0, 10);
+}
+
+function bindingHintsForCapability(channel, capability, envelope) {
+  if (sourceIs(envelope, "hyperliquid")) {
+    if (["timeseries", "historical_state"].includes(capability)) return ["liveData.candles"];
+    if (capability === "entity_detail" || capability === "rankings") return ["liveData.book", "liveSummary.metrics"];
+  }
+  if (sourceIs(envelope, "eia-grid")) {
+    if (["timeseries", "historical_state"].includes(capability)) return ["liveData.series"];
+    if (capability === "rankings") return ["liveData.corridors", "liveData.fuelMix"];
+  }
+  if (sourceIs(envelope, "polymarket")) return ["liveData.markets", "liveSummary.feed"];
+  if (sourceIs(envelope, "pumpfun")) return ["liveData.tokens", "liveSummary.feed"];
+  if (capability === "events" || capability === "search" || capability === "relationships") return ["liveSummary.feed", "dashboard.feed"];
+  return ["liveSummary.metrics", "dashboard.metrics"];
+}
+
+function normalizeCapabilityResult(channel, capability, params, envelope, detail = "summary") {
+  const summary = summarizeChannelLive(channel, envelope);
+  const rows = capability === "relationships"
+    ? relationshipRowsForChannel(summary)
+    : providerRowsForCapability(channel, capability, envelope, summary);
+  const compact = compactChannelLiveEnvelope(envelope);
+  const provenance = buildProvenanceRecord(channel, capability, params, envelope, rows.length);
+  return {
+    ok: true,
+    runtime: CHANNEL_RUNTIME_VERSION,
+    channel: publicChannel(channel),
+    capability,
+    params,
+    source: envelope.source,
+    sourceType: provenance.sourceType,
+    stale: envelope.stale,
+    updatedAt: envelope.updatedAt,
+    fallbackReason: envelope.fallbackReason,
+    provenance: [provenance],
+    liveSummary: summary,
+    rows: rows.slice(0, Number(params.limit || 48)),
+    bindingHints: bindingHintsForCapability(channel, capability, envelope),
+    data: detail === "compact" ? compact.data : undefined,
+  };
+}
+
+async function queryChannelCapability(channel, raw = {}) {
+  const allowed = new Set(dataCapabilitiesForChannel(channel).map((capability) => capability.id));
+  const capability = cleanComponentId(raw.capability || raw.type || "snapshot");
+  if (!allowed.has(capability)) throw new Error(`unsupported channel capability: ${capability || "empty"}`);
+  const params = sanitizeCapabilityParams(raw.params || raw.query || raw);
+  const query = providerQueryForCapability(channel, capability, params);
+  const envelope = await getChannelLiveEnvelope({ query }, channel);
+  const detail = cleanComponentId(raw.detail || params.detail || "summary");
+  return normalizeCapabilityResult(channel, capability, params, envelope, detail === "compact" ? "compact" : "summary");
+}
+
+function channelTurnId() {
+  return `turn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emitChannelTurnEvent(events, onEvent, event) {
+  const normalized = {
+    at: new Date().toISOString(),
+    ...event,
+  };
+  events.push(normalized);
+  if (typeof onEvent === "function") onEvent(normalized);
+  return normalized;
+}
+
+function channelTimeframeFromText(normalizedText, channel) {
+  const day = 24;
+  if (/\b(three|3)\s*(months?|mos?|mth)\b/.test(normalizedText) || /\b3m\b/.test(normalizedText)) {
+    return { label: "3 months", lookbackHours: 90 * day, interval: "1d" };
+  }
+  if (/\b(one|1)\s*(months?|mos?|mth)\b/.test(normalizedText) || /\b(last|past)\s+month\b/.test(normalizedText) || /\b30\s*days?\b/.test(normalizedText)) {
+    return { label: "1 month", lookbackHours: 30 * day, interval: channel.liveProvider === "hyperliquid" ? "4h" : undefined };
+  }
+  if (/\b(two|2)\s*weeks?\b/.test(normalizedText) || /\b14\s*days?\b/.test(normalizedText)) {
+    return { label: "14 days", lookbackHours: 14 * day, interval: channel.liveProvider === "hyperliquid" ? "1h" : undefined };
+  }
+  if (/\b(week|7\s*days?|7d)\b/.test(normalizedText)) {
+    return { label: "7 days", lookbackHours: 7 * day, interval: channel.liveProvider === "hyperliquid" ? "1h" : undefined };
+  }
+  if (/\b(72\s*hours?|72h|three\s*days?|3\s*days?)\b/.test(normalizedText)) {
+    return { label: "72 hours", lookbackHours: 72, interval: channel.liveProvider === "hyperliquid" ? "1h" : undefined };
+  }
+  if (/\b(today|24\s*hours?|24h|last\s*day|past\s*day)\b/.test(normalizedText)) {
+    return { label: "24 hours", lookbackHours: 24, interval: channel.liveProvider === "hyperliquid" ? "15m" : undefined };
+  }
+  const numeric = normalizedText.match(/\b(\d{1,3})\s*(hours?|hrs?|h|days?|d)\b/);
+  if (numeric) {
+    const amount = Math.max(1, Number(numeric[1]) || 1);
+    const unit = numeric[2].startsWith("d") ? "days" : "hours";
+    const lookbackHours = unit === "days" ? amount * day : amount;
+    return {
+      label: `${amount} ${unit}`,
+      lookbackHours,
+      interval: channel.liveProvider === "hyperliquid" ? defaultHyperliquidIntervalForLookback(lookbackHours) : undefined,
+    };
+  }
+  return channel.liveProvider === "eia-grid"
+    ? { label: "24 hours", lookbackHours: 24, interval: undefined }
+    : { label: "24 hours", lookbackHours: 24, interval: "15m" };
+}
+
+function cryptoEntitiesFromText(normalizedText) {
+  const entities = [];
+  if (/\b(btc|bitcoin|ptc)\b/.test(normalizedText)) entities.push("BTC");
+  if (/\b(eth|ethereum)\b/.test(normalizedText)) entities.push("ETH");
+  if (/\b(sol|solana)\b/.test(normalizedText)) entities.push("SOL");
+  if (!entities.length) entities.push("BTC");
+  if (/\bcompare\b/.test(normalizedText) && entities.length === 1 && entities[0] === "BTC") entities.push("ETH");
+  return Array.from(new Set(entities));
+}
+
+function parseCryptoChannelIntent(channel, userText, normalizedText) {
+  const entities = cryptoEntitiesFromText(normalizedText);
+  const timeframe = channelTimeframeFromText(normalizedText, channel);
+  const wantsComparison = /\b(compare|versus|vs\.?|against)\b/.test(normalizedText) || entities.length > 1;
+  const wantsLiquidity = /\b(liquidity|depth|book|order\s*book|bid|ask|spread)\b/.test(normalizedText);
+  const wantsRisk = /\b(risk|anomal|volatility|volatile|drawdown|stress|range|regime)\b/.test(normalizedText);
+  const wantsHistory = /\b(price|prices|chart|graph|plot|candles?|history|historical|replay|trend|structure|months?|weeks?|days?|hours?)\b/.test(normalizedText);
+  const capability = wantsLiquidity ? "entity_detail" : wantsHistory || wantsComparison || wantsRisk ? "timeseries" : "snapshot";
+  const layout = wantsComparison ? "comparison" : wantsRisk ? "risk_anomaly" : wantsHistory ? "historical_replay" : "overview";
+  const primaryEntity = entities[0] || "BTC";
+  const params = capability === "snapshot"
+    ? { entity: primaryEntity }
+    : {
+      entity: primaryEntity,
+      coin: primaryEntity,
+      lookbackHours: timeframe.lookbackHours,
+      interval: timeframe.interval || defaultHyperliquidIntervalForLookback(timeframe.lookbackHours),
+      candles: timeframe.label === "3 months" ? 90 : undefined,
+    };
+  return {
+    intent: wantsLiquidity ? "liquidity_depth" : wantsComparison ? "comparison" : wantsRisk ? "risk_anomaly" : wantsHistory ? "historical_price" : "overview",
+    topic: wantsLiquidity
+      ? `${primaryEntity} liquidity and depth`
+      : wantsComparison
+        ? `${entities.join(" vs ")} comparison`
+        : `${primaryEntity} ${timeframe.label} price structure`,
+    entities,
+    timeframe,
+    mode: layout,
+    layout,
+    capability,
+    detail: "compact",
+    params,
+    stageIntent: wantsLiquidity ? "primary order book and liquidity inspection" : "primary historical price visualization",
+    railIntent: "trend summary, source state, provenance, and next actions",
+    userText,
+  };
+}
+
+function parsePowerGridIntent(channel, userText, normalizedText) {
+  const timeframe = channelTimeframeFromText(normalizedText, channel);
+  const respondentMatch = normalizedText.match(/\b(us48|pjm|erco|ercot|cal|caiso|miso|nyis|nyiso|isne|isone|spp)\b/);
+  const respondent = respondentMatch ? respondentMatch[1].toUpperCase().replace("ERCOT", "ERCO").replace("CAISO", "CAL").replace("NYISO", "NYIS").replace("ISONE", "ISNE") : "US48";
+  const wantsFuel = /\b(fuel|mix|generation mix|natural gas|nuclear|coal|wind|solar)\b/.test(normalizedText);
+  const wantsRisk = /\b(risk|stress|corridor|margin|reserve|anomal|cascade|fault)\b/.test(normalizedText);
+  const wantsHistory = /\b(load|forecast|history|historical|last|today|day|hours?|trend|series)\b/.test(normalizedText);
+  const capability = wantsFuel || wantsRisk ? "rankings" : wantsHistory ? "timeseries" : "snapshot";
+  const layout = wantsRisk ? "risk_anomaly" : wantsHistory ? "historical_replay" : "overview";
+  return {
+    intent: wantsRisk ? "grid_risk" : wantsFuel ? "fuel_mix" : wantsHistory ? "grid_history" : "overview",
+    topic: wantsRisk ? `${respondent} grid risk` : wantsFuel ? `${respondent} fuel mix` : `${respondent} load and forecast`,
+    entities: [respondent],
+    timeframe,
+    mode: layout,
+    layout,
+    capability,
+    detail: "compact",
+    params: { entity: respondent, respondent, lookbackHours: timeframe.lookbackHours },
+    stageIntent: wantsFuel ? "fuel mix and corridor ranking visualization" : "load, forecast, and risk visualization",
+    railIntent: "operational summary, source state, provenance, and next actions",
+    userText,
+  };
+}
+
+function parseGenericChannelIntent(channel, userText, normalizedText) {
+  const layout = /\b(compare|versus|vs)\b/.test(normalizedText)
+    ? "comparison"
+    : /\b(risk|anomal|stress|outlier)\b/.test(normalizedText)
+      ? "risk_anomaly"
+      : /\b(history|historical|last|past|replay)\b/.test(normalizedText)
+        ? "historical_replay"
+        : "overview";
+  const capability = layout === "historical_replay" && dataCapabilitiesForChannel(channel).some((capability) => capability.id === "historical_state")
+    ? "historical_state"
+    : /\b(rank|top|leader)\b/.test(normalizedText)
+      ? "rankings"
+      : /\b(search|find)\b/.test(normalizedText)
+        ? "search"
+        : "snapshot";
+  return {
+    intent: layout,
+    topic: `${channel.label} ${layout.replace(/_/g, " ")}`,
+    entities: [],
+    timeframe: null,
+    mode: layout,
+    layout,
+    capability,
+    detail: "compact",
+    params: {},
+    stageIntent: "primary generated channel view",
+    railIntent: "summary, provenance, and next actions",
+    userText,
+  };
+}
+
+function parseChannelTurnIntent(channel, userText, priorState) {
+  const normalizedText = normalizeAgentText(userText);
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return parseCryptoChannelIntent(channel, userText, normalizedText);
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") return parsePowerGridIntent(channel, userText, normalizedText);
+  const generic = parseGenericChannelIntent(channel, userText, normalizedText);
+  if (priorState?.focus?.entities?.length && !generic.entities.length) generic.entities = priorState.focus.entities;
+  return generic;
+}
+
+function tupleRowsFromAny(rows = [], max = 5) {
+  return (Array.isArray(rows) ? rows : []).slice(0, max).map((row, index) => {
+    if (Array.isArray(row)) return [row[0] ?? String(index + 1), row[1] ?? "", row[2] ?? ""];
+    if (row && typeof row === "object") {
+      return [
+        row.label || row.side || row.source || row.fueltype || String(index + 1),
+        row.title || row.value || row.close || row.loadMw || row.price || row.stressPct || "",
+        row.meta || row.note || row.relationship || row.provider || row.period || "",
+      ].map((value) => String(value ?? ""));
+    }
+    return [String(index + 1), String(row ?? ""), ""];
+  });
+}
+
+function sourceRows(provenance) {
+  return [
+    ["source", sourceLabelForType(provenance.sourceType), provenance.provider],
+    ["rows", String(provenance.rowCount || 0), provenance.capability],
+    ["freshness", provenance.stale ? "stale/cache" : "fresh", provenance.queriedAt],
+    ...(provenance.fallbackReason ? [["fallback", provenance.fallbackReason, "visible"]] : []),
+  ].slice(0, 4);
+}
+
+function fallbackNotice(provenance) {
+  if (provenance.sourceType === "synthetic_fallback") {
+    return `Source is ${provenance.provider}; this is explicitly labeled fallback data because ${provenance.fallbackReason || "the live adapter did not return data"}.`;
+  }
+  if (provenance.sourceType === "unavailable") return "The requested provider data is unavailable, so the channel shows the data gap explicitly.";
+  if (provenance.sourceType === "cached_api") return "This view is using cached provider data and keeps freshness visible.";
+  return `Backed by ${sourceLabelForType(provenance.sourceType)} from ${provenance.provider}.`;
+}
+
+function nextActionsForIntent(channel, intent) {
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    if (intent.intent === "liquidity_depth") return ["Compare ETH depth", "Add price structure", "Inspect spread changes", "Zoom last 24 hours"];
+    if (intent.layout === "comparison") return ["Add SOL", "Inspect divergence", "Zoom last 7 days", "Check liquidity"];
+    if (intent.layout === "risk_anomaly") return ["Inspect drawdowns", "Show volatility range", "Compare ETH", "Open depth view"];
+    return ["Compare ETH over the same window", "Zoom into the last 7 days", "Add liquidity/depth context", "Inspect volatility regime"];
+  }
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    if (intent.layout === "risk_anomaly") return ["Inspect corridor stress", "Compare forecast gap", "Open fuel mix", "Zoom last 24 hours"];
+    return ["Show grid risk over the last day", "Inspect fuel mix", "Compare load to forecast", "Open corridor stress"];
+  }
+  return ["Open overview", "Show events", "Inspect top entity", "Map relationships"];
+}
+
+function buildCryptoTurnUpdate(channel, intent, result, provenance) {
+  const entity = intent.entities[0] || "BTC";
+  const sourceState = componentSourceState(provenance);
+  const isDepth = intent.intent === "liquidity_depth";
+  const chartBinding = isDepth ? "liveData.book" : "liveData.candles";
+  const chartType = isDepth ? "market-depth" : "line";
+  const title = isDepth ? `${entity} Liquidity And Depth` : `${entity} ${intent.timeframe.label} Price Structure`;
+  const summaryRows = tupleRowsFromAny(result.liveSummary?.metrics, 3);
+  const feedRows = tupleRowsFromAny(result.liveSummary?.feed, 4);
+  const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
+  const nextActions = nextActionsForIntent(channel, intent);
+  const chartQuery = isDepth
+    ? { coin: entity }
+    : {
+      coin: entity,
+      interval: intent.params.interval,
+      lookbackHours: intent.params.lookbackHours,
+      candles: intent.params.candles,
+    };
+  return {
+    layout: {
+      template: intent.layout,
+      rationale: `User asked for ${intent.topic}.`,
+    },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords: [provenance],
+    patch: {
+      title: `${channel.label}: ${title}`,
+      subtitle: fallbackNotice(provenance),
+      visualLabel: intent.stageIntent,
+      visualCopy: intent.railIntent,
+      feedLabel: "agent trace",
+      lens: intent.layout.replace(/_/g, " "),
+      tabs: ["Focus", "Data", "Provenance", "Next"],
+      metrics: summaryRows.length ? summaryRows : undefined,
+      feed: feedRows.length ? feedRows : undefined,
+    },
+    surfaces: [
+      {
+        surface: "stageOverlay",
+        mode: "replace",
+        components: [{
+          id: `${entity.toLowerCase()}-${intent.layout}-stage`,
+          type: "vega-chart",
+          eyebrow: "channel agent",
+          title,
+          chart: { type: chartType, binding: chartBinding, x: "label", y: isDepth ? "notional" : "close", color: isDepth ? "side" : undefined, query: chartQuery },
+          note: fallbackNotice(provenance),
+          provenanceIds: [provenance.id],
+          sourceState,
+          interactions: [{ type: "click-point", action: isDepth ? "inspect_book_level" : "inspect_candle" }],
+        }],
+      },
+      {
+        surface: "rail",
+        mode: "replace",
+        components: [
+          {
+            id: `${entity.toLowerCase()}-metrics`,
+            type: "metric-strip",
+            title: `${entity} Market Stats`,
+            metrics: summaryRows,
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${entity.toLowerCase()}-insight`,
+            type: "insight-card",
+            eyebrow: "Kat channel state",
+            title: intent.topic,
+            body: `${primaryHighlight} ${fallbackNotice(provenance)}`,
+            items: result.liveSummary?.highlights?.slice(1, 4) || [],
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${entity.toLowerCase()}-source`,
+            type: "source-confidence",
+            title: "Data Provenance",
+            rows: sourceRows(provenance),
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${entity.toLowerCase()}-next-actions`,
+            type: "action-panel",
+            title: "Next Moves",
+            items: nextActions,
+            note: "These are channel actions Kat can route into the same runtime.",
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+        ],
+      },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${title} is now the active channel focus. ${fallbackNotice(provenance)}`,
+  };
+}
+
+function buildPowerGridTurnUpdate(channel, intent, result, provenance) {
+  const respondent = intent.entities[0] || "US48";
+  const sourceState = componentSourceState(provenance);
+  const wantsRanking = intent.capability === "rankings";
+  const binding = wantsRanking && intent.intent === "fuel_mix" ? "liveData.fuelMix" : wantsRanking ? "liveData.corridors" : "liveData.series";
+  const chart = binding === "liveData.series"
+    ? { type: "area", binding, x: "label", y: "loadMw", y2: "forecastMw", query: { respondent } }
+    : { type: "bar", binding, x: "label", y: binding === "liveData.fuelMix" ? "value" : "stressPct", query: { respondent } };
+  const summaryRows = tupleRowsFromAny(result.liveSummary?.metrics, 3);
+  const feedRows = tupleRowsFromAny(result.liveSummary?.feed, 4);
+  const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
+  const nextActions = nextActionsForIntent(channel, intent);
+  const title = intent.intent === "grid_risk" ? `${respondent} Grid Risk` : intent.intent === "fuel_mix" ? `${respondent} Fuel Mix` : `${respondent} Load Vs Forecast`;
+  return {
+    layout: {
+      template: intent.layout,
+      rationale: `User asked for ${intent.topic}.`,
+    },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords: [provenance],
+    patch: {
+      title: `${channel.label}: ${title}`,
+      subtitle: fallbackNotice(provenance),
+      visualLabel: intent.stageIntent,
+      visualCopy: intent.railIntent,
+      feedLabel: "agent trace",
+      lens: intent.layout.replace(/_/g, " "),
+      tabs: ["Load", "Risk", "Sources", "Next"],
+      metrics: summaryRows.length ? summaryRows : undefined,
+      feed: feedRows.length ? feedRows : undefined,
+    },
+    surfaces: [
+      {
+        surface: "stageOverlay",
+        mode: "replace",
+        components: [{
+          id: `${respondent.toLowerCase()}-${intent.layout}-stage`,
+          type: "vega-chart",
+          eyebrow: "channel agent",
+          title,
+          chart,
+          note: `${fallbackNotice(provenance)} Frequency and corridor stress are labeled display proxies where derived.`,
+          provenanceIds: [provenance.id],
+          sourceState,
+          interactions: [{ type: "click-point", action: "inspect_grid_row" }],
+        }],
+      },
+      {
+        surface: "rail",
+        mode: "replace",
+        components: [
+          {
+            id: `${respondent.toLowerCase()}-metrics`,
+            type: "metric-strip",
+            title: "Grid Snapshot",
+            metrics: summaryRows,
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${respondent.toLowerCase()}-insight`,
+            type: "insight-card",
+            eyebrow: "Kat channel state",
+            title: intent.topic,
+            body: `${primaryHighlight} ${fallbackNotice(provenance)}`,
+            items: result.liveSummary?.highlights?.slice(1, 4) || [],
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${respondent.toLowerCase()}-source`,
+            type: "source-confidence",
+            title: "Data Provenance",
+            rows: sourceRows(provenance),
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+          {
+            id: `${respondent.toLowerCase()}-next-actions`,
+            type: "action-panel",
+            title: "Next Moves",
+            items: nextActions,
+            note: "These actions reuse the same channel agent runtime.",
+            provenanceIds: [provenance.id],
+            sourceState,
+          },
+        ],
+      },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${title} is now the active channel focus. ${fallbackNotice(provenance)}`,
+  };
+}
+
+function buildGenericTurnUpdate(channel, intent, result, provenance) {
+  const sourceState = componentSourceState(provenance);
+  const nextActions = nextActionsForIntent(channel, intent);
+  return {
+    layout: { template: intent.layout, rationale: `User asked for ${intent.topic}.` },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords: [provenance],
+    patch: {
+      title: `${channel.label}: ${intent.topic}`,
+      subtitle: fallbackNotice(provenance),
+      visualLabel: intent.stageIntent,
+      visualCopy: intent.railIntent,
+      feedLabel: "agent trace",
+      lens: intent.layout.replace(/_/g, " "),
+    },
+    surfaces: [
+      {
+        surface: "stageOverlay",
+        mode: "replace",
+        components: [{
+          id: `${channel.id}-${intent.layout}-stage`,
+          type: "insight-card",
+          eyebrow: "channel agent",
+          title: intent.topic,
+          body: result.liveSummary?.highlights?.[0] || fallbackNotice(provenance),
+          items: result.liveSummary?.highlights?.slice(1, 4) || [],
+          provenanceIds: [provenance.id],
+          sourceState,
+        }],
+      },
+      {
+        surface: "rail",
+        mode: "replace",
+        components: [{
+          id: `${channel.id}-source`,
+          type: "source-confidence",
+          title: "Data Provenance",
+          rows: sourceRows(provenance),
+          provenanceIds: [provenance.id],
+          sourceState,
+        }, {
+          id: `${channel.id}-next-actions`,
+          type: "action-panel",
+          title: "Next Moves",
+          items: nextActions,
+          provenanceIds: [provenance.id],
+          sourceState,
+        }],
+      },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${intent.topic} is now the active channel focus. ${fallbackNotice(provenance)}`,
+  };
+}
+
+function buildChannelTurnUpdate(channel, intent, result, provenance) {
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return buildCryptoTurnUpdate(channel, intent, result, provenance);
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") return buildPowerGridTurnUpdate(channel, intent, result, provenance);
+  return buildGenericTurnUpdate(channel, intent, result, provenance);
+}
+
+function surfaceIdsFromUpdate(surfaces = []) {
+  return Object.fromEntries(generatedSurfaceNames().concat("below").map((surface) => [surface, []]));
+}
+
+function updateChannelSessionFromTurn(channel, sessionState, turnId, userText, intent, result, update, provenance, events) {
+  const nextState = {
+    ...sessionState,
+    focus: {
+      topic: intent.topic,
+      entities: intent.entities || [],
+      timeframe: intent.timeframe || null,
+      mode: intent.mode,
+      intent: intent.intent,
+    },
+    layout: {
+      template: update.layout?.template || intent.layout,
+      rationale: update.layout?.rationale || "",
+    },
+    turns: [
+      ...(sessionState.turns || []),
+      { role: "user", text: userText, at: new Date().toISOString(), turnId },
+      { role: "assistant", text: update.narration || "", at: new Date().toISOString(), turnId, voice: "Kat" },
+    ].slice(-24),
+    provenance: [
+      ...(sessionState.provenance || []),
+      provenance,
+    ].slice(-60),
+    traces: [
+      ...(sessionState.traces || []),
+      {
+        turnId,
+        at: new Date().toISOString(),
+        events: events.map((event) => ({ type: event.type, at: event.at })),
+      },
+    ].slice(-40),
+  };
+
+  const dataset = {
+    id: `${channel.id}-${intent.capability}-${Date.now().toString(36)}`,
+    capability: intent.capability,
+    provider: provenance.provider,
+    status: provenance.status,
+    sourceType: provenance.sourceType,
+    provenanceId: provenance.id,
+    rowCount: provenance.rowCount,
+    bindingHints: result.bindingHints || [],
+  };
+  nextState.datasets = [dataset, ...(sessionState.datasets || [])].slice(0, 12);
+  nextState.conclusions = [{
+    text: update.narration || fallbackNotice(provenance),
+    provenanceIds: [provenance.id],
+  }, ...(sessionState.conclusions || [])].slice(0, 8);
+  nextState.nextActions = nextActionsForIntent(channel, intent);
+  nextState.unresolvedQuestions = provenance.sourceType === "synthetic_fallback" || provenance.sourceType === "unavailable"
+    ? ["Connect or recover the live provider before making live-data claims."]
+    : [];
+  const surfaces = { ...(sessionState.surfaces || surfaceIdsFromUpdate()) };
+  for (const surfaceUpdate of update.surfaces || []) {
+    if (surfaceUpdate.mode === "clear") surfaces[surfaceUpdate.surface] = [];
+    if (surfaceUpdate.mode === "replace") surfaces[surfaceUpdate.surface] = surfaceUpdate.components.map((component) => component.id);
+    if (surfaceUpdate.mode === "append") {
+      surfaces[surfaceUpdate.surface] = [
+        ...(surfaces[surfaceUpdate.surface] || []),
+        ...surfaceUpdate.components.map((component) => component.id),
+      ].slice(-generatedSurfaceMax(surfaceUpdate.surface));
+    }
+  }
+  nextState.surfaces = surfaces;
+  return nextState;
+}
+
+async function runChannelTurn(channel, raw = {}, options = {}) {
+  const userText = clampText(raw.userText || raw.text || raw.transcript || raw.message, 700);
+  if (!userText) throw new Error("empty channel turn");
+  const sessionId = normalizeSessionId(raw.sessionId || raw.katContext?.sessionId || raw.clientSessionId || "local-session");
+  const turnId = channelTurnId();
+  const events = [];
+  const emit = (event) => emitChannelTurnEvent(events, options.onEvent, { channelId: channel.id, turnId, ...event });
+
+  const currentState = getChannelSessionState(channel, sessionId);
+  emit({ type: "channel.turn.started", sessionId, userText });
+
+  const manifest = buildChannelAgentManifest(channel);
+  const intent = parseChannelTurnIntent(channel, userText, currentState);
+  emit({ type: "channel.intent.parsed", intent });
+
+  let workingState = {
+    ...currentState,
+    focus: {
+      topic: intent.topic,
+      entities: intent.entities,
+      timeframe: intent.timeframe,
+      mode: intent.mode,
+      intent: intent.intent,
+    },
+  };
+  emit({ type: "channel.state.updated", state: { focus: workingState.focus } });
+
+  emit({ type: "channel.data.query.started", capability: intent.capability, params: intent.params });
+  let result;
+  let provenance;
+  try {
+    result = await queryChannelCapability(channel, { capability: intent.capability, detail: intent.detail, params: intent.params });
+    provenance = result.provenance?.[0] || buildProvenanceRecord(channel, intent.capability, intent.params, {
+      source: result.source,
+      stale: result.stale,
+      fallbackReason: result.fallbackReason,
+    }, result.rows?.length || 0);
+    emit({
+      type: "channel.data.query.completed",
+      capability: intent.capability,
+      source: result.source,
+      sourceType: provenance.sourceType,
+      rowCount: provenance.rowCount,
+      provenanceId: provenance.id,
+      fallbackReason: result.fallbackReason || null,
+    });
+  } catch (err) {
+    provenance = {
+      id: `prov_${Date.now().toString(36)}_failed`,
+      sourceType: "unavailable",
+      provider: channel.liveProvider || "unavailable",
+      capability: intent.capability,
+      params: intent.params,
+      queriedAt: new Date().toISOString(),
+      cache: { status: "failed", ttlMs: LIVE_API_TTL_MS },
+      rowCount: 0,
+      status: "failed",
+      stale: false,
+      fallbackReason: err.message,
+    };
+    result = {
+      ok: false,
+      source: "unavailable",
+      sourceType: "unavailable",
+      stale: false,
+      fallbackReason: err.message,
+      liveSummary: {
+        source: "unavailable",
+        stale: false,
+        fallbackReason: err.message,
+        metrics: [],
+        feed: [],
+        highlights: [`${channel.label} data is unavailable: ${err.message}`],
+      },
+      rows: [],
+      bindingHints: [],
+      provenance: [provenance],
+    };
+    emit({ type: "channel.data.query.failed", capability: intent.capability, error: err.message, provenanceId: provenance.id });
+  }
+
+  const update = buildChannelTurnUpdate(channel, intent, result, provenance);
+  emit({ type: "channel.layout.selected", layout: update.layout });
+  for (const surfaceUpdate of update.surfaces || []) {
+    emit({
+      type: surfaceUpdate.mode === "clear" ? "channel.surface.clear" : "channel.surface.replace",
+      surface: surfaceUpdate.surface,
+      mode: surfaceUpdate.mode,
+      components: surfaceUpdate.components || [],
+    });
+  }
+
+  const override = applyChannelUpdate(channel.id, update, userText, "channel-agent-turn");
+  workingState = updateChannelSessionFromTurn(channel, workingState, turnId, userText, intent, result, update, provenance, events);
+  const savedState = saveChannelSessionState(channel, sessionId, workingState, {
+    channel: channel.id,
+    sessionId,
+    turnId,
+    userText,
+    intent,
+    source: provenance.provider,
+    sourceType: provenance.sourceType,
+    at: new Date().toISOString(),
+  });
+  emit({ type: "channel.narration.delta", text: update.narration || "" });
+  emit({ type: "channel.next_actions.updated", nextActions: savedState.nextActions || [] });
+  emit({ type: "channel.state.updated", state: savedState });
+  emit({ type: "channel.turn.completed", state: savedState, narration: update.narration || "", manifest });
+  const finalState = {
+    ...savedState,
+    traces: [
+      ...(savedState.traces || []).filter((trace) => trace.turnId !== turnId),
+      {
+        turnId,
+        at: new Date().toISOString(),
+        events: events.map((event) => ({ type: event.type, at: event.at })),
+      },
+    ].slice(-40),
+  };
+  const persistedState = saveChannelSessionState(channel, sessionId, finalState);
+
+  return {
+    ok: true,
+    runtime: CHANNEL_RUNTIME_VERSION,
+    channel: publicChannel(channel),
+    turnId,
+    sessionId,
+    manifest,
+    intent,
+    data: result,
+    provenance: [provenance],
+    update: sanitizeChannelUpdate(update, channel),
+    generated: sanitizeGeneratedDashboard(override.generated),
+    state: persistedState,
+    events,
+    narration: update.narration || "",
+  };
+}
+
 function buildKatContextPacket(channel, liveEnvelope, options = {}) {
   const docs = channelDocs(channel);
   const dashboard = dashboardContextFor(channel.id);
@@ -2803,7 +4345,13 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
     rules: [
       "Use liveSummary for normal spoken answers.",
       "Call get_channel_live before making specific current-data claims not present in liveSummary.",
-      "Use apply_dashboard_mutation for fast generated views, panels, widgets, bindings, and audience-specific layouts.",
+      "Use route_channel_turn for meaningful user turns so the specialist channel agent updates state and surfaces together.",
+      "Use query_channel_capability when you need data beyond liveSummary.",
+      "Use apply_channel_update for generated views, panels, charts, modals, and audience-specific layouts.",
+      "Prefer channel update specs over provider-specific or dashboard-specific shortcuts.",
+      "Generated charts and insights must carry provenance records; synthetic fallback must stay visible.",
+      "Generated surfaces replace by default; append only when the user asks to keep multiple components.",
+      "Use apply_dashboard_mutation for legacy compatibility only.",
       "Use apply_dashboard_edit only for narrow copy, metric, feed, or tab edits.",
       "Do not call provider APIs directly from generated components.",
       "Do not add wallet, trading, paid, KYC, or login-only flows in v1.",
@@ -2845,6 +4393,13 @@ app.get("/api/channels", (req, res) => {
       live: "/api/channels/:channel/live",
       context: "/api/channels/:channel/context",
       docs: "/api/channels/:channel/docs",
+      manifest: "/api/channels/:channel/manifest",
+      agent: "/api/channels/:channel/agent",
+      state: "/api/channels/:channel/state",
+      turn: "/api/channels/:channel/turn",
+      turnStream: "/api/channels/:channel/turn/stream",
+      query: "/api/channels/:channel/query",
+      update: "/api/channels/:channel/update",
     },
     channels: listChannels().map(publicChannel),
   });
@@ -2885,6 +4440,113 @@ app.get("/api/channels/:channel/context", async (req, res) => {
   } catch (err) {
     console.error("channel context error:", err.message);
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/channels/:channel/manifest", (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  const docs = channelDocs(channel);
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({
+    ok: true,
+    manifest: {
+      runtime: CHANNEL_RUNTIME_VERSION,
+      channel: publicChannel(channel),
+      generation: docs.generation,
+      manifest: docs.manifest,
+      agentPath: channel.agentPath,
+      statePath: channel.statePath,
+      turnPath: channel.turnPath,
+      rules: docs.katContract,
+    },
+  });
+});
+
+app.get("/api/channels/:channel/agent", (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, manifest: buildChannelAgentManifest(channel) });
+});
+
+app.get("/api/channels/:channel/state", (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  const sessionId = normalizeSessionId(req.query.sessionId || req.query.session || "local-session");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, state: getChannelSessionState(channel, sessionId) });
+});
+
+app.post("/api/channels/:channel/turn", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(await runChannelTurn(channel, body));
+  } catch (err) {
+    console.error("channel turn error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+function writeSseEvent(res, event) {
+  res.write(`event: ${event.type}\n`);
+  res.write(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+app.get("/api/channels/:channel/turn/stream", async (req, res) => {
+  const channel = getChannel(req.params.channel);
+  if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  try {
+    const body = {
+      userText: req.query.text || req.query.userText || "",
+      sessionId: req.query.sessionId || req.query.session || "local-session",
+    };
+    const result = await runChannelTurn(channel, body, { onEvent: (event) => writeSseEvent(res, event) });
+    writeSseEvent(res, { type: "channel.stream.completed", channelId: channel.id, turnId: result.turnId, ok: true });
+  } catch (err) {
+    writeSseEvent(res, { type: "channel.stream.failed", channelId: channel.id, ok: false, error: err.message, at: new Date().toISOString() });
+  } finally {
+    res.end();
+  }
+});
+
+app.post("/api/channels/:channel/query", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(await queryChannelCapability(channel, body));
+  } catch (err) {
+    console.error("channel query error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/channels/:channel/update", (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const override = applyChannelUpdate(channel.id, body.update || body, body.instruction, "channel-runtime-api");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({
+      ok: true,
+      channel: publicChannel(channel),
+      generated: sanitizeGeneratedDashboard(override.generated),
+      applied: sanitizeChannelUpdate(body.update || body, channel),
+      updatedAt: override.updatedAt,
+    });
+  } catch (err) {
+    console.error("channel update error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 
@@ -3327,6 +4989,105 @@ async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
     return { ok: true, liveSummary: summary };
   }
 
+  if (name === "query_channel_capability") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    return queryChannelCapability(channel, args);
+  }
+
+  if (name === "route_channel_turn") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    const result = await runChannelTurn(channel, {
+      userText: args.userText || args.text || "",
+      sessionId: args.sessionId || "realtime-session",
+      katContext: { voiceMode: "openai-realtime", activeChannel: dashboardId },
+    });
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      channel: publicChannel(channel),
+      turnId: result.turnId,
+      state: result.state,
+      generated: result.generated,
+      events: result.events,
+      narration: result.narration,
+      provenance: result.provenance,
+      message: "Channel turn routed.",
+    };
+  }
+
+  if (name === "summarize_channel_state") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    return {
+      ok: true,
+      channel: publicChannel(channel),
+      state: getChannelSessionState(channel, args.sessionId || "realtime-session"),
+    };
+  }
+
+  if (name === "clear_channel_surfaces") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    const selected = Array.isArray(args.surfaces) && args.surfaces.length ? args.surfaces : ["stageOverlay", "rail", "modal"];
+    const update = {
+      layout: { template: "overview", rationale: "User cleared generated channel surfaces." },
+      surfaces: selected.map((surface) => ({ surface, mode: "clear", components: [] })),
+      narration: "Cleared the generated channel surfaces.",
+    };
+    const override = applyChannelUpdate(dashboardId, update, args.instruction || "clear generated channel surfaces", "kat-realtime-channel-clear");
+    const sessionId = args.sessionId || "realtime-session";
+    const current = getChannelSessionState(channel, sessionId);
+    const cleared = {
+      ...current,
+      layout: update.layout,
+      surfaces: {
+        ...(current.surfaces || {}),
+        ...Object.fromEntries(selected.map((surface) => [surface, []])),
+      },
+      turns: [
+        ...(current.turns || []),
+        { role: "assistant", text: update.narration, at: new Date().toISOString(), voice: "Kat" },
+      ].slice(-24),
+      nextActions: openingPathsForChannel(channel),
+    };
+    const saved = saveChannelSessionState(channel, sessionId, cleared, {
+      channel: channel.id,
+      sessionId,
+      source: "kat-realtime-channel-clear",
+      at: new Date().toISOString(),
+    });
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      channel: publicChannel(channel),
+      state: saved,
+      generated: sanitizeGeneratedDashboard(override.generated),
+      message: update.narration,
+    };
+  }
+
+  if (name === "apply_channel_update") {
+    const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
+    const channel = getChannel(dashboardId);
+    if (!channel) throw new Error("unknown channel");
+    const override = applyChannelUpdate(dashboardId, args.update, args.instruction, "kat-realtime-channel");
+    return {
+      ok: true,
+      dashboard: dashboardContextFor(dashboardId),
+      channel: publicChannel(channel),
+      generated: sanitizeGeneratedDashboard(override.generated),
+      applied: sanitizeChannelUpdate(args.update, channel),
+      updatedAt: override.updatedAt,
+      message: "Channel update applied.",
+    };
+  }
+
   if (name === "apply_dashboard_edit") {
     const dashboardId = cleanDashboardId(args.dashboardId || fallbackDashboard || state.currentWorkspace);
     const override = applyDashboardOverride(dashboardId, args.patch, args.instruction, "kat-realtime");
@@ -3523,7 +5284,7 @@ function looksLikeActiveDashboardQuestion(normalizedText) {
 function looksLikeDashboardMutation(normalizedText) {
   if (/\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage|columns?|metrics?|widgets?)\b/.test(normalizedText)) return true;
   const changeVerb = /\b(add|create|build|generate|make|turn|convert|reframe|reshape|put|show|replace|compose|switch|change|update|give|use|try)\b/.test(normalizedText);
-  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|odds?|book|metrics?|kpis?|prices?|price|spread|depth|volume|volatility|range|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
+  const target = /\b(cards?|panels?|widgets?|component|columns?|rows?|tables?|modals?|surfaces?|inspectors?|feeds?|charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|odds?|book|metrics?|kpis?|prices?|price|spread|depth|volume|volatility|range|btc|eth|sol|tokens?|tickers?|markets?|timeline|brief|briefing|investor|operator|research|market|map|city|cities|rail|stage|overlay|view|dashboard|trust|risks?|signals?)\b/.test(normalizedText);
   return changeVerb && target;
 }
 
@@ -3559,12 +5320,17 @@ function mutationTopicFromTranscript(transcript, normalizedText, dashboardId) {
 }
 
 function mutationSlotFromText(normalizedText) {
+  if (/\b(modal|dialog|detail|drilldown|inspect)\b/.test(normalizedText)) return "modal";
   if (/\b(map|main|stage|overlay|hero|over)\b/.test(normalizedText)) return "stageOverlay";
   return "rail";
 }
 
 function mutationComponentTypeFromText(normalizedText) {
   if (/\b(charts?|graphs?|plots?|visuals?|graphics?|candles?|candlestick|ohlc|volume|volatility|range)\b/.test(normalizedText)) return "vega-chart";
+  if (/\btable|rows?|records?|rankings?\b/.test(normalizedText)) return "data-table";
+  if (/\bfeed|stream|queue|watchlist\b/.test(normalizedText)) return "feed-stack";
+  if (/\binspect|inspector|drilldown|detail|profile|entity\b/.test(normalizedText)) return "entity-inspector";
+  if (/\brelationships?|network|graph|connections?\b/.test(normalizedText)) return "relationship-graph";
   if (/\btimeline|sequence|events?\b/.test(normalizedText)) return "event-timeline";
   if (/\bmap|city|cities|geo|location\b/.test(normalizedText)) return "map-brief";
   if (/\bmetrics?|kpis?|numbers?|strip|columns?|rows?|tables?\b/.test(normalizedText)) return "metric-strip";
@@ -3815,6 +5581,188 @@ function fallbackMutationDecision(transcript, dashboardId) {
     updatedAt: override.updatedAt,
     speech,
     source: "fallback-mutation",
+  };
+}
+
+function looksLikeClearGeneratedRequest(normalizedText) {
+  return /\b(clear|reset|remove|hide)\b.*\b(generated|components?|cards?|panels?|overlays?|rail|stage|modal|surface)\b/.test(normalizedText);
+}
+
+function shouldComposeChannelUpdateWithModel(transcript, dashboardId) {
+  if (!process.env.ANTHROPIC_API_KEY) return false;
+  if (!dashboardId || dashboardId === "landing") return false;
+  const normalizedText = normalizeAgentText(transcript);
+  if (looksLikeClearGeneratedRequest(normalizedText)) return false;
+  const matchedDashboard = findDashboardInTranscript(normalizedText);
+  if (matchedDashboard && matchedDashboard !== dashboardId) return false;
+  return looksLikeDashboardMutation(normalizedText) || looksLikeGeneratedChartRefinement(normalizedText, dashboardId);
+}
+
+function anthropicChannelUpdateToolSchema(channel) {
+  const componentTypes = Object.keys(componentRegistry());
+  const surfaceEnum = Object.keys(surfaceRegistry());
+  const viewEnum = Object.keys(viewPresets());
+  const bindingEnum = Array.from(new Set(["none", "liveSummary.metrics", "liveSummary.feed", "liveSummary.highlights", "dashboard.metrics", "dashboard.feed", ...CHART_BINDINGS]));
+  const capabilityEnum = dataCapabilitiesForChannel(channel).map((capability) => capability.id);
+  return {
+    type: "object",
+    properties: {
+      speech: {
+        type: "string",
+        description: "One short spoken line in Kat's voice, under 18 words.",
+      },
+      update: {
+        type: "object",
+        properties: {
+          layout: {
+            type: "object",
+            properties: {
+              template: { type: "string", enum: viewEnum },
+              rationale: { type: "string" },
+            },
+          },
+          dataRequests: {
+            type: "array",
+            maxItems: 4,
+            items: {
+              type: "object",
+              properties: {
+                capability: { type: "string", enum: capabilityEnum },
+                detail: { type: "string", enum: ["summary", "compact", "rows"] },
+                params: { type: "object" },
+                reason: { type: "string" },
+              },
+              required: ["capability"],
+            },
+          },
+          patch: { type: "object" },
+          surfaces: {
+            type: "array",
+            maxItems: 4,
+            items: {
+              type: "object",
+              properties: {
+                surface: { type: "string", enum: surfaceEnum },
+                mode: { type: "string", enum: ["replace", "append", "clear"] },
+                components: {
+                  type: "array",
+                  maxItems: 4,
+                  items: {
+                    type: "object",
+                    properties: {
+                      type: { type: "string", enum: componentTypes },
+                      eyebrow: { type: "string" },
+                      title: { type: "string" },
+                      body: { type: "string" },
+                      value: { type: "string" },
+                      note: { type: "string" },
+                      variant: { type: "string" },
+                      binding: { type: "string", enum: bindingEnum },
+                      chart: {
+                        type: "object",
+                        properties: {
+                          type: { type: "string", enum: CHART_TYPES },
+                          binding: { type: "string", enum: CHART_BINDINGS },
+                          x: { type: "string" },
+                          y: { type: "string" },
+                          y2: { type: "string" },
+                          color: { type: "string" },
+                          variant: { type: "string" },
+                          query: { type: "object" },
+                        },
+                        required: ["type"],
+                      },
+                      metrics: {
+                        type: "array",
+                        maxItems: 6,
+                        items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                      },
+                      rows: {
+                        type: "array",
+                        maxItems: 8,
+                        items: { type: "array", minItems: 3, maxItems: 3, items: { type: "string" } },
+                      },
+                      items: { type: "array", maxItems: 8, items: { type: "string" } },
+                    },
+                    required: ["type"],
+                  },
+                },
+              },
+              required: ["surface", "mode", "components"],
+            },
+          },
+          themeTokens: { type: "object" },
+          narration: { type: "string" },
+        },
+      },
+    },
+    required: ["speech", "update"],
+  };
+}
+
+async function composeChannelUpdateWithModel(transcript, dashboardId) {
+  const channel = getChannel(dashboardId);
+  if (!channel) return null;
+  const context = await getKatChannelContext({ query: {} }, channel);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return null;
+
+  const resp = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 900,
+      system:
+        "You are Kat composing a Katechon channel update. " +
+        "Use the provided runtime context to select a layout, data requests, surfaces, and components. " +
+        "Do not generate code. Do not invent live facts beyond liveSummary or dashboard state. " +
+        "Prefer replace mode for generated surfaces. Use stageOverlay for primary charts or graphics, rail for supporting blocks, and modal for focused drilldowns. " +
+        "If data is needed beyond liveSummary, include a dataRequests entry using the channel capability names.",
+      tools: [
+        {
+          name: "compose_channel_update",
+          description: "Compose one validated channel update spec for the current user request.",
+          input_schema: anthropicChannelUpdateToolSchema(channel),
+        },
+      ],
+      tool_choice: { type: "tool", name: "compose_channel_update" },
+      messages: [
+        {
+          role: "user",
+          content:
+            `Active channel context:\n${JSON.stringify(context, null, 2)}\n\n` +
+            `User request:\n${transcript}`,
+        },
+      ],
+    }),
+    timeout: 4500,
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`anthropic channel update ${resp.status}: ${body.slice(0, 240)}`);
+  }
+
+  const data = await resp.json();
+  const toolUse = data.content?.find((block) => block.type === "tool_use" && block.name === "compose_channel_update");
+  const input = toolUse?.input || null;
+  if (!input) throw new Error("anthropic did not return compose_channel_update");
+  const override = applyChannelUpdate(dashboardId, input.update, transcript, "kat-model-channel");
+  return {
+    action: "dashboard_mutation",
+    workspace: null,
+    dashboardId,
+    dashboard: dashboardContextFor(dashboardId),
+    generated: sanitizeGeneratedDashboard(override.generated),
+    applied: { channelUpdate: sanitizeChannelUpdate(input.update, channel), patch: override.patch || {} },
+    updatedAt: override.updatedAt,
+    speech: cleanSpeech(input.speech || input.update?.narration || "Updated the channel view."),
+    source: "anthropic-channel-update",
   };
 }
 
@@ -4232,7 +6180,15 @@ async function runKatAgent(transcript, options = {}) {
   if (activeDashboard && PANELS.some((panel) => panel.id === activeDashboard)) {
     state.currentWorkspace = activeDashboard;
   }
-  let decision = fallbackMutationDecision(transcript, activeDashboard);
+  let decision = null;
+  if (shouldComposeChannelUpdateWithModel(transcript, activeDashboard)) {
+    try {
+      decision = await composeChannelUpdateWithModel(transcript, activeDashboard);
+    } catch (err) {
+      console.warn("kat channel update composition failed:", err.message);
+    }
+  }
+  if (!decision) decision = fallbackMutationDecision(transcript, activeDashboard);
   try {
     if (!decision) decision = await routeWithKatAgent(transcript, { ...options, dashboard: activeDashboard });
   } catch (err) {

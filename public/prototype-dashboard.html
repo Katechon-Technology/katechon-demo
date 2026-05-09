@@ -8,8 +8,8 @@
   <link rel="alternate icon" href="/brand/favicon.ico">
   <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
   <link rel="manifest" href="/brand/site.webmanifest">
-  <script src="https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega@6"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/vega@6"></script>
   <style>
     :root {
       --bg0: #040609;
@@ -496,6 +496,45 @@
       font-size: 9px;
       margin-bottom: 7px;
     }
+    .generated-source {
+      width: fit-content;
+      max-width: 100%;
+      min-height: 22px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0 0 7px;
+      padding: 3px 6px;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 5px;
+      background: rgba(0,0,0,0.24);
+      color: rgba(243,246,248,0.62);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 8px;
+      line-height: 1.2;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      overflow: hidden;
+    }
+    .generated-source strong {
+      color: var(--accent);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+    .generated-source span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .generated-source-synthetic_fallback,
+    .generated-source-unavailable {
+      border-color: color-mix(in srgb, var(--danger) 48%, rgba(255,255,255,0.12));
+    }
+    .generated-source-synthetic_fallback strong,
+    .generated-source-unavailable strong {
+      color: var(--danger);
+    }
     .generated-title {
       font-size: 14px;
       line-height: 1.15;
@@ -635,6 +674,67 @@
     }
     .generated-chart-selection[hidden] {
       display: none;
+    }
+
+    .generated-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      pointer-events: auto;
+    }
+    .generated-modal[hidden] {
+      display: none;
+    }
+    .generated-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.54);
+      backdrop-filter: blur(6px);
+    }
+    .generated-modal-panel {
+      position: relative;
+      z-index: 1;
+      width: min(720px, calc(100vw - 36px));
+      max-height: min(76vh, 720px);
+      display: grid;
+      grid-template-rows: auto;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--accent2) 28%, rgba(255,255,255,0.12));
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 46%),
+        rgba(5, 8, 12, 0.94);
+      box-shadow: 0 28px 90px rgba(0,0,0,0.48);
+    }
+    .generated-modal-content {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+    }
+    .generated-modal-content .generated-component {
+      border-color: transparent;
+      background: transparent;
+      box-shadow: none;
+      padding: 0;
+    }
+    .generated-modal-content .generated-chart-shell {
+      height: min(42vh, 340px);
+    }
+    .generated-modal-close {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      z-index: 2;
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
     }
 
     .insight-panel {
@@ -1848,6 +1948,7 @@
       </aside>
     </section>
   </main>
+  <div class="generated-modal" id="generated-modal" hidden></div>
 
   <script src="/dashboards/catalog.js"></script>
   <script src="/dashboards/prototype.js"></script>

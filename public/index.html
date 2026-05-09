@@ -1275,6 +1275,15 @@
       background: var(--cyan);
       box-shadow: 0 0 12px rgba(125,232,255,0.62);
     }
+    #voice-mode-toggle.degraded {
+      border-color: rgba(255,191,95,0.62);
+      color: #ffbf5f;
+      background: rgba(255,191,95,0.10);
+    }
+    #voice-mode-toggle.degraded .voice-mode-dot {
+      background: #ffbf5f;
+      box-shadow: 0 0 12px rgba(255,191,95,0.60);
+    }
 
     /* ── TRANSCRIPT TOAST ── */
     #transcript {
@@ -4765,6 +4774,7 @@
       recording: false,
       responding: false,
       fallbackMode: !realtimeVoiceEnabled,
+      degraded: false,
       replyText: '',
       toolCalls: new Set(),
       mouthSyncFrame: 0,
@@ -4776,11 +4786,12 @@
     function syncVoiceModeToggle() {
       if (!voiceModeToggle) return;
       voiceModeToggle.classList.toggle('openai', realtimeVoiceEnabled);
+      voiceModeToggle.classList.toggle('degraded', realtimeVoiceEnabled && realtimeVoice.degraded);
       voiceModeToggle.setAttribute('aria-pressed', String(realtimeVoiceEnabled));
       voiceModeToggle.title = realtimeVoiceEnabled
-        ? 'Voice mode: OpenAI Realtime. Click for legacy.'
+        ? (realtimeVoice.degraded ? 'Voice mode: OpenAI Realtime degraded. Click for legacy.' : 'Voice mode: OpenAI Realtime. Click for legacy.')
         : 'Voice mode: legacy. Click for OpenAI Realtime.';
-      if (voiceModeLabel) voiceModeLabel.textContent = realtimeVoiceEnabled ? 'openai' : 'legacy';
+      if (voiceModeLabel) voiceModeLabel.textContent = realtimeVoiceEnabled ? (realtimeVoice.degraded ? 'degraded' : 'openai') : 'legacy';
     }
 
     function toggleVoiceMode() {
@@ -4833,13 +4844,13 @@
       return [
         'You are Kat, the voice-native agent inside Katechon.',
         'Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.',
-        'You can discuss the active dashboard, navigate dashboards, and rapidly compose dashboard views from prebuilt components.',
+        'You can discuss the active channel, navigate dashboards, and route channel turns through specialist channel agents.',
         'Ground dashboard answers in the active channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.',
-        'If the user asks for current data not present in liveSummary, call get_channel_live before answering.',
-        'When the user asks to change layout, audience, viewpoint, cards, widgets, or emphasis, call apply_dashboard_mutation. Use apply_dashboard_edit only for narrow copy/table edits.',
-        'When the user asks for a chart, graph, plot, visual, graphic, candle chart, depth chart, odds chart, token chart, or grid chart, call apply_dashboard_chart. Do not use generic widgets for chart requests.',
-        'For generated graphs, call get_channel_live with compact detail when needed, then call apply_dashboard_chart with the closest intent.',
-        'Think like a fast component composer, not an arbitrary code writer: choose views, slots, components, copy, chart bindings, and theme tokens.',
+        'For meaningful channel-specific user requests, call route_channel_turn so the channel agent updates state, queries data, replaces surfaces, and returns provenance.',
+        'If the user asks for current data only, call query_channel_capability before answering.',
+        'When manually composing a view, call apply_channel_update. Use legacy dashboard tools only for narrow compatibility edits.',
+        'Every generated chart or insight must include provenance; synthetic fallback must be named as fallback.',
+        'Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.',
         'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
         `Active channel context:\n${JSON.stringify(context, null, 2)}`,
       ].join('\n\n');
@@ -4996,8 +5007,8 @@
       realtimeVoice.responseWatchdog = 0;
     }
 
-    function enterLegacyVoiceFallback(reason) {
-      console.warn('realtime voice fallback:', reason);
+    function enterRealtimeDegradedState(reason) {
+      console.warn('realtime voice degraded:', reason);
       clearRealtimeResponseWatchdog();
       try { realtimeVoice.pc?.close(); } catch (_) {}
       if (realtimeVoice.inputRecorder && realtimeVoice.inputRecorder.state !== 'inactive') {
@@ -5015,18 +5026,20 @@
       realtimeVoice.awaitingResponse = false;
       realtimeVoice.activeResponseId = null;
       realtimeVoice.mouthSyncFrame = 0;
-      realtimeVoice.fallbackMode = true;
+      realtimeVoice.fallbackMode = false;
+      realtimeVoice.degraded = true;
       micBtn.classList.remove('connecting', 'thinking');
       setListening(false);
       postToAvatar({ type: 'mouth', level: 0 });
-      showToast('legacy voice fallback…', '#7de8ff');
+      syncVoiceModeToggle();
+      showToast('OpenAI Realtime degraded - retry or switch voice mode', '#ffbf5f');
     }
 
     function scheduleRealtimeResponseWatchdog() {
       clearRealtimeResponseWatchdog();
       realtimeVoice.responseWatchdog = setTimeout(() => {
         if (realtimeVoice.awaitingResponse || realtimeVoice.responding) {
-          enterLegacyVoiceFallback('realtime response timeout');
+          enterRealtimeDegradedState('realtime response timeout');
         }
       }, 9000);
     }
@@ -5062,10 +5075,28 @@
       if (result.workspace && DASHBOARDS[result.workspace] && result.workspace !== currentDashboardId) {
         await openDashboard(result.workspace, { skipNarration: true });
       }
-      if (name === 'apply_dashboard_edit' || name === 'apply_dashboard_mutation' || name === 'apply_dashboard_chart') {
+      if (
+        name === 'apply_dashboard_edit' ||
+        name === 'apply_dashboard_mutation' ||
+        name === 'apply_dashboard_chart' ||
+        name === 'apply_channel_update' ||
+        name === 'route_channel_turn' ||
+        name === 'clear_channel_surfaces'
+      ) {
         const dashboardId = result.dashboard?.id || currentDashboardId;
         notifyDashboardOverridesUpdated(dashboardId, { forceReload: true });
-        showToast(name === 'apply_dashboard_chart' ? 'chart added' : name === 'apply_dashboard_mutation' ? 'dashboard regenerated' : 'dashboard updated', '#00e87b');
+        showToast(
+          name === 'route_channel_turn'
+            ? 'channel morphed'
+            : name === 'clear_channel_surfaces'
+              ? 'channel cleared'
+              : name === 'apply_dashboard_chart'
+                ? 'chart added'
+                : name === 'apply_dashboard_mutation'
+                  ? 'dashboard regenerated'
+                  : 'dashboard updated',
+          '#00e87b'
+        );
       }
       sendRealtimeDashboardContext(result.dashboard?.id || result.workspace || currentDashboardId).catch(() => {});
     }
@@ -5126,11 +5157,14 @@
         realtimeVoice.responding = false;
         realtimeVoice.awaitingResponse = false;
         realtimeVoice.activeResponseId = null;
-        enterLegacyVoiceFallback(event.error?.message || 'realtime error');
+        enterRealtimeDegradedState(event.error?.message || 'realtime error');
         return;
       }
       if (event.type === 'session.created' || event.type === 'session.updated') {
         realtimeVoice.connected = true;
+        realtimeVoice.degraded = false;
+        realtimeVoice.fallbackMode = false;
+        syncVoiceModeToggle();
         micBtn.classList.remove('connecting');
         return;
       }
@@ -5231,7 +5265,7 @@
       realtimeVoice.pc = pc;
       const markRealtimeConnectionFailed = (reason) => {
         if (realtimeVoice.pc !== pc) return;
-        enterLegacyVoiceFallback(reason);
+        enterRealtimeDegradedState(reason);
       };
       pc.addEventListener('iceconnectionstatechange', () => {
         if (pc.iceConnectionState === 'failed') markRealtimeConnectionFailed('ICE failed');
@@ -5241,7 +5275,7 @@
       });
       realtimeVoice.dc = pc.createDataChannel('oai-events');
       realtimeVoice.dc.addEventListener('close', () => {
-        if (!realtimeVoice.fallbackMode) enterLegacyVoiceFallback('realtime data channel closed');
+        if (realtimeVoiceEnabled && !realtimeVoice.fallbackMode) enterRealtimeDegradedState('realtime data channel closed');
       });
       realtimeVoice.dc.addEventListener('message', (message) => {
         try {
@@ -5279,6 +5313,9 @@
       await pc.setRemoteDescription({ type: 'answer', sdp });
       await waitForRealtimeDataChannel();
       realtimeVoice.connected = true;
+      realtimeVoice.degraded = false;
+      realtimeVoice.fallbackMode = false;
+      syncVoiceModeToggle();
       micBtn.classList.remove('connecting');
       await sendRealtimeDashboardContext();
     }
@@ -5292,8 +5329,8 @@
       realtimeVoice.replyText = '';
       if (realtimeVoice.activeResponseId) realtimeSend({ type: 'response.cancel' });
       if (!realtimeSend({ type: 'input_audio_buffer.clear' })) {
-        enterLegacyVoiceFallback('realtime data channel unavailable');
-        throw new Error('Realtime voice fallback');
+        enterRealtimeDegradedState('realtime data channel unavailable');
+        throw new Error('OpenAI Realtime degraded');
       }
       await startRealtimeInputRecording();
       setListening(true);
@@ -5309,7 +5346,7 @@
       const blob = await stopRealtimeInputRecording();
       const appended = await appendRealtimeAudioBlob(blob);
       if (appended === false) {
-        enterLegacyVoiceFallback('realtime data channel unavailable');
+        enterRealtimeDegradedState('realtime data channel unavailable');
         return;
       }
       if (!appended) return;
@@ -5317,7 +5354,7 @@
       const committed = realtimeSend({ type: 'input_audio_buffer.commit' });
       const created = realtimeSend({ type: 'response.create' });
       if (!committed || !created) {
-        enterLegacyVoiceFallback('realtime data channel unavailable');
+        enterRealtimeDegradedState('realtime data channel unavailable');
         return;
       }
       realtimeVoice.awaitingResponse = true;
@@ -5325,18 +5362,18 @@
     }
 
     async function startPushToTalk() {
-      if (!realtimeVoiceEnabled || realtimeVoice.fallbackMode) {
+      if (!realtimeVoiceEnabled) {
         realtimeVoice.fallbackMode = true;
         await startRecording();
         return;
       }
       try {
+        realtimeVoice.fallbackMode = false;
         await unlockAgentAudio();
         await startRealtimeTalk();
       } catch (err) {
-        console.warn('realtime voice unavailable, falling back:', err);
-        enterLegacyVoiceFallback(err.message || 'realtime unavailable');
-        await startRecording();
+        console.warn('realtime voice unavailable:', err);
+        enterRealtimeDegradedState(err.message || 'realtime unavailable');
       }
     }
 
@@ -5344,11 +5381,11 @@
       if (realtimeVoice.recording) {
         stopRealtimeTalk().catch(err => {
           console.warn('realtime stop failed:', err);
-          enterLegacyVoiceFallback(err.message || 'realtime stop failed');
+          enterRealtimeDegradedState(err.message || 'realtime stop failed');
         });
         return;
       }
-      stopRecording();
+      if (!realtimeVoiceEnabled || realtimeVoice.fallbackMode) stopRecording();
     }
 
     function goHome() {
@@ -5526,7 +5563,13 @@
     function setListening(on) {
       micBtn.classList.toggle('listening', on);
       if (on) micBtn.classList.remove('connecting', 'thinking');
-      micBtn.querySelector('span').textContent = on ? 'listening' : realtimeVoice.fallbackMode ? 'legacy' : 'hold';
+      micBtn.querySelector('span').textContent = on
+        ? 'listening'
+        : (!realtimeVoiceEnabled || realtimeVoice.fallbackMode)
+          ? 'legacy'
+          : realtimeVoice.degraded
+            ? 'degraded'
+            : 'hold';
     }
     setListening(false);
 
@@ -5604,7 +5647,7 @@
     micBtn.addEventListener('touchcancel', () => stopPushToTalk());
     window.addEventListener('mouseup', () => stopPushToTalk());
     window.addEventListener('blur', () => stopPushToTalk());
-    console.log(`Kat voice mode: ${realtimeVoiceEnabled ? 'OpenAI Realtime' : 'legacy fallback'}`);
+    console.log(`Kat voice mode: ${realtimeVoiceEnabled ? 'OpenAI Realtime' : 'legacy'}`);
     preloadDashboardFrames();
     afterNextPaint(launchRequestedDashboard, 80);
   </script>
