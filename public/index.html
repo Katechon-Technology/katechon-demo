@@ -817,10 +817,10 @@
       opacity: 0.94;
     }
     #dashboard-frame-stage.materialize-active .build-veil::before {
-      animation: build-binary 180ms steps(3, end) 18ms both;
+      animation: build-binary 620ms steps(7, end) 28ms both;
     }
     #dashboard-frame-stage.materialize-active .build-veil::after {
-      animation: build-sheen 210ms cubic-bezier(0.16, 1, 0.3, 1) 28ms both;
+      animation: build-sheen 720ms cubic-bezier(0.16, 1, 0.3, 1) 48ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer {
       opacity: 1;
@@ -828,36 +828,36 @@
       transform: scale(1);
     }
     #dashboard-frame-stage.materialize-active .build-board-map::after {
-      animation: build-buffer-scan 218ms cubic-bezier(0.16, 1, 0.3, 1) 12ms both;
+      animation: build-buffer-scan 740ms cubic-bezier(0.16, 1, 0.3, 1) 24ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-cell {
-      animation: build-cell-resolve 176ms steps(4, end) 18ms both;
+      animation: build-cell-resolve 560ms steps(6, end) 32ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-cell::before {
-      animation: build-cell-sheen 190ms cubic-bezier(0.16, 1, 0.3, 1) 26ms both;
+      animation: build-cell-sheen 650ms cubic-bezier(0.16, 1, 0.3, 1) 42ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-line {
-      animation: build-buffer-row 96ms steps(8, end) var(--buffer-row-delay) both;
+      animation: build-buffer-row 360ms steps(8, end) var(--buffer-row-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-frame {
       opacity: 1;
       transform: translate3d(-50%, -50%, 0) scale(1);
     }
     #dashboard-frame-stage.materialize-active .build-progress span {
-      animation: build-progress 230ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: build-progress 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
     }
     #dashboard-frame-stage.materialize-active .build-terminal-row,
     #dashboard-frame-stage.materialize-active .build-source-row {
-      animation: build-row 72ms steps(7, end) var(--build-row-delay) both;
+      animation: build-row 300ms steps(7, end) var(--build-row-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-diff {
-      animation: build-flash 106ms linear var(--build-flash-delay) both;
+      animation: build-flash 360ms linear var(--build-flash-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-cursor {
-      animation: build-cursor 92ms steps(2, end) var(--build-cursor-delay) both;
+      animation: build-cursor 340ms steps(2, end) var(--build-cursor-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-scan {
-      animation: build-scan-forward 74ms cubic-bezier(0.16, 1, 0.3, 1) 172ms both;
+      animation: build-scan-forward 320ms cubic-bezier(0.16, 1, 0.3, 1) 560ms both;
     }
     #dashboard-frame-stage.materialize-active.materialize-backward .build-scan {
       animation-name: build-scan-backward;
@@ -2180,34 +2180,34 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      html:not(.force-motion) *,
-      html:not(.force-motion) *::before,
-      html:not(.force-motion) *::after {
+      html:not(.force-motion):not(.dashboard-motion) *,
+      html:not(.force-motion):not(.dashboard-motion) *::before,
+      html:not(.force-motion):not(.dashboard-motion) *::after {
         animation-duration: 0.001ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.001ms !important;
       }
-      html:not(.force-motion) #dashboard-frame-stage {
+      html:not(.force-motion):not(.dashboard-motion) #dashboard-frame-stage {
         perspective: none;
       }
-      html:not(.force-motion) #dashboard-build-effects,
-      html:not(.force-motion) .dashboard-build-layer,
-      html:not(.force-motion) .build-buffer,
-      html:not(.force-motion) .build-buffer-cell,
-      html:not(.force-motion) .build-buffer-line,
-      html:not(.force-motion) .build-frame,
-      html:not(.force-motion) .build-terminal-row,
-      html:not(.force-motion) .build-source-row,
-      html:not(.force-motion) .build-diff,
-      html:not(.force-motion) .build-cursor,
-      html:not(.force-motion) .build-scan {
+      html:not(.force-motion):not(.dashboard-motion) #dashboard-build-effects,
+      html:not(.force-motion):not(.dashboard-motion) .dashboard-build-layer,
+      html:not(.force-motion):not(.dashboard-motion) .build-buffer,
+      html:not(.force-motion):not(.dashboard-motion) .build-buffer-cell,
+      html:not(.force-motion):not(.dashboard-motion) .build-buffer-line,
+      html:not(.force-motion):not(.dashboard-motion) .build-frame,
+      html:not(.force-motion):not(.dashboard-motion) .build-terminal-row,
+      html:not(.force-motion):not(.dashboard-motion) .build-source-row,
+      html:not(.force-motion):not(.dashboard-motion) .build-diff,
+      html:not(.force-motion):not(.dashboard-motion) .build-cursor,
+      html:not(.force-motion):not(.dashboard-motion) .build-scan {
         opacity: 0 !important;
         transform: none !important;
       }
-      html:not(.force-motion) .dashboard-frame,
-      html:not(.force-motion) .dashboard-frame.incoming,
-      html:not(.force-motion) .dashboard-frame.outgoing,
-      html:not(.force-motion) .dashboard-frame.active {
+      html:not(.force-motion):not(.dashboard-motion) .dashboard-frame,
+      html:not(.force-motion):not(.dashboard-motion) .dashboard-frame.incoming,
+      html:not(.force-motion):not(.dashboard-motion) .dashboard-frame.outgoing,
+      html:not(.force-motion):not(.dashboard-motion) .dashboard-frame.active {
         transform: translate3d(0, 0, 0) scale(1) !important;
         filter: none !important;
       }
@@ -2669,9 +2669,13 @@
     const isLocalDevelopment = LOCAL_DEV_HOSTS.has(window.location.hostname) || window.location.protocol === 'file:';
     const localDevSkipEntryGate = isLocalDevelopment && !truthyPageParam('login');
     const localDevPauseAutoNarration = isLocalDevelopment && !truthyPageParam('narration');
-    const forceMotion = /^(1|true|yes)$/i.test(String(pageParams.get('motion') || pageParams.get('transitions') || '')) ||
+    const motionParamValue = String(pageParams.get('motion') || pageParams.get('transitions') || '');
+    const forceMotion = /^(1|true|yes)$/i.test(motionParamValue) ||
       pageParams.get('demo') === '1';
     if (forceMotion) document.documentElement.classList.add('force-motion');
+    const dashboardTransitionsEnabled = !/^(0|false|no|off)$/i.test(motionParamValue);
+    if (dashboardTransitionsEnabled) document.documentElement.classList.add('dashboard-motion');
+    const AUTO_WELCOME_NARRATION_ENABLED = false;
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
 
     function hasSharedDashboardLaunch() {
@@ -2726,6 +2730,7 @@
 
     let animeApi = window.anime || {};
     const reduceMotion = !forceMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const reduceDashboardMotion = !dashboardTransitionsEnabled;
     let canMotion = !reduceMotion && typeof animeApi.animate === 'function';
     let canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
     function refreshMotionRuntime() {
@@ -3575,9 +3580,9 @@
     let startupAudioDashboardId = null;
     let startupAudioPayload = null;
     const prefetchedDashboardUrls = new Set();
-    const DASHBOARD_MATERIALIZE_DURATION = 240;
-    const DASHBOARD_MATERIALIZE_LOAD_TIMEOUT = 60;
-    const DASHBOARD_MATERIALIZE_SETTLE_DELAY = 28;
+    const DASHBOARD_MATERIALIZE_DURATION = 980;
+    const DASHBOARD_MATERIALIZE_LOAD_TIMEOUT = 180;
+    const DASHBOARD_MATERIALIZE_SETTLE_DELAY = 120;
     const DASHBOARD_NAV_STEP_MS = 82;
     const DASHBOARD_KEY_HOLD_START_MS = 180;
     const DASHBOARD_NAV_MAX_PENDING_STEPS = 10;
@@ -3903,6 +3908,7 @@
     }
 
     function playWelcomeMessage(payload) {
+      if (!AUTO_WELCOME_NARRATION_ENABLED) return;
       if (!payload?.text || payload.pending || currentDashboardId) return;
       stopDashboardNarration();
       stopBrowserAvatarAudio();
@@ -3914,6 +3920,7 @@
     }
 
     function queueWelcomeMessage(payload) {
+      if (!AUTO_WELCOME_NARRATION_ENABLED) return;
       if (localDevPauseAutoNarration) return;
       if (!payload?.text) return;
       if (!payload.pending) {
@@ -4293,7 +4300,7 @@
     }
 
     function setDashboardMaterializationStage(direction, dashboardId) {
-      if (reduceMotion) return;
+      if (reduceDashboardMotion) return;
       clearDashboardMaterializationStage();
       renderDashboardBuildCopy(dashboardId);
       if (dashboardBuildEffects) {
@@ -4331,7 +4338,7 @@
     }
 
     function ensureDashboardMaterializationStage(direction, dashboardId) {
-      if (reduceMotion) return;
+      if (reduceDashboardMotion) return;
       if (dashboardFrameStage.classList.contains('materialize-active') && dashboardBuildEffects?.dataset.dashboardId === dashboardId) return;
       setDashboardMaterializationStage(direction, dashboardId);
     }
@@ -4371,18 +4378,18 @@
       if (previousFrame) {
         previousFrame.classList.remove('incoming');
         previousFrame.classList.add('outgoing');
-        previousFrame.style.opacity = reduceMotion ? '1' : '0.08';
+        previousFrame.style.opacity = reduceDashboardMotion ? '1' : '0.08';
         previousFrame.style.transform = 'translate3d(0, 0, 0) scale(1)';
-        previousFrame.style.filter = reduceMotion
+        previousFrame.style.filter = reduceDashboardMotion
           ? 'brightness(1) blur(0px) saturate(1)'
           : 'brightness(0.24) blur(3.2px) saturate(0.48) contrast(1.2)';
       }
 
       nextFrame.classList.remove('outgoing');
       nextFrame.classList.add('incoming', 'active');
-      nextFrame.style.opacity = reduceMotion ? '0' : '0.08';
+      nextFrame.style.opacity = reduceDashboardMotion ? '0' : '0.08';
       nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1)';
-      nextFrame.style.filter = reduceMotion
+      nextFrame.style.filter = reduceDashboardMotion
         ? 'none'
         : 'brightness(0.28) blur(4.2px) saturate(0.48) contrast(1.22)';
     }
@@ -4456,7 +4463,7 @@
       activeDashboardFrameIndex = dashboardFrames.indexOf(nextFrame);
       currentDashboardUrl = nextFrame.getAttribute('src') || '';
 
-      if (reduceMotion) {
+      if (reduceDashboardMotion) {
         if (previousFrame) {
           previousFrame.classList.add('outgoing');
           previousFrame.style.opacity = '0';
@@ -4502,9 +4509,9 @@
 
       nextFrame.className = 'dashboard-frame incoming';
       nextFrame.title = DASHBOARDS[workspace]?.label || 'Live dashboard';
-      nextFrame.style.opacity = reduceMotion ? '0' : '0.08';
+      nextFrame.style.opacity = reduceDashboardMotion ? '0' : '0.08';
       nextFrame.style.transform = 'translate3d(0, 0, 0) scale(1)';
-      nextFrame.style.filter = reduceMotion
+      nextFrame.style.filter = reduceDashboardMotion
         ? 'none'
         : 'brightness(0.28) blur(4.2px) saturate(0.48) contrast(1.22)';
 

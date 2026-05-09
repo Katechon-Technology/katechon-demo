@@ -6418,12 +6418,11 @@ app.post("/api/register", (req, res) => {
 
   try {
     const { action, user } = recordUserEmail(email);
-    const welcome = buildWelcomeMetadata();
     console.log(`user ${action}: ${email}`);
     res.json({
       ok: true,
       action,
-      welcome,
+      welcome: null,
       user: {
         email: user.email,
         createdAt: user.createdAt,
