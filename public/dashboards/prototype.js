@@ -12,6 +12,12 @@
       (location.pathname.match(/(?:^|\/)dashboards\/([^/]+)/) || [])[1] ||
       "world-monitor"
     ).toLowerCase().replace(/[^\w-]/g, "");
+    const channelShareId = String(dashboardParams.get("channelShare") || dashboardParams.get("shareId") || dashboardParams.get("share") || "")
+      .toLowerCase()
+      .replace(/[^\w-]/g, "")
+      .slice(0, 96);
+    const initialPrompt = String(dashboardParams.get("prompt") || "").trim().slice(0, 700);
+    const replayRequested = /^(1|true|yes)$/i.test(String(dashboardParams.get("replay") || ""));
 
     const catalog = window.KATECHON_DASHBOARD_CATALOG || { palettes: {}, dashboards: {} };
     const palettes = catalog.palettes || {};
@@ -34,6 +40,10 @@
       livePayload: null,
       liveLoading: false,
       generated: emptyGeneratedDashboard(),
+      commandRunning: false,
+      commandStatus: "",
+      lastPrompt: config.primaryPrompt || "",
+      currentShareId: channelShareId || "",
     };
 
     const animeApi = window.anime || {};
@@ -44,6 +54,8 @@
     window.KATECHON_DASHBOARD_RENDERERS = window.KATECHON_DASHBOARD_RENDERERS || {};
     const customRenderers = window.KATECHON_DASHBOARD_RENDERERS;
     let dashboardRendered = false;
+    let initialPromptRan = false;
+    let replayStarted = false;
 
     function animate(target, params) {
       if (!canMotion) return null;
@@ -87,9 +99,51 @@
 
     function emptyGeneratedDashboard() {
       return {
+        mode: "slot_overrides",
         view: "default",
         slots: Object.fromEntries(generatedSlotNames.map((slot) => [slot, []])),
         themeTokens: {},
+        page: null,
+      };
+    }
+
+    function normalizeGeneratedPage(raw) {
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+      const template = String(raw.layout?.template || raw.template || raw.view || "").replace(/[^\w-]/g, "");
+      if (!template) return null;
+      const stageRaw = raw.stage && typeof raw.stage === "object" && !Array.isArray(raw.stage) ? raw.stage : {};
+      const thesisRaw = raw.thesis && typeof raw.thesis === "object" && !Array.isArray(raw.thesis) ? raw.thesis : {};
+      const layoutRaw = raw.layout && typeof raw.layout === "object" && !Array.isArray(raw.layout) ? raw.layout : {};
+      const themeRaw = raw.theme && typeof raw.theme === "object" && !Array.isArray(raw.theme) ? raw.theme : {};
+      const stageComponents = Array.isArray(stageRaw.components) ? stageRaw.components.slice(0, 3) : [];
+      const railComponents = Array.isArray(raw.rail) ? raw.rail.slice(0, 5) : [];
+      return {
+        mode: "generated_page",
+        channelId: String(raw.channelId || dashboardId).replace(/[^\w-]/g, ""),
+        prompt: String(raw.prompt || "").trim().slice(0, 300),
+        theme: {
+          density: String(themeRaw.density || "board").replace(/[^\w-]/g, ""),
+          accent: String(themeRaw.accent || "channel").replace(/[^\w-]/g, ""),
+          avatarMode: String(themeRaw.avatarMode || "docked").replace(/[^\w-]/g, ""),
+        },
+        layout: {
+          template,
+          stage: String(layoutRaw.stage || stageRaw.type || template).replace(/[^\w-]/g, ""),
+          rail: String(layoutRaw.rail || "evidence_stack").replace(/[^\w-]/g, ""),
+          actions: String(layoutRaw.actions || "fork_prompts").replace(/[^\w-]/g, ""),
+        },
+        thesis: {
+          title: String(thesisRaw.title || raw.title || "").trim().slice(0, 120),
+          summary: String(thesisRaw.summary || raw.summary || "").trim().slice(0, 320),
+        },
+        stage: {
+          type: String(stageRaw.type || layoutRaw.stage || template).replace(/[^\w-]/g, ""),
+          components: stageComponents,
+        },
+        rail: railComponents,
+        actions: Array.isArray(raw.actions) ? raw.actions.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 6) : [],
+        provenance: Array.isArray(raw.provenance) ? raw.provenance.slice(0, 12) : [],
+        sourceState: raw.sourceState && typeof raw.sourceState === "object" ? raw.sourceState : null,
       };
     }
 
@@ -103,6 +157,12 @@
         generated.slots[slot] = Array.isArray(slots[slot]) ? slots[slot].slice(0, max) : [];
       });
       generated.themeTokens = raw.themeTokens && typeof raw.themeTokens === "object" ? raw.themeTokens : {};
+      const page = normalizeGeneratedPage(raw.page || raw.generatedPage);
+      if (page) {
+        generated.mode = "generated_page";
+        generated.view = page.layout.template || generated.view;
+        generated.page = page;
+      }
       return generated;
     }
 
@@ -118,6 +178,29 @@
         state.activeFeed = 0;
         state.generated = normalizeGeneratedDashboard(payload.generated);
         applyDashboardCustomCss(payload.patch.customCss);
+      } catch (_) {}
+    }
+
+    async function loadChannelShareObject() {
+      if (!channelShareId) return;
+      try {
+        const resp = await fetch(appUrl(`/api/channel-shares/${encodeURIComponent(channelShareId)}`), { cache: "no-store" });
+        if (!resp.ok) return;
+        const payload = await resp.json();
+        const share = payload.share || payload.object;
+        if (!share || share.channelId !== dashboardId) return;
+        document.body.dataset.channelShare = share.id || channelShareId;
+        state.currentShareId = share.id || channelShareId;
+        state.lastPrompt = share.prompt || state.lastPrompt;
+        state.commandStatus = "share loaded";
+        if (share.patch && typeof share.patch === "object") config = { ...config, ...share.patch };
+        if (share.headline && !config.title) config.title = share.headline;
+        if (Array.isArray(share.metrics) && share.metrics.length) state.metrics = normalizeMetrics(share.metrics);
+        if (Array.isArray(share.feed) && share.feed.length) state.feed = share.feed.map((item) => Array.isArray(item) ? [...item] : item);
+        state.activeFeed = 0;
+        state.generated = normalizeGeneratedDashboard(share.generated || { page: share.generatedPage, slots: share.surfaces });
+        applyDashboardCustomCss(share.patch?.customCss);
+        if (replayRequested) trackLaunchEvent("share_replayed", { shareId: state.currentShareId, source: "share-load" });
       } catch (_) {}
     }
 
@@ -156,6 +239,205 @@
       return state.metrics.slice(0, 3);
     }
 
+    function activeGeneratedPage() {
+      return state.generated?.mode === "generated_page" && state.generated.page
+        ? state.generated.page
+        : null;
+    }
+
+    function commandPrompts() {
+      const page = activeGeneratedPage();
+      const heroPrompts = Array.isArray(config.heroPrompts) ? config.heroPrompts : [];
+      const pagePrompts = Array.isArray(page?.actions) ? page.actions : [];
+      const primary = config.primaryPrompt ? [config.primaryPrompt] : [];
+      return Array.from(new Set([...heroPrompts, ...pagePrompts, ...primary].filter(Boolean))).slice(0, 6);
+    }
+
+    function setCommandStatus(message) {
+      state.commandStatus = message || "";
+      const status = $("command-status");
+      if (status) status.textContent = state.commandStatus;
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+      return false;
+    }
+
+    function trackLaunchEvent(type, detail = {}) {
+      fetch(appUrl("/api/launch-events"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type,
+          channelId: dashboardId,
+          sessionId: `prototype-${dashboardId}`,
+          shareId: state.currentShareId || channelShareId || "",
+          prompt: detail.prompt || state.lastPrompt || "",
+          source: detail.source || "prototype-dashboard",
+          detail,
+        }),
+      }).catch(() => {});
+    }
+
+    function applyChannelTurnPayload(payload) {
+      if (!payload || typeof payload !== "object") return;
+      const patch = payload.update?.patch || {};
+      if (patch && typeof patch === "object") {
+        config = { ...config, ...patch };
+        state.metrics = normalizeMetrics(config.metrics);
+        state.feed = Array.isArray(config.feed) ? config.feed.map((item) => Array.isArray(item) ? [...item] : item) : state.feed;
+      }
+      if (payload.generated) state.generated = normalizeGeneratedDashboard(payload.generated);
+      state.activeFeed = 0;
+      if (payload.narration) state.commandStatus = payload.narration;
+    }
+
+    async function runChannelCommand(prompt) {
+      const userText = String(prompt || $("command-input")?.value || "").trim();
+      if (!userText || state.commandRunning) return;
+      state.commandRunning = true;
+      state.lastPrompt = userText;
+      trackLaunchEvent("prompt_submitted", { prompt: userText, source: state.currentShareId ? "share-fork" : "command" });
+      setCommandStatus("building channel state");
+      renderCommandPanel();
+      try {
+        const forkId = state.currentShareId || channelShareId;
+        const body = {
+          userText,
+          sessionId: `prototype-${dashboardId}`,
+        };
+        const endpoint = forkId
+          ? `/api/channel-shares/${encodeURIComponent(forkId)}/fork`
+          : `/api/channels/${encodeURIComponent(dashboardId)}/turn`;
+        const resp = await fetch(appUrl(endpoint), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const rawPayload = await resp.json().catch(() => ({}));
+        if (!resp.ok || rawPayload.ok === false) throw new Error(rawPayload.error || `turn ${resp.status}`);
+        if (rawPayload.share?.id) {
+          state.currentShareId = rawPayload.share.id;
+          document.body.dataset.channelShare = rawPayload.share.id;
+        }
+        applyChannelTurnPayload(rawPayload.turn || rawPayload);
+        const turnPayload = rawPayload.turn || rawPayload;
+        trackLaunchEvent("channel_morphed", {
+          prompt: userText,
+          source: rawPayload.share?.id ? "share-fork" : "command",
+          fallback: Boolean(turnPayload.provenance?.some((record) => ["synthetic_fallback", "unavailable"].includes(record.sourceType))),
+        });
+        if (turnPayload.provenance?.some((record) => ["synthetic_fallback", "unavailable"].includes(record.sourceType))) {
+          trackLaunchEvent("fallback_seen", { prompt: userText, source: "command" });
+        }
+        setCommandStatus("generated state ready");
+        render();
+      } catch (err) {
+        console.warn("channel command failed:", err);
+        trackLaunchEvent("error_seen", { prompt: userText, source: "command", message: err.message || String(err) });
+        setCommandStatus(`command failed: ${err.message || err}`);
+      } finally {
+        state.commandRunning = false;
+        renderCommandPanel();
+      }
+    }
+
+    async function shareChannelState() {
+      if (state.commandRunning) return;
+      state.commandRunning = true;
+      setCommandStatus("saving share object");
+      renderCommandPanel();
+      try {
+        const resp = await fetch(appUrl("/api/channel-shares"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channelId: dashboardId,
+            sessionId: `prototype-${dashboardId}`,
+            prompt: state.lastPrompt || config.primaryPrompt || config.title,
+          }),
+        });
+        const payload = await resp.json().catch(() => ({}));
+        if (!resp.ok || payload.ok === false) throw new Error(payload.error || `share ${resp.status}`);
+        const share = payload.share;
+        state.currentShareId = share?.id || state.currentShareId;
+        if (state.currentShareId) document.body.dataset.channelShare = state.currentShareId;
+        const url = new URL(payload.url || `/share/channel/${state.currentShareId}`, window.location.origin).href;
+        const copied = await copyText(url).catch(() => false);
+        trackLaunchEvent("share_created", { shareId: state.currentShareId, prompt: state.lastPrompt || "", source: "share-button" });
+        setCommandStatus(copied ? "share link copied" : url);
+      } catch (err) {
+        console.warn("channel share failed:", err);
+        trackLaunchEvent("error_seen", { source: "share-button", message: err.message || String(err) });
+        setCommandStatus(`share failed: ${err.message || err}`);
+      } finally {
+        state.commandRunning = false;
+        renderCommandPanel();
+      }
+    }
+
+    function renderCommandPanel() {
+      const panel = $("command-panel");
+      if (!panel) return;
+      const prompts = commandPrompts();
+      const hasCommandSurface = prompts.length || config.promptPlaceholder || config.primaryPrompt;
+      panel.hidden = !hasCommandSurface;
+      document.body.classList.toggle("has-command-panel", Boolean(hasCommandSurface));
+      if (!hasCommandSurface) return;
+      $("prompt-strip").innerHTML = prompts.map((prompt) =>
+        `<button class="prompt-chip" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(prompt)}" title="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`
+      ).join("");
+      const input = $("command-input");
+      input.placeholder = config.promptPlaceholder || config.primaryPrompt || "Ask this market to become an app";
+      if (!input.value && state.lastPrompt && !document.activeElement?.isSameNode(input)) input.value = state.lastPrompt;
+      $("command-build").disabled = state.commandRunning;
+      $("command-share").disabled = state.commandRunning;
+      $("command-status").textContent = state.commandStatus || (state.currentShareId ? "share object loaded" : "");
+      panel.onsubmit = (event) => {
+        event.preventDefault();
+        runChannelCommand(input.value);
+      };
+      $("command-share").onclick = () => shareChannelState();
+      panel.querySelectorAll("[data-prompt]").forEach((button) => {
+        button.addEventListener("click", () => {
+          input.value = button.dataset.prompt || "";
+          trackLaunchEvent("prompt_clicked", { prompt: input.value, source: "dashboard-pill" });
+          runChannelCommand(input.value);
+        });
+      });
+    }
+
+    function startShareReplay() {
+      if (!replayRequested || replayStarted || !state.currentShareId) return;
+      replayStarted = true;
+      document.body.classList.add("share-replay-active", "replay-stage");
+      setCommandStatus("replaying shared state");
+      setTimeout(() => {
+        document.body.classList.remove("replay-stage");
+        document.body.classList.add("replay-provenance");
+      }, 3600);
+      setTimeout(() => {
+        document.body.classList.remove("replay-provenance");
+        document.body.classList.add("replay-next");
+      }, 7600);
+      setTimeout(() => {
+        document.body.classList.remove("share-replay-active", "replay-next");
+        setCommandStatus("fork this state with one prompt");
+      }, 11800);
+    }
+
+    function maybeRunInitialPrompt() {
+      if (!initialPrompt || initialPromptRan || state.currentShareId) return;
+      initialPromptRan = true;
+      const input = $("command-input");
+      if (input) input.value = initialPrompt;
+      runChannelCommand(initialPrompt);
+    }
+
     function seededValue(index, min, max) {
       const seed = Math.sin((index + 1) * 9301 + dashboardId.length * 49297 + state.tick * 233) * 10000;
       const n = seed - Math.floor(seed);
@@ -164,18 +446,29 @@
 
     function render() {
       setTheme();
-      document.title = `${config.title} - Katechon`;
+      const page = activeGeneratedPage();
+      const title = page?.thesis?.title || config.title;
+      document.title = `${title} - Katechon`;
       document.body.dataset.generatedView = state.generated.view || "default";
+      document.body.dataset.generatedMode = page ? "generated_page" : "slot_overrides";
+      document.body.dataset.generatedTemplate = page?.layout?.template || "";
+      document.body.classList.toggle("generated-page-active", Boolean(page));
       $("kicker").textContent = config.kicker;
-      $("title").textContent = config.title;
-      $("visual-label").textContent = config.visualLabel;
-      $("visual-copy").textContent = config.visualCopy;
+      $("title").textContent = title;
+      $("visual-label").textContent = page?.layout?.template?.replace(/_/g, " ") || config.visualLabel;
+      $("visual-copy").textContent = page?.thesis?.summary || config.visualCopy;
       $("feed-label").textContent = config.feedLabel;
+      renderCommandPanel();
+      requestAnimationFrame(() => {
+        startShareReplay();
+        maybeRunInitialPrompt();
+      });
       renderMetrics();
       renderFeed();
       renderStage();
       renderMiniVisual();
       renderGeneratedRail();
+      renderGeneratedPage();
       renderGeneratedModal();
       updateClock();
       runIntroMotion();
@@ -242,7 +535,11 @@
 
     function generatedComponents() {
       const slots = state.generated.slots || {};
-      return generatedSlotNames.flatMap((slot) => slots[slot] || []);
+      const page = activeGeneratedPage();
+      const pageComponents = page
+        ? [...(page.stage?.components || []), ...(page.rail || [])]
+        : [];
+      return [...generatedSlotNames.flatMap((slot) => slots[slot] || []), ...pageComponents];
     }
 
     function componentByGeneratedId(id) {
@@ -253,6 +550,14 @@
       if (typeof value === "number" && Number.isFinite(value)) return value;
       const parsed = Number(String(value || "").replace(/[$,%\s,]/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function compactMoney(value) {
+      const n = numericValue(value);
+      if (!n) return "n/a";
+      if (Math.abs(n) >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+      if (Math.abs(n) >= 1000) return `$${Math.round(n / 1000)}K`;
+      return `$${Math.round(n).toLocaleString()}`;
     }
 
     function candleLabel(candle, index, component) {
@@ -337,7 +642,13 @@
           label: String(token.symbol || token.name || `Token ${index + 1}`).toUpperCase().slice(0, 16),
           change: numericValue(token.change1h || token.change24h),
           price: numericValue(token.price),
-          marketCap: numericValue(token.marketCap),
+          marketCap: numericValue(token.marketCapUsd || token.marketCap),
+          liquidityUsd: numericValue(token.liquidityUsd),
+          volume24hUsd: numericValue(token.volume24hUsd),
+          attentionScore: numericValue(token.attentionScore),
+          liquidityRisk: numericValue(token.liquidityRisk),
+          fragilityScore: numericValue(token.fragilityScore),
+          decayScore: numericValue(token.decayScore),
         }));
       }
 
@@ -469,6 +780,44 @@
       const numericScale = { name: "y", type: "linear", domain: yDomain, nice: true, range: "height", zero: !["line", "candlestick"].includes(type) && !hasY2 };
       const xBand = { name: "x", type: "band", domain: { data: "table", field: x }, range: "width", padding: 0.22 };
       const xPoint = { name: "x", type: "point", domain: { data: "table", field: x }, range: "width", padding: 0.45 };
+      const seriesFields = Array.isArray(component.chart?.seriesFields)
+        ? component.chart.seriesFields.filter(field => rows.some(row => Number.isFinite(Number(row[field])))).slice(0, 6)
+        : [];
+
+      if ((type === "line" || type === "area") && seriesFields.length > 1) {
+        spec.data = [
+          { name: "table", values: rows },
+          { name: "series", source: "table", transform: [{ type: "fold", fields: seriesFields, as: ["series", "value"] }] },
+        ];
+        spec.scales = [
+          xPoint,
+          { name: "y", type: "linear", domain: { data: "series", field: "value" }, nice: true, range: "height", zero: false },
+          { name: "color", type: "ordinal", domain: seriesFields, range: [accent, accent2, cssToken("--accent3", "#ffbf5f"), danger, "#b993ff", "#62ffbd"] },
+        ];
+        spec.axes = [{ orient: "bottom", scale: "x", ticks: false, labelOverlap: "parity" }, { orient: "left", scale: "y", grid: true, ticks: false }];
+        spec.legends = [{ stroke: "color", orient: "top-right", labelColor: "rgba(243,246,248,0.72)", labelFont: "SFMono-Regular, Consolas, monospace", labelFontSize: 9, symbolSize: 70 }];
+        spec.marks = [{
+          type: "group",
+          from: { facet: { name: "seriesGroup", data: "series", groupby: "series" } },
+          marks: [{
+            type: "line",
+            from: { data: "seriesGroup" },
+            encode: {
+              enter: {
+                x: { scale: "x", field: x },
+                y: { scale: "y", field: "value" },
+                stroke: { scale: "color", field: "series" },
+                strokeWidth: { value: 2 },
+                strokeOpacity: { value: 0.86 },
+                interpolate: { value: "monotone" },
+                cursor: { value: "pointer" },
+              },
+              hover: { strokeWidth: { value: 3 } },
+            },
+          }],
+        }];
+        return spec;
+      }
 
       if (type === "candlestick") {
         spec.padding = { left: 42, right: 14, top: 12, bottom: 30 };
@@ -555,12 +904,13 @@
       }
 
       if (type === "horizontal-bar") {
-        spec.padding = { left: 94, right: 18, top: 12, bottom: 24 };
+        const labelLimit = Math.max(96, Math.min(160, Math.floor(width * 0.26)));
+        spec.padding = { left: labelLimit + 18, right: 22, top: 12, bottom: 28 };
         spec.scales = [
           { name: "x", type: "linear", domain: { data: "table", field: x }, nice: true, range: "width", zero: true },
           { name: "y", type: "band", domain: { data: "table", field: y }, range: "height", padding: 0.22 },
         ];
-        spec.axes = [{ orient: "bottom", scale: "x", grid: true, ticks: false }, { orient: "left", scale: "y", ticks: false, labelLimit: 86 }];
+        spec.axes = [{ orient: "bottom", scale: "x", grid: true, ticks: false }, { orient: "left", scale: "y", ticks: false, labelLimit }];
         spec.marks = [{
           type: "rect",
           from: { data: "table" },
@@ -568,6 +918,21 @@
             enter: { y: { scale: "y", field: y }, height: { scale: "y", band: 1 }, x: { scale: "x", value: 0 }, x2: { scale: "x", field: x }, fill: { value: accent }, fillOpacity: { value: 0.72 }, cornerRadius: { value: 3 }, cursor: { value: "pointer" } },
             update: { fillOpacity: { value: 0.78 } },
             hover: { fillOpacity: { value: 1 } },
+          },
+        }, {
+          type: "text",
+          from: { data: "table" },
+          encode: {
+            enter: {
+              x: { scale: "x", field: x, offset: 6 },
+              y: { scale: "y", field: y, band: 0.5 },
+              align: { value: "left" },
+              baseline: { value: "middle" },
+              fill: { value: "rgba(243,246,248,0.72)" },
+              font: { value: "SFMono-Regular, Consolas, monospace" },
+              fontSize: { value: 10 },
+              text: { signal: `format(datum.${x}, ',.0f')` },
+            },
           },
         }];
         return spec;
@@ -671,7 +1036,10 @@
     }
 
     function fallbackChartHtml(rows) {
-      const values = rows.length ? rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.close ?? row.yes ?? row.change ?? row.loadMw ?? row.stressPct)))) : [24, 58, 36, 72, 46, 88, 54, 68];
+      if (!rows.length) {
+        return `<div class="generated-chart-empty">No chart rows returned for this provider refresh.</div>`;
+      }
+      const values = rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.close ?? row.yesPct ?? row.yes ?? row.closeOddsPct ?? row.score ?? row.change ?? row.attentionScore ?? row.fragilityScore ?? row.decayScore ?? row.loadMw ?? row.stressPct))));
       const max = Math.max(...values, 1);
       return `<div class="generated-chart-fallback">${values.map(value => `<span style="height:${Math.max(10, value / max * 100).toFixed(0)}%"></span>`).join("")}</div>`;
     }
@@ -679,7 +1047,7 @@
     function selectedDatumText(datum) {
       if (!datum || typeof datum !== "object") return "";
       const label = datum.label ?? datum.index ?? "point";
-      const fields = ["close", "sma", "open", "high", "low", "volume", "notional", "yes", "change", "loadMw", "stressPct", "value"]
+      const fields = ["close", "sma", "open", "high", "low", "volume", "notional", "yesPct", "closeOddsPct", "score", "yes", "change", "attentionScore", "liquidityRisk", "fragilityScore", "decayScore", "loadMw", "stressPct", "value"]
         .filter(key => datum[key] !== undefined && datum[key] !== null)
         .slice(0, 4)
         .map(key => `${key} ${typeof datum[key] === "number" ? Number(datum[key]).toLocaleString(undefined, { maximumFractionDigits: 4 }) : datum[key]}`);
@@ -767,7 +1135,7 @@
       const stale = source?.stale ? "stale" : "";
       const fallback = source?.fallbackReason ? `<span>${escapeHtml(source.fallbackReason)}</span>` : "";
       return `
-        <div class="generated-source generated-source-${escapeHtml(sourceType)}">
+        <div class="generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
           <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(provider)}</span>
           ${stale ? `<span>${stale}</span>` : ""}
@@ -784,13 +1152,13 @@
       const isChart = component.type === "vega-chart";
       const componentId = escapeHtml(component.id || "");
       return `
-        <article class="generated-component generated-${escapeHtml(component.type || "component")}" data-generated-id="${componentId}">
+        <article class="generated-component generated-${escapeHtml(component.type || "component")}" data-testid="generated-component" data-generated-id="${componentId}">
           ${component.eyebrow ? `<div class="generated-eyebrow">${escapeHtml(component.eyebrow)}</div>` : ""}
           ${generatedSourceHtml(component)}
           ${component.title ? `<div class="generated-title">${escapeHtml(component.title)}</div>` : ""}
           ${component.value ? `<div class="generated-metric-value">${escapeHtml(component.value)}</div>` : ""}
           ${component.body ? `<div class="generated-body">${escapeHtml(component.body)}</div>` : ""}
-          ${isChart ? `<div class="generated-chart-shell"><div class="generated-chart" data-generated-id="${componentId}"></div></div>` : ""}
+          ${isChart ? `<div class="generated-chart-shell"><div class="generated-chart" data-testid="generated-chart" data-generated-id="${componentId}"></div></div>` : ""}
           ${isChart ? `<div class="generated-chart-selection" hidden></div>` : ""}
           ${isMetric ? generatedMetricsHtml(rows) : ""}
           ${isRows ? generatedRowsHtml(rows) : ""}
@@ -801,9 +1169,81 @@
       `;
     }
 
+    function generatedPageSourceHtml(page) {
+      const source = page?.sourceState && typeof page.sourceState === "object" ? page.sourceState : null;
+      const latestProvenance = Array.isArray(page?.provenance) ? page.provenance[page.provenance.length - 1] : null;
+      const sourceType = String(source?.sourceType || latestProvenance?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
+      const label = source?.label || sourceType.replace(/_/g, " ");
+      const provider = source?.provider || latestProvenance?.provider || "provenance attached";
+      const rowCount = latestProvenance?.rowCount !== undefined ? `<span>${escapeHtml(latestProvenance.rowCount)} rows</span>` : "";
+      return `
+        <div class="generated-page-source generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
+          <strong>${escapeHtml(label)}</strong>
+          <span>${escapeHtml(provider)}</span>
+          ${source?.stale || latestProvenance?.stale ? "<span>stale/cache</span>" : ""}
+          ${rowCount}
+        </div>
+      `;
+    }
+
+    function renderGeneratedPage() {
+      const pageNode = $("generated-page");
+      if (!pageNode) return;
+      const page = activeGeneratedPage();
+      if (!page) {
+        pageNode.hidden = true;
+        pageNode.innerHTML = "";
+        return;
+      }
+      const stageComponents = page.stage?.components || [];
+      const railComponents = page.rail || [];
+      const actions = Array.isArray(page.actions) ? page.actions : [];
+      const hasChart = stageComponents.some((component) => component.type === "vega-chart");
+      pageNode.hidden = false;
+      pageNode.dataset.template = page.layout?.template || "";
+      pageNode.dataset.stage = page.stage?.type || page.layout?.stage || "";
+      pageNode.innerHTML = `
+        <header class="generated-page-head" data-testid="generated-page-head">
+          <div>
+            <div class="generated-page-kicker">${escapeHtml((page.layout?.template || "generated_page").replace(/_/g, " "))}</div>
+            <h2>${escapeHtml(page.thesis?.title || config.title)}</h2>
+            ${page.thesis?.summary ? `<p>${escapeHtml(page.thesis.summary)}</p>` : ""}
+          </div>
+          ${generatedPageSourceHtml(page)}
+        </header>
+        <div class="generated-page-grid">
+          <section class="generated-page-stage" data-testid="generated-page-stage" data-stage-type="${escapeHtml(page.stage?.type || "")}">
+            <div class="generated-page-section-label">primary stage</div>
+            <div class="generated-page-stage-body${hasChart ? " has-chart" : ""}" data-testid="generated-stage">
+              ${stageComponents.map(generatedComponentHtml).join("")}
+            </div>
+          </section>
+          <aside class="generated-page-rail" data-testid="generated-rail">
+            <div class="generated-page-section-label">evidence rail</div>
+            ${railComponents.map(generatedComponentHtml).join("")}
+          </aside>
+        </div>
+        <footer class="generated-page-actions" data-testid="generated-page-actions">
+          ${actions.map((prompt) => `<button class="generated-page-action" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`).join("")}
+          <button class="generated-page-action generated-page-share" type="button" data-testid="channel-share" data-share-current>Share</button>
+        </footer>
+      `;
+      pageNode.querySelectorAll("[data-prompt]").forEach((button) => {
+        button.addEventListener("click", () => runChannelCommand(button.dataset.prompt || button.textContent || ""));
+      });
+      pageNode.querySelector("[data-share-current]")?.addEventListener("click", () => shareChannelState());
+      requestAnimationFrame(renderGeneratedCharts);
+    }
+
     function renderGeneratedRail() {
       const rail = $("generated-rail");
       if (!rail) return;
+      if (activeGeneratedPage()) {
+        rail.innerHTML = "";
+        rail.classList.add("hidden");
+        rail.closest(".rail")?.classList.remove("has-generated");
+        return;
+      }
       const components = state.generated.slots.rail || [];
       rail.innerHTML = components.map(generatedComponentHtml).join("");
       rail.classList.toggle("hidden", !components.length);
@@ -840,10 +1280,11 @@
     }
 
     function generatedStageHtml() {
+      if (activeGeneratedPage()) return "";
       const components = state.generated.slots.stageOverlay || [];
       if (!components.length) return "";
       const hasChart = components.some(component => component.type === "vega-chart");
-      return `<div class="generated-stage${hasChart ? " has-chart" : ""}">${components.map(generatedComponentHtml).join("")}</div>`;
+      return `<div class="generated-stage${hasChart ? " has-chart" : ""}" data-testid="generated-stage">${components.map(generatedComponentHtml).join("")}</div>`;
     }
 
     function renderMiniVisual() {
@@ -1377,11 +1818,11 @@
       if (!tokens.length) return;
       state.metrics[0] = ["Tokens", String(tokens.length), "pump style"];
       state.metrics[1] = ["Leader", String(tokens[0].symbol || tokens[0].name || "MEME").slice(0, 8).toUpperCase(), "velocity"];
-      state.metrics[2] = ["1H", `${Number(tokens[0].change1h || tokens[0].change24h || 0).toFixed(1)}%`, "change"];
+      state.metrics[2] = ["Fragility", `${Number(tokens[0].fragilityScore || 0).toFixed(0)}/100`, tokens[0].riskLabel || "risk"];
       state.feed = tokens.map((token, index) => [
         index === 0 ? "now" : `${index * 3}m`,
-        `${token.name || token.symbol || "Token"} moved through the social market watchlist.`,
-        `mcap ${token.marketCap || "synthetic"} / read-only`,
+        `${token.name || token.symbol || "Token"} moved through the social market watchlist with ${token.riskLabel || "visible"} liquidity risk.`,
+        `liq ${compactMoney(token.liquidityUsd)} / read-only`,
       ]);
     }
 
@@ -1421,6 +1862,7 @@
 
     loadDashboardIdentity()
       .then(loadDashboardOverride)
+      .then(loadChannelShareObject)
       .catch((err) => {
         console.warn(err);
       })

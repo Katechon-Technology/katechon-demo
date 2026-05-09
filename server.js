@@ -83,6 +83,21 @@ const HLS_PROXY_TIMEOUT_MS = Number(process.env.HLS_PROXY_TIMEOUT_MS || 15000);
 const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const DASHBOARD_OVERRIDES_FILE = path.resolve(__dirname, process.env.DASHBOARD_OVERRIDES_FILE || "data/dashboard-overrides.json");
 const CHANNEL_SESSIONS_FILE = path.resolve(__dirname, process.env.CHANNEL_SESSIONS_FILE || "data/channel-sessions.json");
+const CHANNEL_SHARES_FILE = path.resolve(__dirname, process.env.CHANNEL_SHARES_FILE || "data/channel-shares.json");
+const LAUNCH_EVENT_TYPES = new Set([
+  "visit",
+  "focused_launch_viewed",
+  "channel_opened",
+  "prompt_clicked",
+  "prompt_submitted",
+  "channel_morphed",
+  "share_created",
+  "share_opened",
+  "share_replayed",
+  "share_forked",
+  "fallback_seen",
+  "error_seen",
+]);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
@@ -133,11 +148,11 @@ const EXTERNAL_DASHBOARDS = {
   },
   polyrec: {
     label: "Polyrec",
-    headline: "Polymarket BTC terminal dashboard and backtests",
+    headline: "Polymarket intelligence boards from public market discovery",
     sourceUrl: "https://github.com/txbabaxyz/polyrec",
     upstreams: [process.env.POLYREC_DASHBOARD_URL, process.env.POLYREC_URL],
     launch: "git clone https://github.com/txbabaxyz/polyrec.git && cd polyrec && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && python dash.py",
-    notes: ["Terminal-first app", "Set POLYREC_DASHBOARD_URL to a ttyd/gotty wrapper", "Chainlink script path may need adjustment"],
+    notes: ["Prediction-market discovery surface", "Set POLYREC_DASHBOARD_URL to a ttyd/gotty wrapper", "Public Gamma data backs current boards"],
   },
   dashboard123: {
     label: "Market Pulse",
@@ -342,7 +357,7 @@ const PANELS = [
   {
     id: "polyrec",
     label: "Polyrec",
-    description: "Terminal dashboard for Polymarket BTC prediction markets and backtesting.",
+    description: "Prediction-market intelligence boards from public Polymarket discovery data.",
   },
   {
     id: "dashboard123",
@@ -481,15 +496,15 @@ const DASHBOARD_NARRATION = {
     ],
   },
   polyrec: {
-    label: "Polyrec Polymarket BTC dashboard",
+    label: "Polyrec Polymarket intelligence board",
     voice:
-      "You are Kat narrating Polyrec, a terminal-style dashboard for Polymarket BTC prediction markets with order books, " +
-      "Binance price feeds, Chainlink oracle context, indicators, and backtesting. Avoid trading advice.",
+      "You are Kat narrating Polyrec, a prediction-market intelligence board built from public Polymarket discovery data. " +
+      "Explain ranked markets, visible odds, volume context, provenance, and fork paths. Avoid trading advice.",
     fallback: [
-      "Polyrec is a terminal-grade view: order books, BTC feeds, and prediction market structure.",
-      "This panel is built for latency and microstructure, not decoration.",
-      "The edge here would come from comparing oracle lag, order book depth, and live BTC movement.",
-      "Prediction market dashboards are only useful when the spread, clock, and reference price stay visible.",
+      "Polyrec ranks public prediction markets and keeps source state visible.",
+      "This panel is built for weird market discovery, close-odds boards, and category forks.",
+      "The useful edge is seeing why a market set matters without claiming execution precision.",
+      "Prediction-market boards are only useful when odds, volume, category, and provenance stay visible.",
     ],
   },
   dashboard123: {
@@ -677,6 +692,10 @@ function emptyChannelSessionDb() {
   return { sessions: {}, events: [] };
 }
 
+function emptyChannelShareDb() {
+  return { shares: {}, events: [] };
+}
+
 function readChannelSessionDb() {
   if (!fs.existsSync(CHANNEL_SESSIONS_FILE)) return emptyChannelSessionDb();
   const raw = fs.readFileSync(CHANNEL_SESSIONS_FILE, "utf8").trim();
@@ -693,6 +712,111 @@ function writeChannelSessionDb(db) {
   const tmpFile = `${CHANNEL_SESSIONS_FILE}.${process.pid}.tmp`;
   fs.writeFileSync(tmpFile, `${JSON.stringify(db, null, 2)}\n`);
   fs.renameSync(tmpFile, CHANNEL_SESSIONS_FILE);
+}
+
+function readChannelShareDb() {
+  if (!fs.existsSync(CHANNEL_SHARES_FILE)) return emptyChannelShareDb();
+  const raw = fs.readFileSync(CHANNEL_SHARES_FILE, "utf8").trim();
+  if (!raw) return emptyChannelShareDb();
+  const parsed = JSON.parse(raw);
+  return {
+    shares: parsed.shares && typeof parsed.shares === "object" ? parsed.shares : {},
+    events: Array.isArray(parsed.events) ? parsed.events : [],
+  };
+}
+
+function writeChannelShareDb(db) {
+  fs.mkdirSync(path.dirname(CHANNEL_SHARES_FILE), { recursive: true });
+  const tmpFile = `${CHANNEL_SHARES_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpFile, `${JSON.stringify(db, null, 2)}\n`);
+  fs.renameSync(tmpFile, CHANNEL_SHARES_FILE);
+}
+
+function appendChannelAnalyticsEvent(event) {
+  const db = readChannelSessionDb();
+  db.events.push({
+    timestamp: new Date().toISOString(),
+    ...event,
+  });
+  db.events = db.events.slice(-600);
+  writeChannelSessionDb(db);
+}
+
+function normalizeLaunchEvent(raw = {}) {
+  const type = String(raw.type || raw.event || "").trim().toLowerCase();
+  if (!LAUNCH_EVENT_TYPES.has(type)) return null;
+  const channelId = cleanDashboardId(raw.channelId || raw.channel || raw.dashboard || "");
+  const prompt = clampText(raw.prompt || raw.promptText || raw.userText || "", 300);
+  const event = {
+    type,
+    channelId: channelId || undefined,
+    sessionId: normalizeSessionId(raw.sessionId || raw.session || "launch-session"),
+    shareId: cleanChannelShareId(raw.shareId || raw.channelShare || "") || undefined,
+    source: clampText(raw.source || raw.inputSource || "launch", 80),
+    at: new Date().toISOString(),
+  };
+  if (prompt) event.prompt = prompt;
+  if (raw.detail && typeof raw.detail === "object" && !Array.isArray(raw.detail)) {
+    event.detail = Object.fromEntries(Object.entries(raw.detail).slice(0, 16).map(([key, value]) => [
+      clampText(key, 48),
+      typeof value === "string" ? clampText(value, 220) : value,
+    ]));
+  }
+  return event;
+}
+
+function countBy(items, getter) {
+  return items.reduce((counts, item) => {
+    const key = getter(item);
+    if (!key) return counts;
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function topCounts(counts, limit = 8) {
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([key, count]) => ({ key, count }));
+}
+
+function launchAnalyticsSummary() {
+  const events = readChannelSessionDb().events
+    .filter((event) => LAUNCH_EVENT_TYPES.has(event.type))
+    .slice(-600);
+  return {
+    ok: true,
+    total: events.length,
+    byType: countBy(events, (event) => event.type),
+    byChannel: countBy(events, (event) => event.channelId),
+    topPrompts: topCounts(countBy(events, (event) => event.prompt || event.promptText || event.userText)),
+    latest: events.slice(-40).reverse(),
+  };
+}
+
+function cleanChannelShareId(value) {
+  return String(value || "").toLowerCase().replace(/[^\w-]/g, "").slice(0, 96);
+}
+
+function newChannelShareId(channelId) {
+  const prefix = cleanDashboardId(channelId).replace(/-/g, "_") || "channel";
+  return `share_${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function updateChannelShareStats(id, type, fields = {}) {
+  const shareId = cleanChannelShareId(id);
+  const db = readChannelShareDb();
+  const share = db.shares[shareId];
+  if (!share) return null;
+  if (type === "share_opened") share.openCount = Number(share.openCount || 0) + 1;
+  if (type === "share_replayed") share.replayCount = Number(share.replayCount || 0) + 1;
+  if (type === "share_forked") share.forkCount = Number(share.forkCount || 0) + 1;
+  share.updatedAt = new Date().toISOString();
+  db.events.push({ type, shareId, channelId: share.channelId, timestamp: share.updatedAt, ...fields });
+  db.events = db.events.slice(-600);
+  writeChannelShareDb(db);
+  return share;
 }
 
 function channelSessionKey(channelId, sessionId) {
@@ -714,6 +838,13 @@ function domainForChannel(channel) {
       defaultTimeframes: ["24h", "36h", "72h"],
     };
   }
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    return {
+      entities: ["velocity", "liquidity", "fragility", "narrative decay"],
+      vocabulary: ["fastest moving", "attention", "liquidity risk", "viral but fragile", "decay", "read-only"],
+      defaultTimeframes: ["now", "1h", "24h"],
+    };
+  }
   return {
     entities: [],
     vocabulary: ["events", "metrics", "sources", "rankings", "relationships", "current state"],
@@ -727,6 +858,9 @@ function openingPathsForChannel(channel) {
   }
   if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
     return ["load vs forecast", "operating margin", "fuel mix", "corridor stress", "last-day grid risk"];
+  }
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    return ["fastest moving meme coins", "attention vs liquidity risk", "viral but fragile board", "narrative decay watch"];
   }
   return ["overview", "events", "rankings", "entity detail", "relationship map"];
 }
@@ -878,11 +1012,15 @@ function buildProvenanceRecord(channel, capability, params, envelope, rowCount =
 }
 
 function componentSourceState(provenance) {
+  const provider = String(provenance.provider || "");
+  const providerLabel = provider.replace(/-synthetic$/, "");
+  const hyperliquidLabel = provenance.sourceType === "historical_api" ? "Hyperliquid history" : "Hyperliquid live";
+  const liveProviderLabel = providerLabel === "hyperliquid" ? hyperliquidLabel : sourceLabelForType(provenance.sourceType);
   return {
     provenanceId: provenance.id,
     sourceType: provenance.sourceType,
     provider: provenance.provider,
-    label: sourceLabelForType(provenance.sourceType),
+    label: ["live_api", "historical_api"].includes(provenance.sourceType) ? liveProviderLabel : sourceLabelForType(provenance.sourceType),
     stale: Boolean(provenance.stale),
     fallbackReason: provenance.fallbackReason || null,
   };
@@ -996,6 +1134,9 @@ function sanitizeChart(raw) {
     }
   }
 
+  const seriesFields = sanitizeStringArray(raw.seriesFields, 6, 40);
+  if (seriesFields) chart.seriesFields = seriesFields.map((field) => sanitizeChartField(field)).filter(Boolean);
+
   const data = sanitizeChartData(raw.data);
   if (data) chart.data = data;
   const query = sanitizeChartQuery(raw.query);
@@ -1106,15 +1247,69 @@ function generatedSurfaceMax(surface) {
   return surfaceRegistry()[surface]?.maxComponents || 4;
 }
 
-function emptyGeneratedDashboard() {
+const GENERATED_PAGE_TEMPLATES = new Set([
+  "market_structure",
+  "ranked_board",
+  "comparison_board",
+  "risk_radar",
+  "detail_inspector",
+]);
+
+function sanitizeGeneratedPage(raw, channel = null) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const template = cleanComponentId(raw.layout?.template || raw.template || raw.view || "");
+  if (!GENERATED_PAGE_TEMPLATES.has(template)) return null;
+  const stageRaw = raw.stage && typeof raw.stage === "object" && !Array.isArray(raw.stage) ? raw.stage : {};
+  const thesisRaw = raw.thesis && typeof raw.thesis === "object" && !Array.isArray(raw.thesis) ? raw.thesis : {};
+  const layoutRaw = raw.layout && typeof raw.layout === "object" && !Array.isArray(raw.layout) ? raw.layout : {};
+  const themeRaw = raw.theme && typeof raw.theme === "object" && !Array.isArray(raw.theme) ? raw.theme : {};
+  const sourceState = sanitizeSourceState(raw.sourceState);
+  const provenance = (Array.isArray(raw.provenance) ? raw.provenance : Array.isArray(raw.provenanceRecords) ? raw.provenanceRecords : [])
+    .map((record) => sanitizeProvenanceRecord(record, channel || { liveProvider: cleanComponentId(raw.channelId || "") }))
+    .filter(Boolean)
+    .slice(0, 12);
+
   return {
-    view: "default",
-    slots: Object.fromEntries(generatedSurfaceNames().map((slot) => [slot, []])),
-    themeTokens: {},
+    mode: "generated_page",
+    channelId: cleanDashboardId(raw.channelId || channel?.id || ""),
+    prompt: clampText(raw.prompt, 300),
+    theme: {
+      density: cleanComponentId(themeRaw.density || "board"),
+      accent: cleanComponentId(themeRaw.accent || "channel"),
+      avatarMode: cleanComponentId(themeRaw.avatarMode || "docked"),
+    },
+    layout: {
+      template,
+      stage: cleanComponentId(layoutRaw.stage || stageRaw.type || template),
+      rail: cleanComponentId(layoutRaw.rail || "evidence_stack"),
+      actions: cleanComponentId(layoutRaw.actions || "fork_prompts"),
+    },
+    thesis: {
+      title: clampText(thesisRaw.title || raw.title, 120) || titleFromId(template),
+      summary: clampText(thesisRaw.summary || raw.summary, 320),
+    },
+    stage: {
+      type: cleanComponentId(stageRaw.type || layoutRaw.stage || template),
+      components: sanitizeComponents(stageRaw.components || raw.stageComponents || [], 3),
+    },
+    rail: sanitizeComponents(raw.rail || raw.railComponents || [], 5),
+    actions: sanitizeStringArray(raw.actions || raw.nextActions, 6, 120) || [],
+    provenance,
+    sourceState: sourceState || undefined,
   };
 }
 
-function sanitizeGeneratedDashboard(raw) {
+function emptyGeneratedDashboard() {
+  return {
+    mode: "slot_overrides",
+    view: "default",
+    slots: Object.fromEntries(generatedSurfaceNames().map((slot) => [slot, []])),
+    themeTokens: {},
+    page: null,
+  };
+}
+
+function sanitizeGeneratedDashboard(raw, channel = null) {
   const generated = emptyGeneratedDashboard();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return generated;
   const views = viewPresets();
@@ -1126,6 +1321,12 @@ function sanitizeGeneratedDashboard(raw) {
   }
   const themeTokens = sanitizeThemeTokens(raw.themeTokens);
   if (themeTokens) generated.themeTokens = themeTokens;
+  const page = sanitizeGeneratedPage(raw.page || raw.generatedPage, channel);
+  if (page) {
+    generated.mode = "generated_page";
+    generated.view = page.layout.template;
+    generated.page = page;
+  }
   return generated;
 }
 
@@ -1321,7 +1522,7 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
 function sanitizeCapabilityParams(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const params = {};
-  for (const field of ["entity", "metric", "detail", "topic", "direction", "compareTo", "coin", "interval", "respondent"]) {
+  for (const field of ["entity", "metric", "detail", "topic", "direction", "compareTo", "coin", "interval", "respondent", "category", "oddsRange", "keyword"]) {
     if (raw[field] !== undefined) {
       const value = clampText(raw[field], 80);
       if (value) params[field] = value;
@@ -1335,7 +1536,11 @@ function sanitizeCapabilityParams(raw) {
     const entities = sanitizeStringArray(raw.entities, 8, 60);
     if (entities) params.entities = entities;
   }
-  for (const field of ["lookbackHours", "hours", "limit", "depth", "candles"]) {
+  if (Array.isArray(raw.categories)) {
+    const categories = sanitizeStringArray(raw.categories, 6, 48)?.map(cleanComponentId).filter(Boolean).slice(0, 6);
+    if (categories?.length) params.categories = categories;
+  }
+  for (const field of ["lookbackHours", "hours", "limit", "depth", "candles", "minVolume"]) {
     if (raw[field] !== undefined) {
       const value = Number(raw[field]);
       if (Number.isFinite(value) && value > 0) params[field] = value;
@@ -1440,6 +1645,9 @@ function sanitizeChannelUpdate(raw, channel) {
     .filter(Boolean);
   if (surfaces.length) update.surfaces = surfaces;
 
+  const generatedPage = sanitizeGeneratedPage(source.generatedPage || source.page, channel);
+  if (generatedPage) update.generatedPage = generatedPage;
+
   const dataRequests = (Array.isArray(source.dataRequests) ? source.dataRequests : source.dataRequest ? [source.dataRequest] : [])
     .map((request) => sanitizeDataRequest(request, channel))
     .filter(Boolean)
@@ -1455,7 +1663,7 @@ function sanitizeChannelUpdate(raw, channel) {
   const narration = clampText(source.narration || source.speech || source.explanation, 260);
   if (narration) update.narration = narration;
 
-  if (!update.layout && !update.patch && !update.themeTokens && !update.surfaces) return null;
+  if (!update.layout && !update.patch && !update.themeTokens && !update.surfaces && !update.generatedPage) return null;
   return update;
 }
 
@@ -1475,6 +1683,11 @@ function applyChannelUpdate(dashboardId, rawUpdate, instruction, source = "kat-r
   if (update.layout?.template) generated.view = update.layout.template;
   if (update.patch) Object.assign(patch, update.patch);
   if (update.themeTokens) generated.themeTokens = { ...(generated.themeTokens || {}), ...update.themeTokens };
+  if (update.generatedPage) {
+    generated.mode = "generated_page";
+    generated.view = update.generatedPage.layout.template;
+    generated.page = update.generatedPage;
+  }
 
   for (const surfaceUpdate of update.surfaces || []) {
     const slot = surfaceUpdate.surface;
@@ -1733,6 +1946,7 @@ function realtimeTools() {
       color: { type: "string", description: "Optional data field for color grouping." },
       label: { type: "string", description: "Optional label field." },
       variant: { type: "string", description: "Optional visual variant such as line, area, ohlc, range, or volume." },
+      seriesFields: { type: "array", items: { type: "string" }, maxItems: 6 },
       query: {
         type: "object",
         additionalProperties: false,
@@ -2786,58 +3000,141 @@ function parseMaybeJsonArray(value) {
 
 function syntheticPolymarketData() {
   const questions = [
-    "Will a major AI model top the live agent benchmark this quarter?",
-    "Will BTC close above the watched threshold by Friday?",
-    "Will a new orbital launch window open before month end?",
-    "Will quantum error correction headline the next research cycle?",
-    "Will a geopolitical risk index finish the week elevated?",
+    ["Will a major AI model top the live agent benchmark this quarter?", "culture", 0.51, 186000],
+    ["Will BTC close above the watched threshold by Friday?", "crypto", 0.48, 422000],
+    ["Will the Fed signal another rate cut before the next meeting?", "macro", 0.55, 315000],
+    ["Will an election market flip leaders before Sunday?", "election", 0.46, 288000],
+    ["Will a surprise sports upset market clear 40% before kickoff?", "sports", 0.34, 93000],
   ];
   return {
-    markets: questions.map((question, index) => ({
+    markets: questions.map(([question, category, yes, volume], index) => ({
       id: `synthetic-${index}`,
       question,
-      yes: seededFloat(`poly:${index}`, 0.22, 0.78),
-      no: 1 - seededFloat(`poly:${index}`, 0.22, 0.78),
-      volume: Math.round(seededFloat(`poly:volume:${index}`, 8000, 580000)),
-      category: ["AI", "Crypto", "Space", "Science", "Politics"][index],
+      yes,
+      no: 1 - yes,
+      volume,
+      category,
+      tags: [category],
     })),
     updatedAt: Date.now(),
   };
 }
 
 async function getPolymarketLiveData() {
-  const url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=8";
+  const url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200";
   const markets = await fetchLiveJson(url);
   return {
-    markets: (Array.isArray(markets) ? markets : []).slice(0, 8).map((market, index) => {
+    markets: (Array.isArray(markets) ? markets : []).slice(0, 200).map((market, index) => {
       const outcomes = parseMaybeJsonArray(market.outcomes);
       const prices = parseMaybeJsonArray(market.outcomePrices).map(Number);
       const yesIndex = outcomes.findIndex((outcome) => String(outcome).toLowerCase() === "yes");
       const yes = Number.isFinite(prices[yesIndex]) ? prices[yesIndex] : Number(prices[0] || seededFloat(`poly-live:${index}`, 0.25, 0.75));
+      const rawTags = Array.isArray(market.tags) ? market.tags : parseMaybeJsonArray(market.tags);
+      const tags = rawTags.map((tag) => typeof tag === "string" ? tag : tag?.label || tag?.name || tag?.slug || "").filter(Boolean).slice(0, 6);
       return {
-        id: market.id || market.conditionId || `market-${index}`,
+        id: market.id || market.conditionId || market.slug || `market-${index}`,
         question: market.question || market.title || "Public prediction market updated.",
         yes,
         no: Math.max(0, 1 - yes),
-        volume: Number(market.volumeNum || market.volume || market.liquidity || 0),
-        category: market.category || market.tags?.[0]?.label || "market",
+        volume: Number(market.volumeNum || market.volume24hr || market.volume || market.liquidity || 0),
+        liquidity: Number(market.liquidityNum || market.liquidity || 0),
+        category: market.category || tags[0] || "market",
+        tags,
       };
     }),
     updatedAt: Date.now(),
   };
 }
 
-function syntheticPumpfunData() {
-  const names = ["Neon Kat", "Terminal Wif Signal", "Liquidity Ghost", "Meme Reactor", "Bonding Curve Club"];
+function parseUsdNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return 0;
+  const multiplier = text.endsWith("b") ? 1000000000 : text.endsWith("m") ? 1000000 : text.endsWith("k") ? 1000 : 1;
+  const n = Number(text.replace(/[$,\s]/g, "").replace(/[bmk]$/, ""));
+  return Number.isFinite(n) ? n * multiplier : 0;
+}
+
+function memeRiskLabel(score) {
+  const value = Number(score);
+  if (value >= 76) return "high risk";
+  if (value >= 52) return "fragile";
+  if (value >= 28) return "watch";
+  return "lower signal";
+}
+
+function normalizePumpfunToken(raw = {}, index = 0) {
+  const name = clampText(raw.name || raw.title || raw.symbol || `Token ${index + 1}`, 80);
+  const symbol = clampText(String(raw.symbol || name.split(/\s+/).map((part) => part[0]).join("")).toUpperCase(), 18) || `TOK${index + 1}`;
+  const price = numberOr(raw.current_price ?? raw.price, 0);
+  const change1h = numberOr(raw.price_change_percentage_1h_in_currency ?? raw.change1h, seededFloat(`pump:change:${index}`, -18, 42));
+  const change24h = numberOr(raw.price_change_percentage_24h_in_currency ?? raw.price_change_percentage_24h ?? raw.change24h, seededFloat(`pump:change24:${index}`, -32, 118));
+  const marketCapUsd = parseUsdNumber(raw.market_cap ?? raw.marketCapUsd ?? raw.marketCap) || Math.round(seededFloat(`pump:mcap:${name}:${index}`, 28000, 2800000));
+  const volume24hUsd = parseUsdNumber(raw.total_volume ?? raw.volume24hUsd ?? raw.volume) || Math.round(marketCapUsd * seededFloat(`pump:volume:${name}:${index}`, 0.08, 0.72));
+  const liquidityUsd = parseUsdNumber(raw.liquidityUsd ?? raw.liquidity ?? raw.reserve_in_usd) || Math.round(Math.max(12000, Math.min(marketCapUsd * 0.42, volume24hUsd * seededFloat(`pump:liq:${name}:${index}`, 0.14, 0.46))));
+  const absChange = Math.abs(change1h || change24h || 0);
+  const attentionScore = clampNumber(Math.round(absChange * 2.2 + Math.log10(volume24hUsd + 10) * 7 + Math.max(0, change24h) * 0.16), 1, 100);
+  const liquidityScore = clampNumber(Math.round(Math.log10(liquidityUsd + 10) * 12), 1, 100);
+  const liquidityRisk = clampNumber(Math.round(attentionScore - liquidityScore + Math.max(0, absChange - 8) * 1.4 + (liquidityUsd < 100000 ? 18 : 0)), 0, 100);
+  const fragilityScore = clampNumber(Math.round(liquidityRisk * 0.65 + attentionScore * 0.25 + Math.max(0, -change24h) * 0.25), 0, 100);
+  const decayScore = clampNumber(Math.round(Math.max(0, change24h - change1h) * 1.15 + Math.max(0, -change1h) * 1.7 + fragilityScore * 0.35), 0, 100);
   return {
-    tokens: names.map((name, index) => ({
+    id: clampText(raw.id || raw.coin_id || raw.address || symbol.toLowerCase(), 80),
+    name,
+    symbol,
+    label: symbol,
+    price,
+    priceLabel: price ? `$${price < 1 ? price.toFixed(6) : price.toFixed(4)}` : "n/a",
+    change1h,
+    change24h,
+    change: change1h,
+    marketCap: formatCompactUsd(marketCapUsd),
+    marketCapUsd,
+    volume24hUsd,
+    liquidityUsd,
+    attentionScore,
+    liquidityScore,
+    liquidityRisk,
+    fragilityScore,
+    decayScore,
+    riskLabel: memeRiskLabel(Math.max(liquidityRisk, fragilityScore)),
+    why: `${formatPercent(change1h)} 1H attention against ${formatCompactUsd(liquidityUsd)} visible liquidity.`,
+  };
+}
+
+function rankPumpfunTokens(tokens = [], metric = "velocity") {
+  const field = metric === "liquidity_risk"
+    ? "liquidityRisk"
+    : metric === "fragility"
+      ? "fragilityScore"
+      : metric === "narrative_decay"
+        ? "decayScore"
+        : "change1h";
+  return [...tokens].sort((a, b) => Math.abs(numberOr(b[field], 0)) - Math.abs(numberOr(a[field], 0)));
+}
+
+function syntheticPumpfunData() {
+  const names = [
+    "Neon Terminal",
+    "Signal Wif Board",
+    "Liquidity Mirage",
+    "Meme Reactor",
+    "Bonding Curve Club",
+    "Exit Liquidity Cafe",
+    "Posting Spiral",
+    "Ticker Temple",
+  ];
+  return {
+    tokens: names.map((name, index) => normalizePumpfunToken({
       name,
       symbol: name.split(" ").map((part) => part[0]).join("").slice(0, 6),
-      price: seededFloat(`pump:price:${index}`, 0.00002, 0.018).toFixed(6),
+      price: seededFloat(`pump:price:${index}`, 0.00002, 0.018),
       change1h: seededFloat(`pump:change:${index}`, -18, 42),
       change24h: seededFloat(`pump:change24:${index}`, -32, 118),
-      marketCap: `$${Math.round(seededFloat(`pump:mcap:${index}`, 28000, 2800000)).toLocaleString()}`,
-    })),
+      marketCapUsd: Math.round(seededFloat(`pump:mcap:${index}`, 28000, 2800000)),
+      volume24hUsd: Math.round(seededFloat(`pump:volume:${index}`, 12000, 1300000)),
+      liquidityUsd: Math.round(seededFloat(`pump:liquidity:${index}`, 18000, 650000)),
+    }, index)),
     updatedAt: Date.now(),
   };
 }
@@ -2846,14 +3143,7 @@ async function getPumpfunLiveData() {
   const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=pump-fun&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h,24h";
   const coins = await fetchLiveJson(url);
   return {
-    tokens: (Array.isArray(coins) ? coins : []).slice(0, 10).map((coin) => ({
-      name: coin.name,
-      symbol: coin.symbol,
-      price: coin.current_price,
-      change1h: Number(coin.price_change_percentage_1h_in_currency || 0),
-      change24h: Number(coin.price_change_percentage_24h_in_currency || coin.price_change_percentage_24h || 0),
-      marketCap: `$${Math.round(Number(coin.market_cap || 0)).toLocaleString()}`,
-    })),
+    tokens: (Array.isArray(coins) ? coins : []).slice(0, 10).map(normalizePumpfunToken),
     updatedAt: Date.now(),
   };
 }
@@ -3375,21 +3665,30 @@ function summarizeChannelLive(channel, envelope) {
   }
 
   if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) {
-    const tokens = data.tokens.slice(0, 6);
+    const tokens = rankPumpfunTokens(data.tokens, "velocity").slice(0, 6);
+    const leader = tokens[0] || null;
     summary.metrics = [
       ["Tokens", String(tokens.length), "indexed"],
-      ["Leader", String(tokens[0]?.symbol || tokens[0]?.name || "n/a").toUpperCase().slice(0, 10), "velocity"],
-      ["1H", tokens[0] ? formatPercent(tokens[0].change1h || 0) : "n/a", "change"],
+      ["Leader", String(leader?.symbol || leader?.name || "n/a").toUpperCase().slice(0, 10), "velocity"],
+      ["Fragility", leader ? `${Math.round(numberOr(leader.fragilityScore, 0))}/100` : "n/a", leader?.riskLabel || "risk"],
     ];
     summary.feed = tokens.slice(0, 5).map((token, index) => [
       index === 0 ? "now" : `${index * 3}m`,
-      `${token.name || token.symbol || "Token"} is on the social market watchlist.`,
-      `${formatPercent(token.change1h || token.change24h || 0)} / ${token.marketCap || "mcap n/a"}`,
+      `${token.name || token.symbol || "Token"} is on the social market watchlist with ${token.riskLabel || "visible"} liquidity risk.`,
+      `${formatPercent(token.change1h || token.change24h || 0)} / liq ${formatCompactUsd(token.liquidityUsd)}`,
     ]);
     summary.highlights = tokens.slice(0, 4).map((token) =>
-      `${token.name || token.symbol || "Token"} shows ${formatPercent(token.change1h || token.change24h || 0)} change.`
+      `${token.symbol || token.name || "Token"} pairs ${formatPercent(token.change1h || token.change24h || 0)} 1H attention with ${formatCompactUsd(token.liquidityUsd)} visible liquidity; ${token.riskLabel || "risk visible"}.`
     );
-    summary.dataShape = ["tokens[].name", "tokens[].symbol", "tokens[].price", "tokens[].change1h", "tokens[].marketCap"];
+    summary.dataShape = [
+      "tokens[].name",
+      "tokens[].symbol",
+      "tokens[].price",
+      "tokens[].change1h",
+      "tokens[].liquidityUsd",
+      "tokens[].fragilityScore",
+      "tokens[].decayScore",
+    ];
     return summary;
   }
 
@@ -3555,12 +3854,12 @@ function eiaCapabilityRows(capability, data) {
   return [];
 }
 
-function providerRowsForCapability(channel, capability, envelope, summary) {
+function providerRowsForCapability(channel, capability, envelope, summary, params = {}) {
   const data = envelope.data || {};
   if (sourceIs(envelope, "hyperliquid")) return hyperliquidCapabilityRows(capability, data);
   if (sourceIs(envelope, "eia-grid")) return eiaCapabilityRows(capability, data);
-  if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) return data.markets.slice(0, 12);
-  if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) return data.tokens.slice(0, 12);
+  if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) return rankPolymarketMarkets(data.markets, params).slice(0, Number(params.limit || 12));
+  if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) return rankPumpfunTokens(data.tokens, params.metric || "velocity").slice(0, Number(params.limit || 12));
   if (capability === "events" || capability === "search") return tupleRowsToObjects(summary.feed || []);
   if (capability === "rankings" || capability === "snapshot") return summaryMetricObjects(summary);
   return tupleRowsToObjects(summary.feed || []);
@@ -3610,7 +3909,7 @@ function normalizeCapabilityResult(channel, capability, params, envelope, detail
   const summary = summarizeChannelLive(channel, envelope);
   const rows = capability === "relationships"
     ? relationshipRowsForChannel(summary)
-    : providerRowsForCapability(channel, capability, envelope, summary);
+    : providerRowsForCapability(channel, capability, envelope, summary, params);
   const compact = compactChannelLiveEnvelope(envelope);
   const provenance = buildProvenanceRecord(channel, capability, params, envelope, rows.length);
   return {
@@ -3643,6 +3942,99 @@ async function queryChannelCapability(channel, raw = {}) {
   return normalizeCapabilityResult(channel, capability, params, envelope, detail === "compact" ? "compact" : "summary");
 }
 
+function closeFromCandle(candle) {
+  return Number(candle?.c || candle?.close || 0);
+}
+
+function cryptoComparisonRows(results, entities) {
+  const series = results.map((entry) => {
+    const candles = Array.isArray(entry.result?.data?.candles) ? entry.result.data.candles.slice(-48) : [];
+    return {
+      entity: entry.entity,
+      candles,
+      base: closeFromCandle(candles[0]) || 1,
+    };
+  }).filter((entry) => entry.candles.length);
+  if (!series.length) return [];
+  const count = Math.min(48, ...series.map((entry) => entry.candles.length));
+  return Array.from({ length: count }, (_, index) => {
+    const row = {
+      index,
+      label: series[0].candles[index]?.label || (series[0].candles[index]?.t ? new Date(Number(series[0].candles[index].t)).toISOString().slice(5, 10) : String(index + 1)),
+    };
+    for (const entity of entities) {
+      const entry = series.find((candidate) => candidate.entity === entity);
+      const close = closeFromCandle(entry?.candles[index]);
+      row[entity] = close && entry?.base ? ((close - entry.base) / entry.base) * 100 : 0;
+    }
+    return row;
+  });
+}
+
+async function queryCryptoComparisonCapability(channel, intent) {
+  const entities = (intent.entities || ["BTC", "ETH"]).slice(0, 3);
+  const paramsFor = (entity) => ({
+    ...intent.params,
+    entity,
+    coin: entity,
+  });
+  const results = await Promise.all(entities.map(async (entity) => ({
+    entity,
+    result: await queryChannelCapability(channel, {
+      capability: "timeseries",
+      detail: "compact",
+      params: paramsFor(entity),
+    }),
+  })));
+  const comparisonRows = cryptoComparisonRows(results, entities);
+  const provenances = results.flatMap((entry) => entry.result.provenance || []);
+  const metricRows = results.map(({ entity, result }) => {
+    const rows = Array.isArray(result.data?.candles) ? result.data.candles : [];
+    const first = closeFromCandle(rows[0]);
+    const last = closeFromCandle(rows[rows.length - 1]);
+    const change = first && last ? ((last - first) / first) * 100 : 0;
+    return [entity, formatSignedPercent(change), result.source || channel.liveProvider];
+  });
+  const highlights = [
+    `${entities.join(" vs ")} is normalized to the first candle in the selected ${intent.timeframe.label} window.`,
+    ...metricRows.map(([entity, value]) => `${entity} moved ${value} over the displayed window.`),
+  ];
+  return {
+    ok: true,
+    runtime: CHANNEL_RUNTIME_VERSION,
+    channel: publicChannel(channel),
+    capability: "timeseries",
+    params: intent.params,
+    source: provenances[0]?.provider || channel.liveProvider,
+    sourceType: provenances[0]?.sourceType || "unavailable",
+    stale: provenances.some((record) => record.stale),
+    updatedAt: Date.now(),
+    fallbackReason: provenances.find((record) => record.fallbackReason)?.fallbackReason || null,
+    provenance: provenances,
+    liveSummary: {
+      source: provenances[0]?.provider || channel.liveProvider,
+      stale: provenances.some((record) => record.stale),
+      updatedAt: Date.now(),
+      fallbackReason: provenances.find((record) => record.fallbackReason)?.fallbackReason || null,
+      contract: channel.contract,
+      metrics: metricRows.slice(0, 3),
+      feed: entities.map((entity, index) => [
+        index === 0 ? "now" : `${index * 2}m`,
+        `${entity} comparison series is loaded into the generated state.`,
+        provenances[index]?.provider || channel.liveProvider,
+      ]),
+      highlights,
+      dataShape: ["comparisonRows[].label", ...entities.map((entity) => `comparisonRows[].${entity}`)],
+      livePath: channel.livePath,
+    },
+    rows: comparisonRows,
+    comparisonRows,
+    comparisonEntities: entities,
+    bindingHints: ["none", "liveData.candles"],
+    data: { comparisonRows },
+  };
+}
+
 function channelTurnId() {
   return `turn_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -3655,6 +4047,38 @@ function emitChannelTurnEvent(events, onEvent, event) {
   events.push(normalized);
   if (typeof onEvent === "function") onEvent(normalized);
   return normalized;
+}
+
+function seedStateFromChannelShare(channel, sessionId, share) {
+  if (!share || share.channelId !== channel.id) return null;
+  const base = initialChannelSessionState(channel, sessionId);
+  const provenance = Array.isArray(share.provenanceRecords) ? share.provenanceRecords : [];
+  const promptEntities = channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid"
+    ? cryptoEntitiesFromText(normalizeAgentText(share.prompt || ""))
+    : [];
+  const entities = Array.from(new Set([
+    ...(provenance.map((record) => record.params?.coin || record.params?.entity).filter(Boolean)),
+    ...promptEntities,
+  ])).slice(0, 4);
+  return {
+    ...base,
+    focus: {
+      topic: share.headline || base.focus.topic,
+      entities,
+      timeframe: null,
+      mode: share.layout?.template || "overview",
+      intent: share.layout?.template || "overview",
+    },
+    layout: share.layout || base.layout,
+    generated: sanitizeGeneratedDashboard(share.generated || { page: share.generatedPage, slots: share.surfaces }, channel),
+    patch: sanitizeDashboardPatch(share.patch || {}),
+    provenance,
+    nextActions: share.forkPrompts || base.nextActions,
+    turns: [
+      { role: "user", text: share.prompt || "", at: share.createdAt || new Date().toISOString(), turnId: share.id },
+      { role: "assistant", text: share.narration?.script || "", at: share.createdAt || new Date().toISOString(), turnId: share.id, voice: "Kat" },
+    ].filter((turn) => turn.text),
+  };
 }
 
 function channelTimeframeFromText(normalizedText, channel) {
@@ -3703,15 +4127,21 @@ function cryptoEntitiesFromText(normalizedText) {
   return Array.from(new Set(entities));
 }
 
-function parseCryptoChannelIntent(channel, userText, normalizedText) {
+function parseCryptoChannelIntent(channel, userText, normalizedText, priorState = null) {
   const entities = cryptoEntitiesFromText(normalizedText);
   const timeframe = channelTimeframeFromText(normalizedText, channel);
   const wantsComparison = /\b(compare|versus|vs\.?|against)\b/.test(normalizedText) || entities.length > 1;
+  if (wantsComparison && entities.length === 1) {
+    const priorEntity = priorState?.focus?.entities?.[0];
+    if (priorEntity && !entities.includes(priorEntity)) entities.unshift(priorEntity);
+    else if (entities[0] !== "BTC") entities.unshift("BTC");
+    else entities.push("ETH");
+  }
   const wantsLiquidity = /\b(liquidity|depth|book|order\s*book|bid|ask|spread)\b/.test(normalizedText);
   const wantsRisk = /\b(risk|anomal|volatility|volatile|drawdown|stress|range|regime)\b/.test(normalizedText);
   const wantsHistory = /\b(price|prices|chart|graph|plot|candles?|history|historical|replay|trend|structure|months?|weeks?|days?|hours?)\b/.test(normalizedText);
   const capability = wantsLiquidity ? "entity_detail" : wantsHistory || wantsComparison || wantsRisk ? "timeseries" : "snapshot";
-  const layout = wantsComparison ? "comparison" : wantsRisk ? "risk_anomaly" : wantsHistory ? "historical_replay" : "overview";
+  const layout = wantsComparison ? "comparison_board" : wantsRisk ? "risk_radar" : "market_structure";
   const primaryEntity = entities[0] || "BTC";
   const params = capability === "snapshot"
     ? { entity: primaryEntity }
@@ -3736,7 +4166,13 @@ function parseCryptoChannelIntent(channel, userText, normalizedText) {
     capability,
     detail: "compact",
     params,
-    stageIntent: wantsLiquidity ? "primary order book and liquidity inspection" : "primary historical price visualization",
+    stageIntent: wantsLiquidity
+      ? "primary order book and liquidity inspection"
+      : wantsComparison
+        ? "normalized multi-asset comparison"
+        : wantsRisk
+          ? "volatility and drawdown inspection"
+          : "primary historical price visualization",
     railIntent: "trend summary, source state, provenance, and next actions",
     userText,
   };
@@ -3763,6 +4199,110 @@ function parsePowerGridIntent(channel, userText, normalizedText) {
     params: { entity: respondent, respondent, lookbackHours: timeframe.lookbackHours },
     stageIntent: wantsFuel ? "fuel mix and corridor ranking visualization" : "load, forecast, and risk visualization",
     railIntent: "operational summary, source state, provenance, and next actions",
+    userText,
+  };
+}
+
+function polyrecCategoriesFromText(normalizedText) {
+  const categories = [];
+  if (/\b(election|politic|president|senate|governor)\b/.test(normalizedText)) categories.push("election");
+  if (/\b(macro|fed|rate|inflation|recession|economy)\b/.test(normalizedText)) categories.push("macro");
+  if (/\b(crypto|btc|bitcoin|ethereum|eth)\b/.test(normalizedText)) categories.push("crypto");
+  if (/\b(sport|nba|nfl|mlb|soccer)\b/.test(normalizedText)) categories.push("sports");
+  if (/\b(culture|ai|openai|music|movie|tiktok|twitter|youtube|gta|entertainment)\b/.test(normalizedText)) categories.push("culture");
+  return Array.from(new Set(categories)).slice(0, 3);
+}
+
+function parsePolymarketOddsRange(normalizedText) {
+  const range = normalizedText.match(/\b(\d{1,2})\s*(?:-|to)\s*(\d{1,2})\s*%?\b/);
+  if (range) {
+    const low = Math.max(1, Math.min(99, Number(range[1])));
+    const high = Math.max(1, Math.min(99, Number(range[2])));
+    return `${Math.min(low, high)}-${Math.max(low, high)}`;
+  }
+  if (/\b(odds?\s*range|filter\s*to|near\s*50|50\/50|coin\s*flip|tight|close)\b/.test(normalizedText)) return "45-55";
+  return undefined;
+}
+
+function parsePolymarketMinVolume(normalizedText) {
+  const amount = normalizedText.match(/\b(?:min(?:imum)?|over|above|threshold|at\s*least)\s*\$?\s*(\d+(?:\.\d+)?)\s*(k|thousand|m|million)?\b/);
+  if (amount) {
+    const base = Number(amount[1]);
+    const unit = amount[2] || "";
+    if (Number.isFinite(base) && base > 0) return Math.round(base * (/^(m|million)$/.test(unit) ? 1000000 : /^(k|thousand)$/.test(unit) ? 1000 : 1));
+  }
+  if (/\b(raise|higher|larger|minimum|min).{0,24}\bvolume\b|\bvolume\b.{0,24}\b(threshold|floor|minimum|min)\b/.test(normalizedText)) return 100000;
+  return undefined;
+}
+
+function parsePolyrecIntent(channel, userText, normalizedText) {
+  const categories = polyrecCategoriesFromText(normalizedText);
+  const wantsCloseVolume = /\b(close|tight|near\s*50|50\/50|coin\s*flip|high\s*volume|volume|odds?\s*range|45\s*55|45\s*to\s*55|filter\s*to)\b/.test(normalizedText);
+  const wantsCategory = categories.length || /\b(category|board|election|politic|macro|sports?|crypto|culture)\b/.test(normalizedText);
+  const wantsSearch = /\b(keyword|search)\b/.test(normalizedText) || (/\bfind\b/.test(normalizedText) && !wantsCloseVolume);
+  const intent = wantsCloseVolume ? "close_volume" : wantsSearch ? "keyword_search" : wantsCategory ? "category_board" : "weird_markets";
+  const searchQuery = normalizedText.replace(/\b(find|search|keyword|markets?|for|about|show|build|live|board)\b/g, " ").trim().slice(0, 80);
+  const oddsRange = parsePolymarketOddsRange(normalizedText);
+  const minVolume = parsePolymarketMinVolume(normalizedText);
+  return {
+    intent,
+    topic: intent === "close_volume" ? "close odds, high volume markets" : intent === "keyword_search" ? `${searchQuery || "keyword"} prediction market board` : intent === "category_board" ? `${categories.length ? categories.map(titleFromId).join(" + ") : "Election + Macro"} prediction market board` : "weirdest active prediction markets",
+    entities: categories,
+    timeframe: { label: "active markets", lookbackHours: null, interval: undefined },
+    mode: intent === "weird_markets" ? "risk_radar" : "ranked_board",
+    layout: intent === "weird_markets" ? "risk_radar" : "ranked_board",
+    capability: "rankings",
+    detail: "compact",
+    params: { metric: intent === "close_volume" ? "close_volume" : intent === "category_board" ? "category" : "weirdness", category: categories[0] || undefined, categories: categories.length > 1 ? categories : undefined, oddsRange: intent === "close_volume" ? oddsRange : undefined, minVolume: intent === "close_volume" ? minVolume : undefined, keyword: intent === "keyword_search" ? searchQuery : undefined, query: intent === "keyword_search" ? searchQuery : undefined, limit: 12 },
+    stageIntent: intent === "close_volume" ? "ranked close-odds and high-volume prediction market board" : intent === "category_board" ? "category comparison board for active prediction markets" : "ranked weird active market discovery board",
+    railIntent: "top market inspector, why-interesting card, source provenance, and fork actions",
+    userText,
+  };
+}
+
+function parseMemeChannelIntent(channel, userText, normalizedText) {
+  const wantsDecay = /\b(decay|fade|fading|stale|cooling|peak|peaked|unwind)\b/.test(normalizedText);
+  const wantsFragile = /\b(viral|fragile|fragility|risk\s*board|thin|break)\b/.test(normalizedText);
+  const wantsLiquidityRisk = /\b(attention|liquidity|risk|mismatch|thin|float)\b/.test(normalizedText);
+  const intent = wantsDecay
+    ? "narrative_decay"
+    : wantsFragile
+      ? "viral_fragile"
+      : wantsLiquidityRisk
+        ? "attention_liquidity_risk"
+        : "token_velocity";
+  const metric = intent === "narrative_decay"
+    ? "narrative_decay"
+    : intent === "viral_fragile"
+      ? "fragility"
+      : intent === "attention_liquidity_risk"
+        ? "liquidity_risk"
+        : "velocity";
+  const topic = intent === "narrative_decay"
+    ? "narrative decay watch"
+    : intent === "viral_fragile"
+      ? "viral but fragile meme coins"
+      : intent === "attention_liquidity_risk"
+        ? "attention vs liquidity risk"
+        : "fastest moving meme coins";
+  return {
+    intent,
+    topic,
+    entities: [],
+    timeframe: { label: "current indexed token set", lookbackHours: null },
+    mode: intent === "token_velocity" ? "ranked_board" : "risk_radar",
+    layout: intent === "token_velocity" ? "ranked_board" : "risk_radar",
+    capability: "rankings",
+    detail: "compact",
+    params: { metric, limit: 12 },
+    stageIntent: intent === "token_velocity"
+      ? "token velocity leaderboard"
+      : intent === "attention_liquidity_risk"
+        ? "attention versus liquidity scatter"
+        : intent === "viral_fragile"
+          ? "risk and fragility board"
+          : "narrative decay timeline",
+    railIntent: "top token inspector, source/risk labels, why-fragile card, non-advice guardrail, and fork prompts",
     userText,
   };
 }
@@ -3800,7 +4340,9 @@ function parseGenericChannelIntent(channel, userText, normalizedText) {
 
 function parseChannelTurnIntent(channel, userText, priorState) {
   const normalizedText = normalizeAgentText(userText);
-  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return parseCryptoChannelIntent(channel, userText, normalizedText);
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return parseCryptoChannelIntent(channel, userText, normalizedText, priorState);
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") return parsePolyrecIntent(channel, userText, normalizedText);
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") return parseMemeChannelIntent(channel, userText, normalizedText);
   if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") return parsePowerGridIntent(channel, userText, normalizedText);
   const generic = parseGenericChannelIntent(channel, userText, normalizedText);
   if (priorState?.focus?.entities?.length && !generic.entities.length) generic.entities = priorState.focus.entities;
@@ -3841,29 +4383,653 @@ function fallbackNotice(provenance) {
 
 function nextActionsForIntent(channel, intent) {
   if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
-    if (intent.intent === "liquidity_depth") return ["Compare ETH depth", "Add price structure", "Inspect spread changes", "Zoom last 24 hours"];
-    if (intent.layout === "comparison") return ["Add SOL", "Inspect divergence", "Zoom last 7 days", "Check liquidity"];
-    if (intent.layout === "risk_anomaly") return ["Inspect drawdowns", "Show volatility range", "Compare ETH", "Open depth view"];
-    return ["Compare ETH over the same window", "Zoom into the last 7 days", "Add liquidity/depth context", "Inspect volatility regime"];
+    if (intent.intent === "liquidity_depth") return ["Compare ETH depth", "Add price structure", "Inspect spread changes"];
+    if (intent.layout === "comparison" || intent.layout === "comparison_board") return ["Add SOL to this comparison", "Inspect the largest divergence", "Check BTC liquidity now"];
+    if (intent.layout === "risk_anomaly" || intent.layout === "risk_radar") return ["Inspect drawdowns", "Show volatility range", "Compare ETH risk"];
+    return ["Compare ETH over the same window", "Zoom into the last 7 days", "Add liquidity/depth context"];
   }
   if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
     if (intent.layout === "risk_anomaly") return ["Inspect corridor stress", "Compare forecast gap", "Open fuel mix", "Zoom last 24 hours"];
     return ["Show grid risk over the last day", "Inspect fuel mix", "Compare load to forecast", "Open corridor stress"];
   }
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") {
+    if (intent.intent === "close_volume") return ["Fork to politics only", "Raise the volume threshold", "Filter to 45-55% odds"];
+    if (intent.intent === "category_board") return ["Switch to crypto markets", "Show macro close odds", "Find weird culture markets"];
+    if (intent.intent === "keyword_search") return ["Rank this keyword by volume", "Broaden to all active markets", "Filter this keyword to close odds"];
+    return ["Find close odds with volume", "Build election and macro board", "Search crypto markets"];
+  }
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    if (intent.intent === "attention_liquidity_risk") return ["Show fastest movers", "Build viral but fragile board", "Sort by narrative decay"];
+    if (intent.intent === "viral_fragile") return ["Compare liquidity risk", "Show fastest movers", "Inspect narrative decay"];
+    if (intent.intent === "narrative_decay") return ["Find fresh spikes", "Compare liquidity risk", "Build viral but fragile board"];
+    return ["Show attention vs liquidity risk", "Build viral but fragile board", "Sort by narrative decay"];
+  }
   return ["Open overview", "Show events", "Inspect top entity", "Map relationships"];
+}
+
+function firstNonEmptyString(values = [], fallback = "") {
+  for (const value of values) {
+    const text = clampText(value, 220);
+    if (text) return text;
+  }
+  return fallback;
+}
+
+function generatedPromptItems(channel, intent) {
+  return nextActionsForIntent(channel, intent).filter(Boolean).slice(0, 3);
+}
+
+function sourceRowsWithFreshness(provenance) {
+  const rows = sourceRows(provenance);
+  if (!rows.some((row) => row[0] === "freshness")) {
+    rows.splice(1, 0, ["freshness", provenance.stale ? "stale/cache" : "fresh", provenance.queriedAt || "now"]);
+  }
+  return rows.slice(0, 5);
+}
+
+function generatedPageTemplateForIntent(channel, intent) {
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    if (intent.intent === "comparison") return "comparison_board";
+    if (intent.intent === "risk_anomaly") return "risk_radar";
+    return "market_structure";
+  }
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") {
+    if (intent.intent === "weird_markets") return "risk_radar";
+    return "ranked_board";
+  }
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    if (intent.intent === "token_velocity") return "ranked_board";
+    return "risk_radar";
+  }
+  if (intent.intent === "comparison") return "comparison_board";
+  if (intent.intent === "risk_anomaly") return "risk_radar";
+  return "detail_inspector";
+}
+
+function generatedPageStageType(template) {
+  return {
+    market_structure: "market-structure",
+    ranked_board: "ranked-board",
+    comparison_board: "comparison-board",
+    risk_radar: "risk-radar",
+    detail_inspector: "detail-inspector",
+  }[template] || "generated-stage";
+}
+
+function generatedPageAccent(channel) {
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") return "violet";
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") return "amber";
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return "green";
+  return "channel";
+}
+
+function buildGeneratedPageState(channel, intent, options = {}) {
+  const template = options.template || generatedPageTemplateForIntent(channel, intent);
+  const stageComponents = sanitizeComponents(options.stageComponents || [], 3);
+  const railComponents = sanitizeComponents(options.railComponents || [], 5);
+  const provenanceRecords = (Array.isArray(options.provenanceRecords) ? options.provenanceRecords : [])
+    .map((record) => sanitizeProvenanceRecord(record, channel))
+    .filter(Boolean)
+    .slice(0, 12);
+  return {
+    mode: "generated_page",
+    channelId: channel.id,
+    prompt: intent.userText || "",
+    theme: {
+      density: template === "market_structure" ? "analysis" : "board",
+      accent: generatedPageAccent(channel),
+      avatarMode: "docked",
+    },
+    layout: {
+      template,
+      stage: generatedPageStageType(template),
+      rail: "evidence_stack",
+      actions: "fork_prompts",
+    },
+    thesis: {
+      title: options.title || intent.topic || `${channel.label} Generated Page`,
+      summary: options.summary || options.body || "",
+    },
+    stage: {
+      type: generatedPageStageType(template),
+      components: stageComponents,
+    },
+    rail: railComponents,
+    actions: sanitizeStringArray(options.actions || [], 6, 120) || [],
+    provenance: provenanceRecords,
+    sourceState: sanitizeSourceState(options.sourceState),
+  };
+}
+
+function numberOr(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function compactQuestion(value, max = 72) {
+  return clampText(value || "Untitled market", max);
+}
+
+function polymarketCategoryList(params = {}) {
+  const categories = [];
+  if (Array.isArray(params.categories)) categories.push(...params.categories);
+  if (params.category) categories.push(params.category);
+  return Array.from(new Set(categories.map((category) => cleanComponentId(category)).filter(Boolean))).slice(0, 4);
+}
+
+function polyrecCategoryLabel(params = {}) {
+  const categories = polymarketCategoryList(params);
+  return categories.length ? categories.map(titleFromId).join(" + ") : "all active";
+}
+
+function polyrecSourceCoverageNote(intent, markets, provenance) {
+  const categories = polymarketCategoryList(intent.params);
+  if (provenance.sourceType === "synthetic_fallback" || provenance.sourceType === "unavailable") return fallbackNotice(provenance);
+  if (categories.length && !markets.length) return `No ${polyrecCategoryLabel(intent.params)} markets matched this public discovery refresh.`;
+  if (intent.intent === "keyword_search" && !markets.length) return "No matching keyword markets were returned in this refresh.";
+  return "";
+}
+
+function normalizedMarketYesPct(market = {}) {
+  const raw = market.yesPct ?? market.yes ?? market.bestAsk ?? market.price ?? market.outcomePrice;
+  const value = numberOr(raw, 0);
+  return value <= 1 ? value * 100 : value;
+}
+
+function rankPolymarketMarkets(markets = [], params = {}) {
+  const categories = polymarketCategoryList(params);
+  const keyword = normalizeAgentText(params.keyword || params.query || "");
+  const metric = cleanComponentId(params.metric || "weirdness");
+  const minVolume = numberOr(params.minVolume, 0);
+  const oddsRange = typeof params.oddsRange === "string" ? params.oddsRange.match(/^(\d{1,2})-(\d{1,2})$/) : null;
+  const oddsLow = oddsRange ? Number(oddsRange[1]) : null;
+  const oddsHigh = oddsRange ? Number(oddsRange[2]) : null;
+  return (Array.isArray(markets) ? markets : [])
+    .map((market, index) => {
+      const question = market.question || market.title || market.slug || `Market ${index + 1}`;
+      const category = cleanComponentId(market.category || market.tags?.[0] || "");
+      const yesPct = normalizedMarketYesPct(market);
+      const volume = numberOr(market.volume || market.volume24hr || market.volumeNum || market.liquidity, 0);
+      const liquidity = numberOr(market.liquidity || market.liquidityNum, 0);
+      const closeOddsPct = Math.max(0, 50 - Math.abs(50 - yesPct)) * 2;
+      const text = normalizeAgentText(`${question} ${category} ${(market.tags || []).join(" ")}`);
+      const categoryMatch = !categories.length || categories.some((item) => {
+        if (item === "election") return /\b(election|politic|president|senate|congress|trump|biden|vote|campaign)\b/.test(text);
+        if (item === "macro") return /\b(macro|fed|rate|inflation|gdp|jobs|recession|oil|economy|cpi|tariff)\b/.test(text);
+        if (item === "crypto") return /\b(crypto|btc|bitcoin|ethereum|eth|solana|sol)\b/.test(text);
+        if (item === "sports") return /\b(sport|nba|nfl|mlb|soccer|ufc|fifa|championship)\b/.test(text);
+        if (item === "culture") return /\b(culture|ai|openai|music|movie|tiktok|twitter|youtube|gta)\b/.test(text);
+        return text.includes(item);
+      });
+    const keywordTerms = keyword.split(/\s+/).filter((term) => term.length > 2);
+    const keywordMatch = !keyword || text.includes(keyword) || keywordTerms.some((term) =>
+      text.includes(term) ||
+      (term === "btc" && text.includes("bitcoin")) ||
+      (term === "eth" && text.includes("ethereum"))
+    );
+      const oddsMatch = !oddsRange || (yesPct >= oddsLow && yesPct <= oddsHigh);
+      const volumeMatch = !minVolume || volume >= minVolume;
+      const weirdScore = Math.min(100, question.length / 2 + Math.abs(50 - yesPct) + Math.log10(volume + 10) * 8);
+      const boardScore = metric === "close_volume"
+        ? closeOddsPct + Math.log10(volume + 10) * 12
+        : metric === "category"
+          ? (categoryMatch ? 30 : 0) + Math.log10(volume + 10) * 10 + yesPct / 4
+          : weirdScore + Math.log10(volume + 10) * 4;
+      return {
+        ...market,
+        question,
+        category: category || "market",
+        yesPct,
+        closeOddsPct,
+        volume,
+        liquidity,
+        volumeLabel: formatCompactUsd(volume),
+        liquidityLabel: formatCompactUsd(liquidity),
+        boardScore,
+        weirdScore,
+        reason: metric === "close_volume"
+          ? `${Math.round(closeOddsPct)} close-odds score with ${formatCompactUsd(volume)} displayed volume`
+          : `${Math.round(yesPct)}% YES with ${formatCompactUsd(volume)} displayed volume`,
+        why: `${question} ranks on ${metric.replace(/_/g, " ")} using public discovery fields.`,
+        _include: categoryMatch && keywordMatch && oddsMatch && volumeMatch,
+      };
+    })
+    .filter((market) => market._include)
+    .sort((a, b) => b.boardScore - a.boardScore)
+    .slice(0, Number(params.limit || 12));
+}
+
+function polyrecBoardTitle(intent) {
+  if (intent.intent === "close_volume") return "Close Odds, High Volume";
+  if (intent.intent === "category_board") {
+    const categories = polymarketCategoryList(intent.params);
+    return `${categories.length ? categories.map(titleFromId).join(" + ") : "Election + Macro"} Market Watch`;
+  }
+  if (intent.intent === "keyword_search") return "Keyword Prediction Board";
+  return "Weirdest Active Markets";
+}
+
+function polyrecBoardRows(markets = []) {
+  return markets.slice(0, 8).map((market, index) => [
+    `#${index + 1} ${Math.round(numberOr(market.yesPct, numberOr(market.yes, 0) * 100))}% YES`,
+    compactQuestion(market.question, 92),
+    `${market.volumeLabel || formatCompactUsd(market.volume)} vol / ${market.category || "market"}`,
+  ]);
+}
+
+function polyrecChartRows(markets = []) {
+  return markets.slice(0, 10).map((market, index) => ({
+    rank: index + 1,
+    label: market.label || compactQuestion(market.question, 42),
+    yesPct: Math.round(numberOr(market.yesPct, numberOr(market.yes, 0) * 100)),
+    closeOddsPct: Math.round(numberOr(market.closeOddsPct, 0)),
+    volume: Math.round(numberOr(market.volume, 0)),
+    score: Number(numberOr(market.boardScore || market.weirdScore, 0).toFixed(3)),
+    category: market.category || "market",
+  }));
+}
+
+function buildPolyrecTurnUpdate(channel, intent, result, provenance) {
+  const sourceState = componentSourceState(provenance);
+  const provenanceRecords = result.provenance?.length ? result.provenance : [provenance];
+  const sourceMarkets = Array.isArray(result.rows) && result.rows.length
+    ? result.rows
+    : (Array.isArray(result.data?.markets) ? result.data.markets : []);
+  const markets = rankPolymarketMarkets(sourceMarkets, intent.params).slice(0, 12);
+  const title = polyrecBoardTitle(intent);
+  const top = markets[0] || {};
+  const chartRows = polyrecChartRows(markets);
+  const boardRows = polyrecBoardRows(markets);
+  const coverageNote = polyrecSourceCoverageNote(intent, markets, provenance);
+  const hasMarkets = markets.length > 0;
+  const nextActions = generatedPromptItems(channel, intent);
+  const primaryWhy = hasMarkets
+    ? `${top.why || result.liveSummary?.highlights?.[0] || fallbackNotice(provenance)}${coverageNote ? ` ${coverageNote}` : ""}`
+    : `${coverageNote || "No matching markets were returned for this filter."} ${fallbackNotice(provenance)}`;
+  const visibleBoardRows = boardRows.length ? boardRows : [["No matching rows", coverageNote || "No matching markets in this refresh.", sourceLabelForType(provenance.sourceType)]];
+  const chartField = intent.intent === "close_volume" ? "closeOddsPct" : "yesPct";
+  const thesisBody = hasMarkets
+    ? `This is a ranked Polymarket discovery board for ${intent.topic}; the primary visual shows the strongest markets by ${intent.params?.metric?.replace(/_/g, " ") || "board score"}.`
+    : `This is a source-gap state for ${intent.topic}; the dashboard preserves the empty match instead of filling the board with unrelated markets.`;
+  const thesisItems = [
+    hasMarkets ? `Why it matters now: ${primaryWhy}` : "Why it matters now: the absence of matching rows is itself the signal to inspect.",
+    "Inspect next: change category, odds range, volume floor, or keyword.",
+  ];
+  const stageLead = chartRows.length ? {
+    id: `polyrec-${intent.intent}-chart`,
+    type: "vega-chart",
+    eyebrow: "prediction market board",
+    title: intent.intent === "close_volume" ? "Close Odds With Volume" : `${title} Rank`,
+    chart: { type: "horizontal-bar", binding: "none", x: chartField, y: "label", data: chartRows },
+    note: coverageNote || "Public discovery fields only: question, outcome price, category, volume, and liquidity when available.",
+    provenanceIds: provenanceRecords.map((record) => record.id),
+    sourceState,
+    interactions: [{ type: "click-point", action: "inspect_prediction_market" }],
+  } : {
+    id: `polyrec-${intent.intent}-source-gap`,
+    type: "insight-card",
+    eyebrow: "category source gap",
+    title: "No Matching Category Rows",
+    body: primaryWhy,
+    items: ["The source gap is preserved rather than filled with unrelated markets.", "Fork by category, odds range, volume, or keyword."],
+    provenanceIds: provenanceRecords.map((record) => record.id),
+    sourceState,
+  };
+  return {
+    layout: { template: intent.layout, rationale: `User asked for ${intent.topic}.` },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords,
+    generatedPage: buildGeneratedPageState(channel, intent, {
+      title,
+      summary: thesisBody,
+      stageComponents: [stageLead],
+      railComponents: [{
+        id: "polyrec-thesis",
+        type: "insight-card",
+        eyebrow: "thesis",
+        title,
+        body: thesisBody,
+        items: thesisItems,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-top-market",
+        type: "entity-inspector",
+        eyebrow: hasMarkets ? "leading evidence" : "source gap",
+        title: hasMarkets ? compactQuestion(top.question, 72) : "No matching markets in this refresh",
+        body: primaryWhy,
+        metrics: [["YES", top.yesPct !== undefined ? `${Math.round(numberOr(top.yesPct, 0))}%` : "n/a", "displayed"], ["Volume", top.volumeLabel || formatCompactUsd(top.volume), "Gamma"], ["Category", top.category || polyrecCategoryLabel(intent.params), "filter"]],
+        rows: [["why", top.reason || coverageNote || "source gap", "interpretation"], ["close odds", `${top.closeOddsPct ?? "n/a"}%`, "not order-book spread"], ["liquidity", top.liquidityLabel || formatCompactUsd(top.liquidity), "when available"]],
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-source",
+        type: "source-confidence",
+        title: "Evidence And Freshness",
+        rows: sourceRowsWithFreshness(provenance),
+        note: "Public discovery data only; no trading, CLOB depth, or execution claim is made.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-next-actions",
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: "Each prompt routes back through the same Polyrec turn path and creates a forkable board.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }],
+      actions: nextActions,
+      provenanceRecords,
+      sourceState,
+    }),
+    patch: {
+      title: `${channel.label}: ${title}`,
+      subtitle: `A ranked Polymarket intelligence board. ${coverageNote || fallbackNotice(provenance)}`,
+      visualLabel: intent.stageIntent,
+      visualCopy: `${thesisBody} The rail keeps source freshness and exactly three fork prompts visible.`,
+      feedLabel: "market board",
+      lens: intent.intent.replace(/_/g, " "),
+      tabs: ["Board", "Why", "Source", "Fork"],
+      metrics: [
+        ["Markets", String(markets.length || result.liveSummary?.metrics?.[0]?.[1] || 0), "ranked"],
+        ["Top YES", top.yesPct !== undefined ? `${Math.round(numberOr(top.yesPct, 0))}%` : "n/a", "implied"],
+        ["Volume", top.volumeLabel || formatCompactUsd(top.volume), "top market"],
+      ],
+      feed: visibleBoardRows.slice(0, 6),
+    },
+    surfaces: [
+      { surface: "stageOverlay", mode: "replace", components: [stageLead] },
+      { surface: "rail", mode: "replace", components: [{
+        id: "polyrec-thesis",
+        type: "insight-card",
+        eyebrow: "thesis",
+        title,
+        body: thesisBody,
+        items: thesisItems,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-top-market",
+        type: "entity-inspector",
+        eyebrow: hasMarkets ? "leading evidence" : "source gap",
+        title: hasMarkets ? compactQuestion(top.question, 72) : "No matching markets in this refresh",
+        body: primaryWhy,
+        metrics: [["YES", top.yesPct !== undefined ? `${Math.round(numberOr(top.yesPct, 0))}%` : "n/a", "displayed"], ["Volume", top.volumeLabel || formatCompactUsd(top.volume), "Gamma"], ["Category", top.category || polyrecCategoryLabel(intent.params), "filter"]],
+        rows: [["why", top.reason || coverageNote || "source gap", "interpretation"], ["close odds", `${top.closeOddsPct ?? "n/a"}%`, "not order-book spread"], ["liquidity", top.liquidityLabel || formatCompactUsd(top.liquidity), "when available"]],
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-source",
+        type: "source-confidence",
+        title: "Evidence And Freshness",
+        rows: sourceRowsWithFreshness(provenance),
+        note: "Public discovery data only; no trading, CLOB depth, or execution claim is made.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "polyrec-next-actions",
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: `Each prompt routes back through the same Polyrec turn path and creates a forkable board. ${fallbackNotice(provenance)}`,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }] },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${title} is live: ${primaryWhy}`,
+  };
+}
+
+function buildMemeTurnUpdate(channel, intent, result, provenance) {
+  const sourceState = componentSourceState(provenance);
+  const provenanceRecords = result.provenance?.length ? result.provenance : [provenance];
+  const rawTokens = Array.isArray(result.rows) && result.rows.length
+    ? result.rows
+    : (Array.isArray(result.data?.tokens) ? result.data.tokens : []);
+  const tokens = rankPumpfunTokens(rawTokens, intent.params?.metric || "velocity").slice(0, 12);
+  const title = intent.intent === "narrative_decay"
+    ? "Narrative Decay Watch"
+    : intent.intent === "viral_fragile"
+    ? "Viral But Fragile"
+    : intent.intent === "attention_liquidity_risk"
+      ? "Attention Vs Liquidity Risk"
+      : "Fastest Moving Meme Coins";
+  const summaryRows = tupleRowsFromAny(result.liveSummary?.metrics, 3);
+  const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
+  const nextActions = generatedPromptItems(channel, intent);
+  const chartRows = tokens.slice(0, 12).map((token, index) => {
+    const change = numberOr(token.change1h ?? token.change24h, 0);
+    const marketCap = parseUsdNumber(token.marketCapUsd ?? token.marketCap ?? token.usdMarketCap);
+    const liquidityUsd = parseUsdNumber(token.liquidityUsd ?? token.liquidity);
+    const attentionScore = numberOr(token.attentionScore, Math.max(0, change) + Math.log10(marketCap + 10) * 6);
+    const liquidityRisk = numberOr(token.liquidityRisk, liquidityUsd ? Math.max(0, Math.log10(marketCap + 10) - Math.log10(liquidityUsd + 10)) * 20 : 80);
+    const fragilityScore = numberOr(token.fragilityScore, Math.max(0, change) + liquidityRisk * 0.8);
+    const decayScore = numberOr(token.decayScore, Math.max(0, numberOr(token.change24h, 0) - change) + fragilityScore * 0.3);
+    return {
+      index,
+      label: String(token.symbol || token.name || `Token ${index + 1}`).toUpperCase().slice(0, 16),
+      change,
+      price: numberOr(token.price, 0),
+      marketCap,
+      liquidityUsd,
+      volume24hUsd: parseUsdNumber(token.volume24hUsd ?? token.volume),
+      attentionScore,
+      liquidityRisk,
+      fragilityScore,
+      decayScore,
+      riskLabel: token.riskLabel || memeRiskLabel(Math.max(liquidityRisk, fragilityScore)),
+      why: token.why || `${formatSignedPercent(change)} 1H attention against ${formatCompactUsd(liquidityUsd)} visible liquidity.`,
+    };
+  });
+  const boardRows = chartRows.slice(0, 8).map((token, index) => [
+    intent.intent === "narrative_decay" ? `${index * 3}m` : `#${index + 1} ${token.label}`,
+    intent.intent === "narrative_decay"
+      ? `${token.label} decay ${Math.round(token.decayScore)} / fragility ${Math.round(token.fragilityScore)}`
+      : `${formatSignedPercent(token.change)} 1H / fragility ${Math.round(token.fragilityScore)}`,
+    `${token.riskLabel} / liq ${formatCompactUsd(token.liquidityUsd)}`,
+  ]);
+  const chart = intent.intent === "attention_liquidity_risk"
+    ? { type: "scatter", binding: "none", x: "liquidityUsd", y: "attentionScore", data: chartRows }
+    : intent.intent === "narrative_decay"
+      ? { type: "horizontal-bar", binding: "none", x: "decayScore", y: "label", data: chartRows }
+      : intent.intent === "viral_fragile"
+        ? { type: "horizontal-bar", binding: "none", x: "fragilityScore", y: "label", data: chartRows }
+        : { type: "bar", binding: "none", x: "label", y: "change", data: chartRows };
+  const top = chartRows[0] || { label: "TOKEN", change: 0, liquidityUsd: 0, fragilityScore: 0, liquidityRisk: 0, decayScore: 0, riskLabel: "risk visible" };
+  const thesisBody = intent.intent === "attention_liquidity_risk"
+    ? "This board compares attention against visible liquidity so thin, fast-moving tokens do not look healthier than the data supports."
+    : intent.intent === "viral_fragile"
+      ? "This board ranks tokens whose attention is moving faster than their visible liquidity and fragility signals."
+      : intent.intent === "narrative_decay"
+        ? "This board surfaces tokens where short-term attention appears to be cooling against broader fragility signals."
+        : "This board ranks current indexed token velocity and keeps liquidity, risk, and source state beside the visual.";
+  const thesisItems = [
+    `Why it matters now: ${primaryHighlight}`,
+    fallbackNotice(provenance),
+    "Inspect next: compare liquidity risk, fragility, or narrative decay before sharing the state.",
+  ];
+  const sourceAndRiskRows = [
+    ...sourceRows(provenance),
+    ["guardrail", "not financial advice", "read-only"],
+    ["risk model", "heuristic display", "attention/liquidity"],
+  ].slice(0, 8);
+  return {
+    layout: { template: intent.layout, rationale: `User asked for ${intent.topic}.` },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords,
+    generatedPage: buildGeneratedPageState(channel, intent, {
+      title,
+      summary: thesisBody,
+      stageComponents: [{
+        id: `meme-${intent.intent}-chart`,
+        type: "vega-chart",
+        eyebrow: "social market board",
+        title,
+        chart,
+        note: `${fallbackNotice(provenance)} Scores are display-only heuristics derived from normalized token fields.`,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+        interactions: [{ type: "click-point", action: "inspect_token" }],
+      }],
+      railComponents: [{
+        id: "meme-thesis",
+        type: "insight-card",
+        eyebrow: "thesis",
+        title,
+        body: thesisBody,
+        items: thesisItems,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-top-token",
+        type: "entity-inspector",
+        eyebrow: "leading evidence",
+        title: top.label,
+        body: `${top.why} This is read-only social market context, not financial advice.`,
+        rows: [
+          ["1H change", formatSignedPercent(top.change), "attention"],
+          ["liquidity", formatCompactUsd(top.liquidityUsd), "visible"],
+          ["liquidity risk", `${Math.round(top.liquidityRisk)}/100`, top.riskLabel],
+          ["decay", `${Math.round(top.decayScore)}/100`, "narrative"],
+        ],
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-source",
+        type: "source-confidence",
+        title: "Evidence, Freshness, And Risk",
+        rows: sourceAndRiskRows,
+        note: "Read-only social market context; no trade path is exposed.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-next-actions",
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: "Each prompt creates another forkable read-only channel state.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }],
+      actions: nextActions,
+      provenanceRecords,
+      sourceState,
+    }),
+    patch: {
+      title: `${channel.label}: ${title}`,
+      subtitle: fallbackNotice(provenance),
+      visualLabel: intent.stageIntent,
+      visualCopy: `${thesisBody} The rail names source freshness, risk labels, and three follow-up prompts.`,
+      feedLabel: "social tape",
+      lens: intent.intent.replace(/_/g, " "),
+      tabs: ["Velocity", "Risk", "Decay", "Source"],
+      metrics: summaryRows.length ? summaryRows : undefined,
+      feed: boardRows.length ? boardRows.slice(0, 6) : undefined,
+    },
+    surfaces: [
+      {
+        surface: "stageOverlay",
+        mode: "replace",
+        components: [{
+          id: `meme-${intent.intent}-chart`,
+          type: "vega-chart",
+          eyebrow: "social market board",
+          title,
+          chart,
+          note: `${fallbackNotice(provenance)} Scores are display-only heuristics derived from normalized token fields.`,
+          provenanceIds: provenanceRecords.map((record) => record.id),
+          sourceState,
+          interactions: [{ type: "click-point", action: "inspect_token" }],
+        }],
+      },
+      {
+        surface: "rail",
+        mode: "replace",
+        components: [{
+          id: "meme-thesis",
+          type: "insight-card",
+          eyebrow: "thesis",
+          title,
+          body: thesisBody,
+          items: thesisItems,
+          provenanceIds: provenanceRecords.map((record) => record.id),
+          sourceState,
+        }, {
+          id: "meme-top-token",
+          type: "entity-inspector",
+          eyebrow: "leading evidence",
+          title: top.label,
+          body: `${top.why} This is read-only social market context, not financial advice. ${fallbackNotice(provenance)}`,
+          rows: [
+            ["1H change", formatSignedPercent(top.change), "attention"],
+            ["liquidity", formatCompactUsd(top.liquidityUsd), "visible"],
+            ["liquidity risk", `${Math.round(top.liquidityRisk)}/100`, top.riskLabel],
+            ["decay", `${Math.round(top.decayScore)}/100`, "narrative"],
+          ],
+          provenanceIds: provenanceRecords.map((record) => record.id),
+          sourceState,
+        }, {
+          id: "meme-source",
+          type: "source-confidence",
+          title: "Evidence, Freshness, And Risk",
+          rows: sourceAndRiskRows,
+          note: "Read-only social market context; no trade path is exposed.",
+          provenanceIds: provenanceRecords.map((record) => record.id),
+          sourceState,
+        }, {
+          id: "meme-next-actions",
+          type: "action-panel",
+          title: "Inspect Next",
+          items: nextActions,
+          note: `Each prompt creates another forkable read-only channel state. ${fallbackNotice(provenance)}`,
+          provenanceIds: provenanceRecords.map((record) => record.id),
+          sourceState,
+        }],
+      },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${title} is live with liquidity risk, source labels, and not financial advice visible. ${fallbackNotice(provenance)}`,
+  };
 }
 
 function buildCryptoTurnUpdate(channel, intent, result, provenance) {
   const entity = intent.entities[0] || "BTC";
+  const provenanceRecords = result.provenance?.length ? result.provenance : [provenance];
   const sourceState = componentSourceState(provenance);
   const isDepth = intent.intent === "liquidity_depth";
-  const chartBinding = isDepth ? "liveData.book" : "liveData.candles";
-  const chartType = isDepth ? "market-depth" : "line";
-  const title = isDepth ? `${entity} Liquidity And Depth` : `${entity} ${intent.timeframe.label} Price Structure`;
+  const isComparison = intent.intent === "comparison" && Array.isArray(result.comparisonRows) && result.comparisonRows.length;
+  const isRisk = intent.intent === "risk_anomaly";
+  const chartBinding = isDepth ? "liveData.book" : isComparison ? "none" : "liveData.candles";
+  const chartType = isDepth ? "market-depth" : isRisk ? "area" : "line";
+  const title = isDepth
+    ? `${entity} Liquidity And Depth`
+    : isComparison
+      ? `${(result.comparisonEntities || intent.entities).join(" vs ")} ${intent.timeframe.label} Divergence`
+      : isRisk
+        ? `${entity} Volatility Regime`
+        : `${entity} ${intent.timeframe.label} Price Structure`;
   const summaryRows = tupleRowsFromAny(result.liveSummary?.metrics, 3);
+  const evidenceMetrics = summaryRows.length ? summaryRows : [
+    ["Rows", String(provenance.rowCount || 0), intent.capability],
+    ["Source", sourceLabelForType(provenance.sourceType), provenance.provider],
+    ["Freshness", provenance.stale ? "stale/cache" : "fresh", provenance.queriedAt || "now"],
+  ];
   const feedRows = tupleRowsFromAny(result.liveSummary?.feed, 4);
   const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
-  const nextActions = nextActionsForIntent(channel, intent);
+  const nextActions = generatedPromptItems(channel, intent);
+  const thesisBody = isDepth
+    ? `This is a read-only liquidity map around ${entity}: displayed bid and ask notional show where the book is concentrated right now.`
+    : isComparison
+      ? `This is a normalized ${intent.timeframe.label} comparison; line separation shows which asset is leading or lagging from the same starting point.`
+      : isRisk
+        ? `This is a volatility-regime view for ${entity}; the range band shows whether recent structure is widening or calming.`
+        : `This is ${entity} price structure over ${intent.timeframe.label}; inspect whether the latest move is extending, mean-reverting, or stalling.`;
+  const whyNowItems = [
+    firstNonEmptyString([primaryHighlight], "The chart turns the provider refresh into one inspectable market thesis."),
+    fallbackNotice(provenance),
+  ];
   const chartQuery = isDepth
     ? { coin: entity }
     : {
@@ -3872,22 +5038,84 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
       lookbackHours: intent.params.lookbackHours,
       candles: intent.params.candles,
     };
+  const chart = isComparison
+    ? {
+      type: "line",
+      binding: "none",
+      x: "label",
+      y: result.comparisonEntities?.[0] || intent.entities[0] || "BTC",
+      y2: result.comparisonEntities?.[1] || intent.entities[1],
+      seriesFields: result.comparisonEntities || intent.entities,
+      data: result.comparisonRows,
+      variant: "comparison",
+    }
+    : { type: chartType, binding: chartBinding, x: "label", y: isDepth ? "notional" : isRisk ? "high" : "close", y2: isRisk ? "low" : undefined, color: isDepth ? "side" : undefined, query: chartQuery };
   return {
     layout: {
       template: intent.layout,
       rationale: `User asked for ${intent.topic}.`,
     },
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
-    provenanceRecords: [provenance],
+    provenanceRecords,
+    generatedPage: buildGeneratedPageState(channel, intent, {
+      title,
+      summary: thesisBody,
+      stageComponents: [{
+        id: `${entity.toLowerCase()}-${intent.layout}-stage`,
+        type: "vega-chart",
+        eyebrow: "channel agent",
+        title,
+        chart,
+        note: fallbackNotice(provenance),
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+        interactions: [{ type: "click-point", action: isDepth ? "inspect_book_level" : "inspect_candle" }],
+      }],
+      railComponents: [{
+        id: `${entity.toLowerCase()}-metrics`,
+        type: "metric-strip",
+        title: `${entity} Evidence Snapshot`,
+        metrics: evidenceMetrics,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: `${entity.toLowerCase()}-insight`,
+        type: "insight-card",
+        eyebrow: "thesis",
+        title,
+        body: thesisBody,
+        items: whyNowItems,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: `${entity.toLowerCase()}-source`,
+        type: "source-confidence",
+        title: "Evidence And Freshness",
+        rows: sourceRowsWithFreshness(provenance),
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: `${entity.toLowerCase()}-next-actions`,
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: "Each prompt keeps the same read-only provider path and creates another shareable generated state.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }],
+      actions: nextActions,
+      provenanceRecords,
+      sourceState,
+    }),
     patch: {
       title: `${channel.label}: ${title}`,
       subtitle: fallbackNotice(provenance),
       visualLabel: intent.stageIntent,
-      visualCopy: intent.railIntent,
+      visualCopy: `${thesisBody} The rail names the source, freshness, and three concrete follow-up prompts.`,
       feedLabel: "agent trace",
       lens: intent.layout.replace(/_/g, " "),
       tabs: ["Focus", "Data", "Provenance", "Next"],
-      metrics: summaryRows.length ? summaryRows : undefined,
+      metrics: evidenceMetrics,
       feed: feedRows.length ? feedRows : undefined,
     },
     surfaces: [
@@ -3899,9 +5127,9 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
           type: "vega-chart",
           eyebrow: "channel agent",
           title,
-          chart: { type: chartType, binding: chartBinding, x: "label", y: isDepth ? "notional" : "close", color: isDepth ? "side" : undefined, query: chartQuery },
+          chart,
           note: fallbackNotice(provenance),
-          provenanceIds: [provenance.id],
+          provenanceIds: provenanceRecords.map((record) => record.id),
           sourceState,
           interactions: [{ type: "click-point", action: isDepth ? "inspect_book_level" : "inspect_candle" }],
         }],
@@ -3913,36 +5141,37 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
           {
             id: `${entity.toLowerCase()}-metrics`,
             type: "metric-strip",
-            title: `${entity} Market Stats`,
-            metrics: summaryRows,
-            provenanceIds: [provenance.id],
+            title: `${entity} Evidence Snapshot`,
+            metrics: evidenceMetrics,
+            note: fallbackNotice(provenance),
+            provenanceIds: provenanceRecords.map((record) => record.id),
             sourceState,
           },
           {
             id: `${entity.toLowerCase()}-insight`,
             type: "insight-card",
-            eyebrow: "Kat channel state",
-            title: intent.topic,
-            body: `${primaryHighlight} ${fallbackNotice(provenance)}`,
-            items: result.liveSummary?.highlights?.slice(1, 4) || [],
-            provenanceIds: [provenance.id],
+            eyebrow: "thesis",
+            title: title,
+            body: thesisBody,
+            items: whyNowItems,
+            provenanceIds: provenanceRecords.map((record) => record.id),
             sourceState,
           },
           {
             id: `${entity.toLowerCase()}-source`,
             type: "source-confidence",
-            title: "Data Provenance",
-            rows: sourceRows(provenance),
-            provenanceIds: [provenance.id],
+            title: "Evidence And Freshness",
+            rows: sourceRowsWithFreshness(provenance),
+            provenanceIds: provenanceRecords.map((record) => record.id),
             sourceState,
           },
           {
             id: `${entity.toLowerCase()}-next-actions`,
             type: "action-panel",
-            title: "Next Moves",
+            title: "Inspect Next",
             items: nextActions,
-            note: "These are channel actions Kat can route into the same runtime.",
-            provenanceIds: [provenance.id],
+            note: `Each prompt keeps the same read-only provider path and creates another shareable generated state. ${fallbackNotice(provenance)}`,
+            provenanceIds: provenanceRecords.map((record) => record.id),
             sourceState,
           },
         ],
@@ -4105,6 +5334,8 @@ function buildGenericTurnUpdate(channel, intent, result, provenance) {
 function buildChannelTurnUpdate(channel, intent, result, provenance) {
   if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") return buildCryptoTurnUpdate(channel, intent, result, provenance);
   if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") return buildPowerGridTurnUpdate(channel, intent, result, provenance);
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") return buildPolyrecTurnUpdate(channel, intent, result, provenance);
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") return buildMemeTurnUpdate(channel, intent, result, provenance);
   return buildGenericTurnUpdate(channel, intent, result, provenance);
 }
 
@@ -4113,6 +5344,7 @@ function surfaceIdsFromUpdate(surfaces = []) {
 }
 
 function updateChannelSessionFromTurn(channel, sessionState, turnId, userText, intent, result, update, provenance, events) {
+  const provenanceRecords = Array.isArray(update.provenanceRecords) && update.provenanceRecords.length ? update.provenanceRecords : [provenance];
   const nextState = {
     ...sessionState,
     focus: {
@@ -4133,7 +5365,7 @@ function updateChannelSessionFromTurn(channel, sessionState, turnId, userText, i
     ].slice(-24),
     provenance: [
       ...(sessionState.provenance || []),
-      provenance,
+      ...provenanceRecords,
     ].slice(-60),
     traces: [
       ...(sessionState.traces || []),
@@ -4158,7 +5390,7 @@ function updateChannelSessionFromTurn(channel, sessionState, turnId, userText, i
   nextState.datasets = [dataset, ...(sessionState.datasets || [])].slice(0, 12);
   nextState.conclusions = [{
     text: update.narration || fallbackNotice(provenance),
-    provenanceIds: [provenance.id],
+    provenanceIds: provenanceRecords.map((record) => record.id),
   }, ...(sessionState.conclusions || [])].slice(0, 8);
   nextState.nextActions = nextActionsForIntent(channel, intent);
   nextState.unresolvedQuestions = provenance.sourceType === "synthetic_fallback" || provenance.sourceType === "unavailable"
@@ -4187,8 +5419,17 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
   const events = [];
   const emit = (event) => emitChannelTurnEvent(events, options.onEvent, { channelId: channel.id, turnId, ...event });
 
-  const currentState = getChannelSessionState(channel, sessionId);
+  const forkShareId = cleanChannelShareId(raw.forkOfShareId || raw.shareId || "");
+  const forkSeed = forkShareId ? seedStateFromChannelShare(channel, sessionId, getChannelShare(forkShareId)) : null;
+  const currentState = forkSeed || getChannelSessionState(channel, sessionId);
   emit({ type: "channel.turn.started", sessionId, userText });
+  appendChannelAnalyticsEvent({
+    type: "prompt_submitted",
+    sessionId,
+    channelId: channel.id,
+    promptText: userText,
+    shareId: forkShareId,
+  });
 
   const manifest = buildChannelAgentManifest(channel);
   const intent = parseChannelTurnIntent(channel, userText, currentState);
@@ -4210,7 +5451,9 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
   let result;
   let provenance;
   try {
-    result = await queryChannelCapability(channel, { capability: intent.capability, detail: intent.detail, params: intent.params });
+    result = intent.intent === "comparison" && (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid")
+      ? await queryCryptoComparisonCapability(channel, intent)
+      : await queryChannelCapability(channel, { capability: intent.capability, detail: intent.detail, params: intent.params });
     provenance = result.provenance?.[0] || buildProvenanceRecord(channel, intent.capability, intent.params, {
       source: result.source,
       stale: result.stale,
@@ -4273,16 +5516,45 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
 
   const override = applyChannelUpdate(channel.id, update, userText, "channel-agent-turn");
   workingState = updateChannelSessionFromTurn(channel, workingState, turnId, userText, intent, result, update, provenance, events);
+  workingState.generated = sanitizeGeneratedDashboard(override.generated);
+  workingState.channelUpdate = sanitizeChannelUpdate(update, channel);
+  workingState.patch = sanitizeDashboardPatch(update.patch || {});
   const savedState = saveChannelSessionState(channel, sessionId, workingState, {
+    type: "channel_morphed",
     channel: channel.id,
+    channelId: channel.id,
     sessionId,
     turnId,
     userText,
+    promptText: userText,
     intent,
     source: provenance.provider,
     sourceType: provenance.sourceType,
+    fallback: ["synthetic_fallback", "unavailable"].includes(provenance.sourceType),
+    shareId: forkShareId,
     at: new Date().toISOString(),
   });
+  if (["synthetic_fallback", "unavailable"].includes(provenance.sourceType)) {
+    appendChannelAnalyticsEvent({
+      type: "fallback_seen",
+      sessionId,
+      channelId: channel.id,
+      promptText: userText,
+      sourceType: provenance.sourceType,
+      fallbackReason: provenance.fallbackReason || result.fallbackReason || "",
+    });
+  }
+  if (forkShareId) {
+    appendChannelAnalyticsEvent({
+      type: "share_forked",
+      sessionId,
+      channelId: channel.id,
+      shareId: forkShareId,
+      promptText: userText,
+      sourceType: provenance.sourceType,
+      fallback: ["synthetic_fallback", "unavailable"].includes(provenance.sourceType),
+    });
+  }
   emit({ type: "channel.narration.delta", text: update.narration || "" });
   emit({ type: "channel.next_actions.updated", nextActions: savedState.nextActions || [] });
   emit({ type: "channel.state.updated", state: savedState });
@@ -4309,7 +5581,7 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
     manifest,
     intent,
     data: result,
-    provenance: [provenance],
+    provenance: result.provenance?.length ? result.provenance : [provenance],
     update: sanitizeChannelUpdate(update, channel),
     generated: sanitizeGeneratedDashboard(override.generated),
     state: persistedState,
@@ -4507,6 +5779,7 @@ app.get("/api/channels/:channel/turn/stream", async (req, res) => {
     const body = {
       userText: req.query.text || req.query.userText || "",
       sessionId: req.query.sessionId || req.query.session || "local-session",
+      forkOfShareId: req.query.forkOfShareId || req.query.shareId || "",
     };
     const result = await runChannelTurn(channel, body, { onEvent: (event) => writeSseEvent(res, event) });
     writeSseEvent(res, { type: "channel.stream.completed", channelId: channel.id, turnId: result.turnId, ok: true });
@@ -4548,6 +5821,221 @@ app.post("/api/channels/:channel/update", (req, res) => {
     console.error("channel update error:", err.message);
     res.status(400).json({ ok: false, error: err.message });
   }
+});
+
+function latestTurnText(state, role) {
+  const turns = Array.isArray(state.turns) ? state.turns : [];
+  return [...turns].reverse().find((turn) => turn.role === role)?.text || "";
+}
+
+function sourceStateFromShareProvenance(provenanceRecords) {
+  const record = Array.isArray(provenanceRecords) ? provenanceRecords.filter(Boolean).slice(-1)[0] : null;
+  if (!record) return { sourceType: "unavailable", provider: "unavailable", fallbackReason: "no provenance recorded" };
+  return {
+    sourceType: record.sourceType,
+    provider: record.provider,
+    fallbackReason: record.fallbackReason || null,
+    stale: Boolean(record.stale),
+  };
+}
+
+function shareHeadline(channel, state, prompt) {
+  const text = normalizeAgentText(prompt || state.focus?.topic || "");
+  if (channel.id === "crypto-trading") {
+    if (/\b(liquidity|depth|book)\b/.test(text)) return `${state.focus?.entities?.[0] || "BTC"} Liquidity Pocket`;
+    if (/\b(compare|versus|vs)\b/.test(text) || (state.focus?.entities || []).length > 1) return `${(state.focus?.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} Divergence`;
+    if (/\b(volatility|drawdown|range|regime)\b/.test(text)) return `${state.focus?.entities?.[0] || "BTC"} Volatility Regime`;
+    return "BTC 3M Price Structure";
+  }
+  if (channel.id === "polyrec") {
+    if (/\b(close|50 50|volume)\b/.test(text)) return "Close Odds, High Volume";
+    if (/\b(election|politic|macro|fed|rate|inflation)\b/.test(text)) return "Election Market Watch";
+    if (/\b(crypto|btc|bitcoin|eth|ethereum)\b/.test(text)) return "Crypto Prediction Market Drift";
+    return "Weirdest Polymarket Board";
+  }
+  if (channel.id === "meme-coin") {
+    if (/\b(decay|fade|fading|peak)\b/.test(text)) return "Narrative Decay Watch";
+    if (/\b(fragile|viral)\b/.test(text)) return "Viral But Fragile";
+    if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return "Attention Vs Liquidity Risk";
+    return "Fastest Moving Meme Coins";
+  }
+  return `${channel.label} Generated State`;
+}
+
+function buildChannelShareObject(channel, sessionId, options = {}) {
+  const normalizedSession = normalizeSessionId(sessionId);
+  const state = getChannelSessionState(channel, normalizedSession);
+  const override = readDashboardOverrides().dashboards[channel.id] || {};
+  const generated = sanitizeGeneratedDashboard(options.generated || state.generated || override.generated, channel);
+  const generatedPage = generated.page || null;
+  const channelUpdate = sanitizeChannelUpdate(options.channelUpdate || state.channelUpdate || override.channelUpdate, channel) || {};
+  const provenanceRecords = Array.isArray(channelUpdate.provenanceRecords) && channelUpdate.provenanceRecords.length
+    ? channelUpdate.provenanceRecords
+    : Array.isArray(state.provenance) ? state.provenance.slice(-6) : [];
+  const prompt = clampText(options.prompt || latestTurnText(state, "user") || state.focus?.topic || `${channel.label} overview`, 220);
+  const narrationScript = clampText(channelUpdate.narration || latestTurnText(state, "assistant") || `${channel.label} state is ready to replay.`, 260);
+  const sourceState = sourceStateFromShareProvenance(provenanceRecords);
+  const id = newChannelShareId(channel.id);
+  return {
+    id,
+    channelId: channel.id,
+    createdAt: new Date().toISOString(),
+    creatorSessionId: normalizedSession,
+    prompt,
+    mode: generatedPage ? "generated_page" : "slot_overrides",
+    headline: clampText(options.headline || generatedPage?.thesis?.title || shareHeadline(channel, state, prompt), 120),
+    summary: clampText(options.summary || generatedPage?.thesis?.summary || `${channel.label} generated a replayable market state with visible source provenance.`, 220),
+    openCount: 0,
+    replayCount: 0,
+    forkCount: 0,
+    layout: {
+      template: generatedPage?.layout?.template || state.layout?.template || channelUpdate.layout?.template || generated.view || "overview",
+      stage: generatedPage?.layout?.stage,
+      rail: generatedPage?.layout?.rail,
+      actions: generatedPage?.layout?.actions,
+      rationale: state.layout?.rationale || channelUpdate.layout?.rationale || `The user asked: ${prompt}`,
+    },
+    patch: sanitizeDashboardPatch(options.patch || state.patch || channelUpdate.patch || override.patch || {}),
+    surfaces: generated.slots,
+    generatedPage,
+    generated,
+    dataRequests: channelUpdate.dataRequests || [],
+    provenanceRecords,
+    sourceState,
+    sourceStateLabel: sourceLabelForType(sourceState.sourceType),
+    narration: {
+      script: narrationScript,
+      durationSeconds: 20,
+    },
+    replay: {
+      durationSeconds: 20,
+      steps: [
+        { at: 0, type: "open_channel" },
+        { at: 4, type: "show_stage" },
+        { at: 11, type: "show_provenance" },
+        { at: 16, type: "show_next_actions" },
+      ],
+    },
+    forkPrompts: (generatedPage?.actions || state.nextActions || nextActionsForIntent(channel, { intent: "overview", layout: "overview" })).slice(0, 4),
+    parentShareId: cleanChannelShareId(options.parentShareId || ""),
+  };
+}
+
+function saveChannelShare(share) {
+  const db = readChannelShareDb();
+  db.shares[share.id] = share;
+  db.events.push({ type: "share_created", shareId: share.id, channelId: share.channelId, sessionId: share.creatorSessionId, timestamp: new Date().toISOString() });
+  db.events = db.events.slice(-500);
+  writeChannelShareDb(db);
+  appendChannelAnalyticsEvent({
+    type: "share_created",
+    sessionId: share.creatorSessionId,
+    channelId: share.channelId,
+    shareId: share.id,
+    promptText: share.prompt,
+    sourceType: share.sourceState?.sourceType,
+    fallback: ["synthetic_fallback", "unavailable"].includes(share.sourceState?.sourceType),
+  });
+  return share;
+}
+
+function getChannelShare(id) {
+  return readChannelShareDb().shares[cleanChannelShareId(id)] || null;
+}
+
+app.post("/api/channel-shares", (req, res) => {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const channel = getChannel(body.channelId || body.channel || body.dashboardId || "crypto-trading");
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const sessionId = normalizeSessionId(body.sessionId || body.session || "local-session");
+    const share = saveChannelShare(buildChannelShareObject(channel, sessionId, {
+      prompt: body.prompt,
+      headline: body.headline,
+      summary: body.summary,
+      parentShareId: body.parentShareId || body.forkOfShareId,
+    }));
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({ ok: true, share, url: `/share/channel/${encodeURIComponent(share.id)}` });
+  } catch (err) {
+    console.error("channel share create error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/channel-shares/:id", (req, res) => {
+  const share = getChannelShare(req.params.id);
+  if (!share) return res.status(404).json({ ok: false, error: "unknown channel share" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, share });
+});
+
+app.post("/api/channel-shares/:id/fork", async (req, res) => {
+  try {
+    const share = getChannelShare(req.params.id);
+    if (!share) return res.status(404).json({ ok: false, error: "unknown channel share" });
+    const channel = getChannel(share.channelId);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const userText = clampText(body.userText || body.prompt || body.text, 700);
+    if (!userText) return res.status(400).json({ ok: false, error: "empty fork prompt" });
+    const sessionId = normalizeSessionId(body.sessionId || `fork-${share.id}-${Date.now().toString(36)}`);
+    const turn = await runChannelTurn(channel, { userText, sessionId, forkOfShareId: share.id });
+    updateChannelShareStats(share.id, "share_forked", { sessionId, prompt: userText });
+    const forkedShare = saveChannelShare(buildChannelShareObject(channel, sessionId, {
+      prompt: userText,
+      parentShareId: share.id,
+    }));
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({ ok: true, parentShareId: share.id, share: forkedShare, turn, url: `/share/channel/${encodeURIComponent(forkedShare.id)}` });
+  } catch (err) {
+    console.error("channel share fork error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+function sendChannelSharePage(req, res) {
+  const share = getChannelShare(req.params.id);
+  if (!share) return res.status(404).send("Unknown channel share");
+  const basePath = requestBasePath(req);
+  const origin = requestOrigin(req);
+  const targetPath = `${basePath}/dashboards/${encodeURIComponent(share.channelId)}?fullscreen=1&autoplay=1&channelShare=${encodeURIComponent(share.id)}&replay=1`;
+  const targetUrl = absoluteUrl(origin, targetPath);
+  const shareUrl = absoluteUrl(origin, `${basePath}/share/channel/${encodeURIComponent(share.id)}`);
+  const metadata = {
+    id: share.channelId,
+    label: share.headline || share.channelId,
+    title: `${share.headline || "Katechon Channel State"} | Katechon`,
+    description: `${share.summary || "A replayable Katechon channel state."} Fork this live market channel.`,
+  };
+  const imageUrl = absoluteUrl(origin, dashboardImagePath(share.channelId, basePath));
+  updateChannelShareStats(share.id, "share_opened");
+  appendChannelAnalyticsEvent({
+    type: "share_opened",
+    sessionId: normalizeSessionId(req.query.sessionId || "anonymous"),
+    channelId: share.channelId,
+    shareId: share.id,
+    promptText: share.prompt,
+    sourceType: share.sourceState?.sourceType,
+    fallback: ["synthetic_fallback", "unavailable"].includes(share.sourceState?.sourceType),
+  });
+  res.send(renderDashboardShareHtml({ metadata, shareUrl, targetUrl, imageUrl }));
+}
+
+app.get(["/share/channel/:id", "/app/share/channel/:id"], sendChannelSharePage);
+
+app.post("/api/launch-events", (req, res) => {
+  const event = normalizeLaunchEvent(req.body && typeof req.body === "object" ? req.body : {});
+  if (!event) return res.status(400).json({ ok: false, error: "unsupported launch event" });
+  appendChannelAnalyticsEvent(event);
+  if (event.type === "share_replayed" && event.shareId) updateChannelShareStats(event.shareId, "share_replayed", { sessionId: event.sessionId });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, event });
+});
+
+app.get("/api/launch-analytics", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json(launchAnalyticsSummary());
 });
 
 async function getPitchDeckSource(req) {
