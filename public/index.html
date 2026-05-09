@@ -5088,14 +5088,16 @@
       realtimeDebugEnabled = false;
     }
     const REALTIME_INPUT_RATE = 24000;
-    const REALTIME_INPUT_CHUNK_SAMPLES = 12000;
     const realtimeVoice = {
       pc: null,
       dc: null,
       micStream: null,
       micTrack: null,
-      inputRecorder: null,
-      inputChunks: [],
+      inputSource: null,
+      inputNode: null,
+      inputSink: null,
+      streamedSamples: 0,
+      streamFailed: false,
       audioEl: null,
       connected: false,
       recording: false,
@@ -5109,6 +5111,10 @@
       awaitingResponse: false,
       responseWatchdog: 0,
     };
+    // PTT lifecycle. `active` gates re-entry; `pendingStop` lets us clean up
+    // when the user releases during async startup (mic permission, WebRTC SDP).
+    const ptt = { active: false, pendingStop: false, startSeq: 0 };
+    let realtimePcmWorkletPromise = null;
 
     function syncVoiceModeToggle() {
       if (!voiceModeToggle) return;
@@ -5204,44 +5210,38 @@
       return btoa(binary);
     }
 
-    async function decodeRealtimeAudioBlob(blob) {
-      const AudioCtor = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtor) throw new Error('Audio decoding is not available in this browser');
-      const ctx = new AudioCtor();
-      try {
-        const buffer = await blob.arrayBuffer();
-        return await ctx.decodeAudioData(buffer);
-      } finally {
-        if (ctx.close) ctx.close().catch(() => {});
+    function ensureRealtimePcmWorklet(ctx) {
+      if (!realtimePcmWorkletPromise) {
+        realtimePcmWorkletPromise = ctx.audioWorklet.addModule(appUrl('/realtime-pcm-worklet.js'))
+          .catch((err) => { realtimePcmWorkletPromise = null; throw err; });
       }
+      return realtimePcmWorkletPromise;
     }
 
-    function realtimeBlobToPcm16(audioBuffer) {
-      const sourceRate = audioBuffer.sampleRate || REALTIME_INPUT_RATE;
-      const channels = Math.max(1, audioBuffer.numberOfChannels || 1);
-      const sourceLength = audioBuffer.length;
-      const targetLength = Math.max(1, Math.round(sourceLength * REALTIME_INPUT_RATE / sourceRate));
-      const channelData = [];
-      for (let channel = 0; channel < channels; channel++) {
-        channelData.push(audioBuffer.getChannelData(channel));
-      }
-
-      const pcm = new Int16Array(targetLength);
-      const ratio = sourceLength > 1 && targetLength > 1 ? (sourceLength - 1) / (targetLength - 1) : 1;
-      for (let i = 0; i < targetLength; i++) {
-        const sourcePos = i * ratio;
-        const index = Math.floor(sourcePos);
-        const nextIndex = Math.min(index + 1, sourceLength - 1);
-        const frac = sourcePos - index;
-        let sample = 0;
-        for (let channel = 0; channel < channels; channel++) {
-          const data = channelData[channel];
-          sample += data[index] + (data[nextIndex] - data[index]) * frac;
+    function pcmFromFloat32(float32, srcRate, dstRate) {
+      const len = float32.length;
+      if (!len) return new Int16Array(0);
+      if (srcRate === dstRate) {
+        const out = new Int16Array(len);
+        for (let i = 0; i < len; i++) {
+          const s = Math.max(-1, Math.min(1, float32[i]));
+          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
-        sample = Math.max(-1, Math.min(1, sample / channels));
-        pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+        return out;
       }
-      return pcm;
+      const ratio = srcRate / dstRate;
+      const dstLen = Math.max(1, Math.floor(len / ratio));
+      const out = new Int16Array(dstLen);
+      for (let i = 0; i < dstLen; i++) {
+        const pos = i * ratio;
+        const idx = Math.floor(pos);
+        const frac = pos - idx;
+        const a = float32[idx] || 0;
+        const b = float32[Math.min(idx + 1, len - 1)] || 0;
+        const s = Math.max(-1, Math.min(1, a + (b - a) * frac));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
     }
 
     function stopRealtimeInputStream() {
@@ -5250,83 +5250,73 @@
       realtimeVoice.micTrack = null;
     }
 
+    function teardownRealtimeInputGraph() {
+      try { realtimeVoice.inputSource?.disconnect(); } catch (_) {}
+      try { realtimeVoice.inputNode?.disconnect(); } catch (_) {}
+      try { realtimeVoice.inputSink?.disconnect(); } catch (_) {}
+      if (realtimeVoice.inputNode) realtimeVoice.inputNode.port.onmessage = null;
+      realtimeVoice.inputSource = null;
+      realtimeVoice.inputNode = null;
+      realtimeVoice.inputSink = null;
+    }
+
     async function startRealtimeInputRecording() {
       stopRealtimeInputStream();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      const chunks = [];
-      const recorder = new MediaRecorder(stream, MIME ? { mimeType: MIME } : {});
-      realtimeVoice.micStream = stream;
-      realtimeVoice.micTrack = stream.getAudioTracks()[0] || null;
-      realtimeVoice.inputRecorder = recorder;
-      realtimeVoice.inputChunks = chunks;
-      recorder.addEventListener('dataavailable', event => {
-        if (event.data?.size) chunks.push(event.data);
-      });
-      recorder.start();
-      if (realtimeDebugEnabled) console.log('realtime recorder started:', recorder.mimeType || 'default');
+      teardownRealtimeInputGraph();
+      realtimeVoice.streamedSamples = 0;
+      realtimeVoice.streamFailed = false;
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        realtimeVoice.micStream = stream;
+        realtimeVoice.micTrack = stream.getAudioTracks()[0] || null;
+
+        const ctx = getReplyAudioContext();
+        if (ctx.state === 'suspended') await ctx.resume();
+        await ensureRealtimePcmWorklet(ctx);
+
+        const sourceRate = ctx.sampleRate || REALTIME_INPUT_RATE;
+        const node = new AudioWorkletNode(ctx, 'realtime-pcm-processor');
+        const source = ctx.createMediaStreamSource(stream);
+        const sink = ctx.createGain();
+        sink.gain.value = 0;
+        node.port.onmessage = ({ data }) => {
+          if (!data || realtimeVoice.streamFailed || realtimeVoice.inputNode !== node) return;
+          const pcm = pcmFromFloat32(data, sourceRate, REALTIME_INPUT_RATE);
+          if (!pcm.length) return;
+          const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+          if (!realtimeSend({ type: 'input_audio_buffer.append', audio: bytesToBase64(bytes) })) {
+            realtimeVoice.streamFailed = true;
+            return;
+          }
+          realtimeVoice.streamedSamples += pcm.length;
+        };
+        source.connect(node);
+        node.connect(sink).connect(ctx.destination);
+        realtimeVoice.inputSource = source;
+        realtimeVoice.inputNode = node;
+        realtimeVoice.inputSink = sink;
+        if (realtimeDebugEnabled) console.log('realtime worklet running, srcRate=', sourceRate);
+      } catch (err) {
+        try { stream?.getTracks().forEach(t => t.stop()); } catch (_) {}
+        realtimeVoice.micStream = null;
+        realtimeVoice.micTrack = null;
+        teardownRealtimeInputGraph();
+        throw err;
+      }
     }
 
     function stopRealtimeInputRecording() {
-      const recorder = realtimeVoice.inputRecorder;
-      if (!recorder) {
-        stopRealtimeInputStream();
-        return Promise.resolve(null);
-      }
-      return new Promise((resolve) => {
-        const finish = () => {
-          const blob = new Blob(realtimeVoice.inputChunks || [], { type: recorder.mimeType });
-          if (realtimeVoice.inputRecorder === recorder) {
-            realtimeVoice.inputRecorder = null;
-            realtimeVoice.inputChunks = [];
-          }
-          stopRealtimeInputStream();
-          resolve(blob);
-        };
-        if (recorder.state === 'inactive') {
-          finish();
-          return;
-        }
-        recorder.addEventListener('stop', finish, { once: true });
-        recorder.stop();
-      });
-    }
-
-    async function appendRealtimeAudioBlob(blob) {
-      if (!blob || blob.size < 1000) {
-        micBtn.classList.remove('thinking');
-        showToast('too short - hold longer', '#6b6b78');
-        return null;
-      }
-      const audioBuffer = await decodeRealtimeAudioBlob(blob);
-      const pcm = realtimeBlobToPcm16(audioBuffer);
-      if (pcm.length < REALTIME_INPUT_RATE * 0.12) {
-        micBtn.classList.remove('thinking');
-        showToast('too short - hold longer', '#6b6b78');
-        return null;
-      }
-
-      if (!realtimeSend({ type: 'input_audio_buffer.clear' })) return false;
-      for (let start = 0; start < pcm.length; start += REALTIME_INPUT_CHUNK_SAMPLES) {
-        const end = Math.min(start + REALTIME_INPUT_CHUNK_SAMPLES, pcm.length);
-        const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset + start * 2, (end - start) * 2);
-        if (!realtimeSend({ type: 'input_audio_buffer.append', audio: bytesToBase64(bytes) })) return false;
-      }
-      if (realtimeDebugEnabled) {
-        console.log('realtime pcm append:', {
-          blobBytes: blob.size,
-          pcmBytes: pcm.byteLength,
-          seconds: Number((pcm.length / REALTIME_INPUT_RATE).toFixed(2)),
-          sampleRate: REALTIME_INPUT_RATE,
-        });
-      }
-      return true;
+      teardownRealtimeInputGraph();
+      stopRealtimeInputStream();
+      return realtimeVoice.streamedSamples;
     }
 
     function clearRealtimeResponseWatchdog() {
@@ -5338,15 +5328,13 @@
       console.warn('realtime voice degraded:', reason);
       clearRealtimeResponseWatchdog();
       try { realtimeVoice.pc?.close(); } catch (_) {}
-      if (realtimeVoice.inputRecorder && realtimeVoice.inputRecorder.state !== 'inactive') {
-        try { realtimeVoice.inputRecorder.stop(); } catch (_) {}
-      }
+      teardownRealtimeInputGraph();
       stopRealtimeInputStream();
       if (realtimeVoice.mouthSyncFrame) cancelAnimationFrame(realtimeVoice.mouthSyncFrame);
       realtimeVoice.pc = null;
       realtimeVoice.dc = null;
-      realtimeVoice.inputRecorder = null;
-      realtimeVoice.inputChunks = [];
+      realtimeVoice.streamedSamples = 0;
+      realtimeVoice.streamFailed = false;
       realtimeVoice.connected = false;
       realtimeVoice.recording = false;
       realtimeVoice.responding = false;
@@ -5651,15 +5639,17 @@
       await ensureRealtimeSession();
       stopDashboardNarration();
       stopBrowserAvatarAudio();
-      realtimeVoice.recording = true;
-      realtimeVoice.awaitingResponse = false;
-      realtimeVoice.replyText = '';
       if (realtimeVoice.activeResponseId) realtimeSend({ type: 'response.cancel' });
       if (!realtimeSend({ type: 'input_audio_buffer.clear' })) {
         enterRealtimeDegradedState('realtime data channel unavailable');
         throw new Error('OpenAI Realtime degraded');
       }
       await startRealtimeInputRecording();
+      // Worklet is live and pushing chunks. Mark recording AFTER startup so
+      // a release during init can't slip past the !recording guard in stop.
+      realtimeVoice.recording = true;
+      realtimeVoice.awaitingResponse = false;
+      realtimeVoice.replyText = '';
       setListening(true);
       showToast('listening…', '#ff4444');
     }
@@ -5670,13 +5660,17 @@
       setListening(false);
       micBtn.classList.add('thinking');
       showToast('processing voice…', '#6b6b78');
-      const blob = await stopRealtimeInputRecording();
-      const appended = await appendRealtimeAudioBlob(blob);
-      if (appended === false) {
+      const samples = stopRealtimeInputRecording();
+      if (realtimeVoice.streamFailed) {
         enterRealtimeDegradedState('realtime data channel unavailable');
         return;
       }
-      if (!appended) return;
+      if (samples < REALTIME_INPUT_RATE * 0.12) {
+        micBtn.classList.remove('thinking');
+        showToast('too short — hold longer', '#6b6b78');
+        realtimeSend({ type: 'input_audio_buffer.clear' });
+        return;
+      }
       showToast('Kat is thinking…', '#6b6b78');
       const committed = realtimeSend({ type: 'input_audio_buffer.commit' });
       const created = realtimeSend({ type: 'response.create' });
@@ -5688,23 +5682,13 @@
       scheduleRealtimeResponseWatchdog();
     }
 
-    async function startPushToTalk() {
-      if (!realtimeVoiceEnabled) {
-        realtimeVoice.fallbackMode = true;
-        await startRecording();
-        return;
-      }
-      try {
-        realtimeVoice.fallbackMode = false;
-        await unlockAgentAudio();
-        await startRealtimeTalk();
-      } catch (err) {
-        console.warn('realtime voice unavailable:', err);
-        enterRealtimeDegradedState(err.message || 'realtime unavailable');
-      }
+    function pttIsActuallyRecording() {
+      if (realtimeVoice.recording) return true;
+      if (mediaRecorder && mediaRecorder.state === 'recording') return true;
+      return false;
     }
 
-    function stopPushToTalk() {
+    function finishPushToTalk() {
       if (realtimeVoice.recording) {
         stopRealtimeTalk().catch(err => {
           console.warn('realtime stop failed:', err);
@@ -5712,7 +5696,56 @@
         });
         return;
       }
-      if (!realtimeVoiceEnabled || realtimeVoice.fallbackMode) stopRecording();
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+      }
+    }
+
+    async function startPushToTalk() {
+      if (ptt.active) return;
+      ptt.active = true;
+      ptt.pendingStop = false;
+      const seq = ++ptt.startSeq;
+      try {
+        if (!realtimeVoiceEnabled) {
+          realtimeVoice.fallbackMode = true;
+          await startRecording();
+        } else {
+          realtimeVoice.fallbackMode = false;
+          await unlockAgentAudio();
+          await startRealtimeTalk();
+        }
+      } catch (err) {
+        console.warn('PTT start failed:', err);
+        if (realtimeVoiceEnabled && !realtimeVoice.fallbackMode) {
+          enterRealtimeDegradedState(err.message || 'realtime unavailable');
+        } else {
+          micBtn.classList.remove('thinking', 'connecting');
+          setListening(false);
+          showToast(/denied|permission/i.test(err?.message || '') ? 'mic access denied' : 'mic error', '#ff4444');
+        }
+        ptt.active = false;
+        ptt.pendingStop = false;
+        return;
+      }
+      // If the user already let go during the async init, tear down now.
+      if (ptt.pendingStop && seq === ptt.startSeq) {
+        ptt.pendingStop = false;
+        ptt.active = false;
+        finishPushToTalk();
+      }
+    }
+
+    function stopPushToTalk() {
+      if (!ptt.active) return;
+      if (pttIsActuallyRecording()) {
+        ptt.active = false;
+        ptt.pendingStop = false;
+        finishPushToTalk();
+      } else {
+        // Init still running — finish-stop will fire when start resolves.
+        ptt.pendingStop = true;
+      }
     }
 
     function goHome() {
@@ -5928,11 +5961,14 @@
           showToast('too short — hold longer', '#6b6b78');
           return;
         }
+        const transcribeAbort = new AbortController();
+        const transcribeTimer = setTimeout(() => transcribeAbort.abort(), 15000);
         try {
           const r = await fetch(appUrl('/api/transcribe'), {
             method: 'POST',
             headers: { 'Content-Type': blob.type },
             body: blob,
+            signal: transcribeAbort.signal,
           });
           const data = await r.json();
           console.log('transcribe response:', data);
@@ -5942,8 +5978,9 @@
           else showToast('no speech detected', '#6b6b78');
         } catch(e) {
           console.error('transcription error:', e);
-          showToast('transcription error', '#ff4444');
+          showToast(e?.name === 'AbortError' ? 'transcribe timeout' : 'transcription error', '#ff4444');
         } finally {
+          clearTimeout(transcribeTimer);
           micBtn.classList.remove('thinking');
         }
       };
@@ -5960,20 +5997,38 @@
     }
 
     voiceModeToggle?.addEventListener('click', () => toggleVoiceMode());
-    micBtn.addEventListener('mousedown',  (e) => {
+    // Pointer Events with capture: the button keeps receiving up/cancel even
+    // if the cursor drifts off, so PTT no longer aborts when the user twitches.
+    micBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      startPushToTalk().catch(() => showToast('mic access denied', '#ff4444'));
+      try { micBtn.setPointerCapture(e.pointerId); } catch (_) {}
+      startPushToTalk().catch(() => {});
     });
-    micBtn.addEventListener('mouseup',    () => stopPushToTalk());
-    micBtn.addEventListener('mouseleave', () => stopPushToTalk());
-    micBtn.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      startPushToTalk().catch(() => showToast('mic access denied', '#ff4444'));
-    });
-    micBtn.addEventListener('touchend',   () => stopPushToTalk());
-    micBtn.addEventListener('touchcancel', () => stopPushToTalk());
-    window.addEventListener('mouseup', () => stopPushToTalk());
+    const releasePointer = (e) => {
+      try { micBtn.releasePointerCapture(e.pointerId); } catch (_) {}
+      stopPushToTalk();
+    };
+    micBtn.addEventListener('pointerup', releasePointer);
+    micBtn.addEventListener('pointercancel', releasePointer);
     window.addEventListener('blur', () => stopPushToTalk());
+
+    // Space-bar PTT. Skip when the user is typing somewhere editable.
+    function pttSpaceShouldIgnore(target) {
+      if (!target || typeof target.matches !== 'function') return false;
+      return target.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      if (pttSpaceShouldIgnore(e.target)) return;
+      e.preventDefault();
+      startPushToTalk().catch(() => {});
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code !== 'Space') return;
+      if (pttSpaceShouldIgnore(e.target)) return;
+      e.preventDefault();
+      stopPushToTalk();
+    });
     console.log(`Kat voice mode: ${realtimeVoiceEnabled ? 'OpenAI Realtime' : 'legacy'}`);
     preloadDashboardFrames();
     afterNextPaint(launchRequestedDashboard, 80);
