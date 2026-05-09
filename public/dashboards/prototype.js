@@ -117,10 +117,23 @@
       const themeRaw = raw.theme && typeof raw.theme === "object" && !Array.isArray(raw.theme) ? raw.theme : {};
       const stageComponents = Array.isArray(stageRaw.components) ? stageRaw.components.slice(0, 3) : [];
       const railComponents = Array.isArray(raw.rail) ? raw.rail.slice(0, 5) : [];
+      const depthValue = Number.isFinite(Number(raw.depth)) ? Math.max(0, Math.floor(Number(raw.depth))) : 1;
+      const ancestry = Array.isArray(raw.ancestry)
+        ? raw.ancestry.filter((entry) => entry && typeof entry === "object").slice(0, 8).map((entry) => ({
+            depth: Math.max(0, Math.floor(Number(entry.depth) || 0)),
+            stateId: String(entry.stateId || "").slice(0, 80),
+            label: String(entry.label || entry.title || `Depth ${entry.depth || 0}`).slice(0, 120),
+            prompt: String(entry.prompt || "").slice(0, 220),
+          }))
+        : [];
       return {
         mode: "generated_page",
         channelId: String(raw.channelId || dashboardId).replace(/[^\w-]/g, ""),
         prompt: String(raw.prompt || "").trim().slice(0, 300),
+        depth: depthValue,
+        stateId: String(raw.stateId || "").slice(0, 80),
+        parentStateId: String(raw.parentStateId || "").slice(0, 80),
+        ancestry,
         theme: {
           density: String(themeRaw.density || "board").replace(/[^\w-]/g, ""),
           accent: String(themeRaw.accent || "channel").replace(/[^\w-]/g, ""),
@@ -1186,6 +1199,70 @@
       `;
     }
 
+    function renderGeneratedBreadcrumb() {
+      const node = document.getElementById("generated-breadcrumb");
+      if (!node) return;
+      const page = activeGeneratedPage();
+      if (!page) {
+        node.hidden = true;
+        node.innerHTML = "";
+        return;
+      }
+      const ancestry = Array.isArray(page.ancestry) && page.ancestry.length
+        ? page.ancestry
+        : [{ depth: 0, stateId: `base:${dashboardId}`, label: config.title || dashboardId }];
+      const currentLabel = page.thesis?.title || (page.layout?.template || "generated").replace(/_/g, " ");
+      const crumbs = [
+        ...ancestry,
+        { depth: page.depth || ancestry.length, stateId: page.stateId || "", label: currentLabel, current: true },
+      ];
+      node.hidden = false;
+      node.dataset.depth = String(page.depth ?? 0);
+      node.innerHTML = crumbs
+        .map((entry, index) => {
+          const sep = index > 0 ? `<span class="generated-breadcrumb-sep" aria-hidden="true">${"&gt;".repeat(Math.max(1, entry.depth || index))}</span>` : "";
+          const isCurrent = entry.current === true || index === crumbs.length - 1;
+          const attrs = isCurrent
+            ? `aria-current="page" disabled`
+            : `data-back-depth="${escapeHtml(String(entry.depth ?? 0))}"`;
+          return `${sep}<button type="button" class="generated-breadcrumb-step" data-testid="generated-breadcrumb-step" ${attrs}>${escapeHtml(entry.label || `Depth ${entry.depth ?? 0}`)}</button>`;
+        })
+        .join("");
+      node.querySelectorAll("[data-back-depth]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const target = Number(button.dataset.backDepth);
+          if (Number.isFinite(target)) goBackToDepth(target);
+        });
+      });
+    }
+
+    async function goBackToDepth(toDepth) {
+      if (state.commandRunning) return;
+      const target = Math.max(0, Math.floor(Number(toDepth) || 0));
+      state.commandRunning = true;
+      setCommandStatus(target === 0 ? "returning to base channel" : `restoring depth ${target}`);
+      try {
+        const resp = await fetch(appUrl(`/api/channels/${encodeURIComponent(dashboardId)}/back`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: `prototype-${dashboardId}`, toDepth: target }),
+        });
+        const payload = await resp.json().catch(() => ({}));
+        if (!resp.ok || payload.ok === false) throw new Error(payload.error || `back ${resp.status}`);
+        state.generated = normalizeGeneratedDashboard(payload.generated || (payload.state && payload.state.generated));
+        trackLaunchEvent("depth_navigated", { toDepth: target, source: "breadcrumb" });
+        setCommandStatus(target === 0 ? "base channel restored" : `depth ${target} restored`);
+        render();
+      } catch (err) {
+        console.warn("channel back failed:", err);
+        trackLaunchEvent("error_seen", { source: "breadcrumb", message: err.message || String(err) });
+        setCommandStatus(`back failed: ${err.message || err}`);
+      } finally {
+        state.commandRunning = false;
+        renderCommandPanel();
+      }
+    }
+
     function renderGeneratedPage() {
       const pageNode = $("generated-page");
       if (!pageNode) return;
@@ -1193,6 +1270,7 @@
       if (!page) {
         pageNode.hidden = true;
         pageNode.innerHTML = "";
+        renderGeneratedBreadcrumb();
         return;
       }
       const stageComponents = page.stage?.components || [];
@@ -1232,6 +1310,7 @@
         button.addEventListener("click", () => runChannelCommand(button.dataset.prompt || button.textContent || ""));
       });
       pageNode.querySelector("[data-share-current]")?.addEventListener("click", () => shareChannelState());
+      renderGeneratedBreadcrumb();
       requestAnimationFrame(renderGeneratedCharts);
     }
 

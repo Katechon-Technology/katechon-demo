@@ -936,6 +936,7 @@ function initialChannelSessionState(channel, sessionId = "local-session") {
     provenance: [],
     turns: [],
     traces: [],
+    depthStack: [],
   };
 }
 
@@ -1255,6 +1256,34 @@ const GENERATED_PAGE_TEMPLATES = new Set([
   "detail_inspector",
 ]);
 
+function sanitizeAncestryEntry(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const depth = Number.isFinite(Number(raw.depth)) ? Math.max(0, Math.floor(Number(raw.depth))) : null;
+  if (depth === null) return null;
+  const stateId = clampText(raw.stateId, 80);
+  if (!stateId) return null;
+  const label = clampText(raw.label || raw.title, 120) || `Depth ${depth}`;
+  const prompt = clampText(raw.prompt, 220);
+  return prompt ? { depth, stateId, label, prompt } : { depth, stateId, label };
+}
+
+function sanitizeAncestry(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map(sanitizeAncestryEntry).filter(Boolean).slice(0, 8);
+}
+
+function newChannelStateId(channelId, depth) {
+  const safeChannel = cleanDashboardId(channelId) || "channel";
+  const safeDepth = Math.max(0, Math.floor(Number(depth) || 0));
+  const rand = Math.random().toString(36).slice(2, 8);
+  return `state_${safeChannel}_${safeDepth}_${Date.now().toString(36)}${rand}`;
+}
+
+function baseChannelStateId(channelId) {
+  const safeChannel = cleanDashboardId(channelId) || "channel";
+  return `base:${safeChannel}`;
+}
+
 function sanitizeGeneratedPage(raw, channel = null) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const template = cleanComponentId(raw.layout?.template || raw.template || raw.view || "");
@@ -1268,11 +1297,20 @@ function sanitizeGeneratedPage(raw, channel = null) {
     .map((record) => sanitizeProvenanceRecord(record, channel || { liveProvider: cleanComponentId(raw.channelId || "") }))
     .filter(Boolean)
     .slice(0, 12);
+  const channelId = cleanDashboardId(raw.channelId || channel?.id || "");
+  const depthValue = Number.isFinite(Number(raw.depth)) ? Math.max(0, Math.floor(Number(raw.depth))) : 1;
+  const stateId = clampText(raw.stateId, 80) || newChannelStateId(channelId, depthValue);
+  const parentStateId = clampText(raw.parentStateId, 80) || baseChannelStateId(channelId);
+  const ancestry = sanitizeAncestry(raw.ancestry);
 
   return {
     mode: "generated_page",
-    channelId: cleanDashboardId(raw.channelId || channel?.id || ""),
+    channelId,
     prompt: clampText(raw.prompt, 300),
+    depth: depthValue,
+    stateId,
+    parentStateId,
+    ancestry,
     theme: {
       density: cleanComponentId(themeRaw.density || "board"),
       accent: cleanComponentId(themeRaw.accent || "channel"),
@@ -4049,6 +4087,65 @@ function emitChannelTurnEvent(events, onEvent, event) {
   return normalized;
 }
 
+function depthStackFromState(state) {
+  return Array.isArray(state?.depthStack) ? state.depthStack.filter(Boolean) : [];
+}
+
+function baseAncestryEntry(channel) {
+  return {
+    depth: 0,
+    stateId: baseChannelStateId(channel.id),
+    label: `${channel.label}`,
+  };
+}
+
+function depthStackEntry(channel, page) {
+  return {
+    depth: page.depth,
+    stateId: page.stateId,
+    parentStateId: page.parentStateId,
+    label: page.thesis?.title || titleFromId(page.layout?.template || "generated_page"),
+    prompt: page.prompt || "",
+    page,
+  };
+}
+
+function applyDepthToGeneratedPage(channel, page, currentStack) {
+  if (!page) return page;
+  const stack = Array.isArray(currentStack) ? currentStack.filter(Boolean) : [];
+  const top = stack[stack.length - 1] || null;
+  const depth = (top?.depth ?? 0) + 1;
+  const parentStateId = top?.stateId || baseChannelStateId(channel.id);
+  const ancestry = [
+    baseAncestryEntry(channel),
+    ...stack.map((entry) => ({
+      depth: entry.depth,
+      stateId: entry.stateId,
+      label: entry.label,
+      prompt: entry.prompt || "",
+    })),
+  ];
+  page.depth = depth;
+  page.parentStateId = parentStateId;
+  page.ancestry = ancestry;
+  if (!page.stateId || page.stateId.startsWith("base:")) {
+    page.stateId = newChannelStateId(channel.id, depth);
+  }
+  return page;
+}
+
+function pushDepthStack(channel, currentStack, page) {
+  const stack = Array.isArray(currentStack) ? currentStack.filter(Boolean) : [];
+  const entry = depthStackEntry(channel, page);
+  return [...stack, entry].slice(-12);
+}
+
+function popDepthStackTo(currentStack, toDepth) {
+  const target = Math.max(0, Math.floor(Number(toDepth) || 0));
+  const stack = Array.isArray(currentStack) ? currentStack.filter(Boolean) : [];
+  return stack.filter((entry) => entry.depth <= target && entry.depth > 0);
+}
+
 function seedStateFromChannelShare(channel, sessionId, share) {
   if (!share || share.channelId !== channel.id) return null;
   const base = initialChannelSessionState(channel, sessionId);
@@ -4060,6 +4157,25 @@ function seedStateFromChannelShare(channel, sessionId, share) {
     ...(provenance.map((record) => record.params?.coin || record.params?.entity).filter(Boolean)),
     ...promptEntities,
   ])).slice(0, 4);
+  const seededStack = Array.isArray(share.depthStack) && share.depthStack.length
+    ? share.depthStack.filter(Boolean).map((entry) => ({
+        depth: entry.depth,
+        stateId: entry.stateId,
+        parentStateId: entry.parentStateId || (entry.depth > 1 ? null : baseChannelStateId(channel.id)),
+        label: entry.label,
+        prompt: entry.prompt || "",
+        page: entry.page || null,
+      }))
+    : (share.generatedPage
+        ? [{
+            depth: share.generatedPage.depth || 1,
+            stateId: share.generatedPage.stateId || newChannelStateId(channel.id, share.generatedPage.depth || 1),
+            parentStateId: share.generatedPage.parentStateId || baseChannelStateId(channel.id),
+            label: share.headline || share.generatedPage.thesis?.title || "Generated state",
+            prompt: share.prompt || share.generatedPage.prompt || "",
+            page: share.generatedPage,
+          }]
+        : []);
   return {
     ...base,
     focus: {
@@ -4074,6 +4190,7 @@ function seedStateFromChannelShare(channel, sessionId, share) {
     patch: sanitizeDashboardPatch(share.patch || {}),
     provenance,
     nextActions: share.forkPrompts || base.nextActions,
+    depthStack: seededStack,
     turns: [
       { role: "user", text: share.prompt || "", at: share.createdAt || new Date().toISOString(), turnId: share.id },
       { role: "assistant", text: share.narration?.script || "", at: share.createdAt || new Date().toISOString(), turnId: share.id, voice: "Kat" },
@@ -4475,6 +4592,10 @@ function buildGeneratedPageState(channel, intent, options = {}) {
     mode: "generated_page",
     channelId: channel.id,
     prompt: intent.userText || "",
+    depth: 1,
+    stateId: newChannelStateId(channel.id, 1),
+    parentStateId: baseChannelStateId(channel.id),
+    ancestry: [],
     theme: {
       density: template === "market_structure" ? "analysis" : "board",
       accent: generatedPageAccent(channel),
@@ -5504,7 +5625,21 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
   }
 
   const update = buildChannelTurnUpdate(channel, intent, result, provenance);
+  if (update.generatedPage) {
+    const stackBefore = depthStackFromState(currentState);
+    applyDepthToGeneratedPage(channel, update.generatedPage, stackBefore);
+    workingState.depthStack = pushDepthStack(channel, stackBefore, update.generatedPage);
+  } else {
+    workingState.depthStack = depthStackFromState(currentState);
+  }
   emit({ type: "channel.layout.selected", layout: update.layout });
+  emit({
+    type: "channel.depth.updated",
+    depth: update.generatedPage?.depth ?? 0,
+    stateId: update.generatedPage?.stateId || baseChannelStateId(channel.id),
+    parentStateId: update.generatedPage?.parentStateId || null,
+    ancestry: update.generatedPage?.ancestry || [],
+  });
   for (const surfaceUpdate of update.surfaces || []) {
     emit({
       type: surfaceUpdate.mode === "clear" ? "channel.surface.clear" : "channel.surface.replace",
@@ -5750,6 +5885,78 @@ app.get("/api/channels/:channel/state", (req, res) => {
   res.json({ ok: true, state: getChannelSessionState(channel, sessionId) });
 });
 
+app.post("/api/channels/:channel/back", (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const sessionId = normalizeSessionId(body.sessionId || body.session || "local-session");
+    const toDepthRaw = Number(body.toDepth ?? body.depth ?? 0);
+    const toDepth = Number.isFinite(toDepthRaw) ? Math.max(0, Math.floor(toDepthRaw)) : 0;
+    const current = getChannelSessionState(channel, sessionId);
+    const trimmedStack = popDepthStackTo(depthStackFromState(current), toDepth);
+    const restoredEntry = trimmedStack[trimmedStack.length - 1] || null;
+    const restoredPage = restoredEntry?.page || null;
+
+    const overridePatch = {
+      generated: restoredPage
+        ? { mode: "generated_page", view: restoredPage.layout?.template, page: restoredPage, slots: emptyGeneratedDashboard().slots, themeTokens: {} }
+        : emptyGeneratedDashboard(),
+    };
+    const generatedSanitized = sanitizeGeneratedDashboard(overridePatch.generated, channel);
+
+    const db = readDashboardOverrides();
+    db.dashboards[channel.id] = {
+      ...(db.dashboards[channel.id] || {}),
+      generated: generatedSanitized,
+      updatedAt: new Date().toISOString(),
+      updatedBy: "channel-depth-back",
+    };
+    writeDashboardOverrides(db);
+
+    const persistedState = saveChannelSessionState(channel, sessionId, {
+      ...current,
+      depthStack: trimmedStack,
+      generated: generatedSanitized,
+      layout: {
+        template: restoredPage?.layout?.template || "overview",
+        rationale: restoredPage ? `Restored generated state at depth ${restoredPage.depth}.` : "Restored base channel.",
+      },
+    }, {
+      type: "depth_navigated",
+      channel: channel.id,
+      channelId: channel.id,
+      sessionId,
+      toDepth,
+      stateId: restoredPage?.stateId || baseChannelStateId(channel.id),
+      at: new Date().toISOString(),
+    });
+
+    appendChannelAnalyticsEvent({
+      type: "depth_navigated",
+      sessionId,
+      channelId: channel.id,
+      toDepth,
+      stateId: restoredPage?.stateId || baseChannelStateId(channel.id),
+    });
+
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({
+      ok: true,
+      channel: publicChannel(channel),
+      sessionId,
+      depth: restoredPage?.depth ?? 0,
+      stateId: restoredPage?.stateId || baseChannelStateId(channel.id),
+      ancestry: restoredPage?.ancestry || [baseAncestryEntry(channel)],
+      generated: generatedSanitized,
+      state: persistedState,
+    });
+  } catch (err) {
+    console.error("channel back error:", err.message);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 app.post("/api/channels/:channel/turn", async (req, res) => {
   try {
     const channel = getChannel(req.params.channel);
@@ -5918,6 +6125,17 @@ function buildChannelShareObject(channel, sessionId, options = {}) {
     },
     forkPrompts: (generatedPage?.actions || state.nextActions || nextActionsForIntent(channel, { intent: "overview", layout: "overview" })).slice(0, 4),
     parentShareId: cleanChannelShareId(options.parentShareId || ""),
+    depth: generatedPage?.depth ?? 0,
+    stateId: generatedPage?.stateId || baseChannelStateId(channel.id),
+    ancestry: Array.isArray(generatedPage?.ancestry) ? generatedPage.ancestry : [baseAncestryEntry(channel)],
+    depthStack: depthStackFromState(state).map((entry) => ({
+      depth: entry.depth,
+      stateId: entry.stateId,
+      parentStateId: entry.parentStateId,
+      label: entry.label,
+      prompt: entry.prompt || "",
+      page: entry.page || null,
+    })),
   };
 }
 

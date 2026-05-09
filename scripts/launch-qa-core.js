@@ -365,6 +365,9 @@ function validateGeneratedContract(item, payload, report) {
     assertQa(page?.layout?.template && page.layout.stage && page.layout.rail, "generated_page layout mode is incomplete", { context, page });
     assertQa(Array.isArray(page.actions) && page.actions.length >= 3, "generated_page state-specific next prompts are missing", { context, page });
     assertQa(page.sourceState || (Array.isArray(page.provenance) && page.provenance.length), "generated_page source/provenance state is missing", { context, page });
+    assertQa(page.depth >= 1, "generated_page is missing depth (expected depth >= 1 after a hero prompt)", { context, depth: page?.depth });
+    assertQa(typeof page.stateId === "string" && page.stateId.length > 0, "generated_page is missing stateId", { context, stateId: page?.stateId });
+    assertQa(Array.isArray(page.ancestry) && page.ancestry.some((entry) => entry.depth === 0), "generated_page ancestry is missing the depth-0 base entry", { context, ancestry: page?.ancestry });
   }
   assertQa(payload.update.patch?.title && payload.update.patch.title !== channel.label, "generated update did not change page thesis/title", {
     context,
@@ -474,6 +477,17 @@ function validateShareEquivalence(item, originalPayload, share, forkPayload) {
     parentShareId: share.id,
     forkParent: forkPayload.parentShareId || forkPayload.share.parentShareId,
   });
+  const forkPage = forkPayload.turn?.generated?.page || forkPayload.share?.generated?.page;
+  assertQa(forkPage && forkPage.depth >= (share.depth || 1) + 1, "fork did not increment generated depth (expected deeper than parent share)", {
+    context,
+    parentDepth: share.depth,
+    forkDepth: forkPage?.depth,
+  });
+  assertQa(forkPage && Array.isArray(forkPage.ancestry) && forkPage.ancestry.some((entry) => entry.stateId === share.stateId || entry.depth === share.depth), "fork ancestry does not reference parent share state", {
+    context,
+    parentStateId: share.stateId,
+    forkAncestry: forkPage?.ancestry,
+  });
   assertQa(generatedStageComponents(forkPayload.share.generated).length > 0, "forked state has no generated stage", {
     context,
     forkShareId: forkPayload.share.id,
@@ -504,6 +518,24 @@ async function runContractLayer(baseUrl, report) {
       }),
     });
     validateShareEquivalence(item, payload, shareGet.share, forkResponse);
+
+    const backResponse = await jsonFetch(baseUrl, `/api/channels/${item.channelId}/back`, {
+      method: "POST",
+      body: JSON.stringify({ sessionId, toDepth: 0 }),
+    });
+    assertQa(backResponse.ok === true, "back-to-depth-0 endpoint failed", {
+      context: `${item.channelId}:${item.slug}`,
+      backResponse,
+    });
+    assertQa(backResponse.depth === 0, "back-to-depth-0 did not restore depth 0", {
+      context: `${item.channelId}:${item.slug}`,
+      depth: backResponse.depth,
+    });
+    assertQa(!backResponse.generated?.page, "back-to-depth-0 left a generated page in state", {
+      context: `${item.channelId}:${item.slug}`,
+      generated: backResponse.generated,
+    });
+
     report.contract.push({
       channelId: item.channelId,
       prompt: item.prompt,
@@ -513,6 +545,8 @@ async function runContractLayer(baseUrl, report) {
       shareId: shareResponse.share.id,
       forkedShareId: forkResponse.share.id,
       sourceTypes: (payload.update.provenanceRecords || []).map((record) => record.sourceType),
+      depth: payload.generated?.page?.depth ?? null,
+      forkDepth: forkResponse.turn?.generated?.page?.depth ?? forkResponse.share?.depth ?? null,
     });
     console.log(`  ok ${item.channelId} / ${item.slug}`);
   }

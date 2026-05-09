@@ -303,6 +303,46 @@
         linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 42%),
         rgba(7, 10, 14, 0.84);
     }
+    .generated-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 6px 10px;
+      margin: 0 0 4px 0;
+      border: 1px solid color-mix(in srgb, var(--accent) 26%, rgba(255,255,255,0.08));
+      border-radius: 6px;
+      background: rgba(4, 7, 10, 0.42);
+      color: rgba(232, 240, 255, 0.78);
+      font: 600 11px/1.2 "JetBrains Mono", ui-monospace, monospace;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .generated-breadcrumb[hidden] { display: none; }
+    .generated-breadcrumb-step {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 4px 8px;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    .generated-breadcrumb-step:hover,
+    .generated-breadcrumb-step:focus-visible {
+      background: color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.06));
+      color: #f5f9ff;
+    }
+    .generated-breadcrumb-step[aria-current="page"] {
+      color: #ffffff;
+      cursor: default;
+      background: color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,0.08));
+    }
+    .generated-breadcrumb-sep {
+      color: color-mix(in srgb, var(--accent) 60%, rgba(232, 240, 255, 0.6));
+      font-weight: 700;
+    }
     .generated-page {
       min-height: 0;
       min-width: 0;
@@ -2226,6 +2266,7 @@
     </header>
 
     <section class="workspace">
+      <nav class="generated-breadcrumb" id="generated-breadcrumb" data-testid="generated-breadcrumb" hidden></nav>
       <section class="generated-page" id="generated-page" hidden></section>
       <div class="main">
         <section class="metrics" id="metrics"></section>
