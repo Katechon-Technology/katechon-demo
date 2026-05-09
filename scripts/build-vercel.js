@@ -75,6 +75,7 @@ fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(siteSource, output, { recursive: true });
 fs.cpSync(appSource, appOutput, { recursive: true });
 fs.cpSync(path.join(appSource, "share-thumbnails"), path.join(output, "share-thumbnails"), { recursive: true });
+fs.cpSync(path.join(appSource, "share-cards"), path.join(output, "share-cards"), { recursive: true });
 
 const appIndex = path.join(appOutput, "index.html");
 const appIndexHtml = fs.readFileSync(appIndex, "utf8");

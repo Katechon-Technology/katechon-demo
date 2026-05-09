@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 372 72" role="img" aria-labelledby="title desc">
+  <title id="title">Katechon wordmark</title>
+  <desc id="desc">Katechon wordmark with the channel gate mark.</desc>
+  <defs>
+    <linearGradient id="signal" x1="25" y1="13" x2="56" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7de8ff"/>
+      <stop offset="0.45" stop-color="#00e87b"/>
+      <stop offset="1" stop-color="#00c466"/>
+    </linearGradient>
+  </defs>
+  <g aria-hidden="true">
+    <rect x="6" y="8" width="56" height="56" rx="15" fill="#050608"/>
+    <rect x="16" y="16" width="10" height="40" rx="3" fill="#f2f4f7"/>
+    <path d="M33 16h12L29 36l16 20H33L17 36 33 16Z" fill="url(#signal)"/>
+    <rect x="12" y="24" width="3" height="24" rx="1.5" fill="#7de8ff"/>
+  </g>
+  <text x="82" y="48" fill="#f2f4f7" font-family="Inter, Arial, Helvetica, sans-serif" font-size="36" font-weight="800" letter-spacing="4">KATECHON</text>
+  <rect x="306" y="19" width="6" height="34" rx="3" fill="#00e87b"/>
+  <rect x="320" y="25" width="4" height="22" rx="2" fill="#7de8ff"/>
+</svg>

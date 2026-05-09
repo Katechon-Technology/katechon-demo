@@ -75,6 +75,7 @@ const DASHBOARD_SHARE_CATALOG = {
 
 const DEFAULT_DASHBOARD_ID = "spectre";
 const SHARE_THUMBNAIL_DIR = "/share-thumbnails";
+const SHARE_CARD_DIR = "/share-cards";
 
 function normalizeDashboardId(value) {
   return String(value || "")
@@ -96,7 +97,7 @@ function dashboardShareMetadata(value) {
     label: dashboard.label,
     title: `${dashboard.label} | Katechon`,
     description: `${dashboard.description} Open the live dashboard in fullscreen channel mode.`,
-    imagePath: `${SHARE_THUMBNAIL_DIR}/${id}.jpg`,
+    imagePath: `${SHARE_CARD_DIR}/${id}.jpg`,
   };
 }
 
@@ -115,7 +116,7 @@ function dashboardSharePath(value, basePath = "") {
 function dashboardImagePath(value, basePath = "") {
   const id = normalizeDashboardId(value) || DEFAULT_DASHBOARD_ID;
   const prefix = normalizeBasePath(basePath);
-  return `${prefix}${SHARE_THUMBNAIL_DIR}/${encodeURIComponent(id)}.jpg`;
+  return `${prefix}${SHARE_CARD_DIR}/${encodeURIComponent(id)}.jpg`;
 }
 
 function normalizeBasePath(value) {
@@ -148,6 +149,10 @@ function renderDashboardShareHtml({ metadata, shareUrl, targetUrl, imageUrl }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)}</title>
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/brand/favicon.ico">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/brand/site.webmanifest">
   <meta name="description" content="${escapeHtml(description)}">
   <link rel="canonical" href="${escapeHtml(shareUrl)}">
   <meta property="og:type" content="website">
@@ -195,6 +200,7 @@ function renderDashboardShareHtml({ metadata, shareUrl, targetUrl, imageUrl }) {
 module.exports = {
   DEFAULT_DASHBOARD_ID,
   DASHBOARD_SHARE_CATALOG,
+  SHARE_CARD_DIR,
   SHARE_THUMBNAIL_DIR,
   absoluteUrl,
   dashboardImagePath,

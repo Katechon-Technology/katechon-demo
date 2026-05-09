@@ -37,7 +37,9 @@ const requiredFiles = [
   "dist/pdf/index.html",
   "dist/katechon.pdf",
   "dist/og-data.jpg",
+  "dist/brand/katechon-motion.gif",
   "dist/app/index.html",
+  "dist/app/brand/katechon-motion.gif",
   "dist/app/prototype-dashboard.html",
   "dist/app/dashboards/catalog.js",
   "dist/app/dashboards/prototype.js",
@@ -53,6 +55,8 @@ const requiredFiles = [
   "dist/app/share/spectre/index.html",
   "dist/app/share/dune-deck/index.html",
   "dist/share/spectre/index.html",
+  "dist/app/share-cards/spectre.jpg",
+  "dist/share-cards/spectre.jpg",
   "dist/share-thumbnails/spectre.jpg",
 ];
 
@@ -75,6 +79,7 @@ requireContains("dist/app/dashboards/prototype.js", "function appUrl", "dashboar
 requireContains("dist/app/prototype-dashboard.html", "/app/dashboards/catalog.js", "app catalog script include");
 requireContains("dist/app/dashboards/spectre/index.html", "/app/dashboards/catalog.js", "app dashboard catalog script include");
 requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share/spectre", "canonical /app share URL");
+requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share-cards/spectre.jpg", "branded /app share card");
 requireContains("dist/app/share/dune-deck/index.html", "https://katechon.technology/app/share/dune-deck", "Dune deck /app share URL");
 requireContains("dist/app/dashboards/dune-deck/index.html", '<base href="/app/decks/dune/">', "Dune deck /app base tag");
 requireContains("dist/app/decks/dune/deck.json", '"slides"', "Dune deck slides manifest");

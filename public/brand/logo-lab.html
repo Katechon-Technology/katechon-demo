@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050608">
+  <title>Katechon Logo Lab</title>
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/brand/site.webmanifest">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #050608; color: #f2f4f7; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: clamp(24px, 5vw, 64px);
+      background:
+        radial-gradient(circle at 18% 14%, rgba(125,232,255,0.12), transparent 28%),
+        radial-gradient(circle at 84% 18%, rgba(0,232,123,0.11), transparent 26%),
+        linear-gradient(135deg, #050608, #090d10 58%, #030405);
+    }
+    main { max-width: 1080px; margin: 0 auto; display: grid; gap: 34px; }
+    header { display: grid; gap: 18px; max-width: 760px; }
+    .lockup { width: min(372px, 100%); height: auto; }
+    h1 { margin: 0; font-size: clamp(42px, 8vw, 88px); line-height: .92; letter-spacing: 0; }
+    p { margin: 0; color: rgba(242,244,247,.68); font-size: 17px; line-height: 1.55; max-width: 680px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .panel,
+    .asset-card {
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 8px;
+      padding: 18px;
+      background: rgba(9,13,16,.72);
+      display: grid;
+      gap: 14px;
+      min-width: 0;
+    }
+    .asset-card {
+      width: 100%;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      appearance: none;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+    }
+    .asset-card:hover,
+    .asset-card:focus-visible {
+      outline: none;
+      border-color: rgba(0,232,123,.55);
+      background: rgba(9,18,17,.86);
+      box-shadow: 0 0 32px rgba(0,232,123,.13);
+      transform: translateY(-1px);
+    }
+    .asset-card.copied {
+      border-color: rgba(125,232,255,.8);
+      box-shadow: 0 0 36px rgba(125,232,255,.18);
+    }
+    .asset-card .path {
+      min-height: 18px;
+      color: rgba(242,244,247,.56);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .asset-card .copy-hint {
+      color: #00e87b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .copy-status {
+      position: sticky;
+      top: 16px;
+      z-index: 5;
+      justify-self: start;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      padding: 9px 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 8px;
+      background: rgba(5,8,9,.82);
+      color: rgba(242,244,247,.76);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+    }
+    .copy-status.active {
+      color: #00e87b;
+      border-color: rgba(0,232,123,.42);
+    }
+    .label {
+      color: #7de8ff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .sizes { display: flex; align-items: end; gap: 18px; flex-wrap: wrap; min-height: 150px; }
+    .sizes img { image-rendering: auto; }
+    .size-item { display: grid; justify-items: center; gap: 8px; color: rgba(242,244,247,.56); font-size: 12px; }
+    .motion-mark {
+      width: 132px;
+      height: 132px;
+      border-radius: 28px;
+      display: grid;
+      place-items: center;
+      background: #050608;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.10), 0 0 56px rgba(0,232,123,.18);
+      overflow: hidden;
+    }
+    .motion-mark img {
+      width: 112px;
+      height: 112px;
+      animation: signal-breathe 2.4s ease-in-out infinite;
+    }
+    .rail-demo {
+      position: relative;
+      height: 132px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: linear-gradient(90deg, rgba(0,232,123,.06), rgba(125,232,255,.03));
+    }
+    .rail-demo::before,
+    .rail-demo::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(90deg, transparent 0 34px, rgba(0,232,123,.22) 35px 36px);
+      animation: rail-pass 2.8s linear infinite;
+    }
+    .rail-demo::after {
+      background: repeating-linear-gradient(90deg, transparent 0 53px, rgba(125,232,255,.20) 54px 55px);
+      animation-duration: 4.2s;
+      opacity: .72;
+    }
+    .rail-demo img {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 92px;
+      height: 92px;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 0 24px rgba(0,232,123,.32));
+    }
+    .notes { display: grid; gap: 10px; color: rgba(242,244,247,.7); line-height: 1.5; }
+    .notes strong { color: #f2f4f7; }
+    code {
+      color: #00e87b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: .92em;
+    }
+    @keyframes signal-breathe {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(0,232,123,0)); }
+      50% { transform: scale(1.045); filter: drop-shadow(0 0 18px rgba(0,232,123,.38)); }
+    }
+    @keyframes rail-pass {
+      from { transform: translateX(-56px); }
+      to { transform: translateX(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img class="lockup" src="/brand/katechon-wordmark.svg" alt="Katechon">
+      <h1>Channel Gate</h1>
+      <p>A compact media-platform mark: the left rail is a live channel, the chevron is a play surface, and the combined silhouette forms a hard `K` for favicon-level recall.</p>
+    </header>
+    <div id="copy-status" class="copy-status" role="status" aria-live="polite">Click an asset to copy the file</div>
+
+    <section class="grid" aria-label="Logo previews">
+      <button class="asset-card" type="button" data-copy-src="/brand/favicon.svg" aria-label="Copy favicon SVG">
+        <div class="label">Small sizes</div>
+        <div class="sizes">
+          <span class="size-item"><img src="/brand/favicon.svg" width="16" height="16" alt="">16</span>
+          <span class="size-item"><img src="/brand/favicon.svg" width="32" height="32" alt="">32</span>
+          <span class="size-item"><img src="/brand/katechon-mark.svg" width="64" height="64" alt="">64</span>
+          <span class="size-item"><img src="/brand/katechon-mark.svg" width="128" height="128" alt="">128</span>
+        </div>
+        <div class="path">/brand/favicon.svg</div>
+        <div class="copy-hint">Copy SVG</div>
+      </button>
+      <button class="asset-card" type="button" data-copy-src="/brand/katechon-mark.svg" aria-label="Copy primary mark SVG">
+        <div class="label">Primary mark</div>
+        <div class="motion-mark"><img src="/brand/katechon-mark.svg" alt="Katechon mark"></div>
+        <div class="path">/brand/katechon-mark.svg</div>
+        <div class="copy-hint">Copy SVG</div>
+      </button>
+      <button class="asset-card" type="button" data-copy-src="/brand/katechon-wordmark.svg" aria-label="Copy wordmark SVG">
+        <div class="label">Wordmark</div>
+        <div class="motion-mark"><img src="/brand/katechon-wordmark.svg" alt="Katechon wordmark"></div>
+        <div class="path">/brand/katechon-wordmark.svg</div>
+        <div class="copy-hint">Copy SVG</div>
+      </button>
+      <button class="asset-card" type="button" data-copy-src="/brand/katechon-motion.gif" aria-label="Copy motion GIF image">
+        <div class="label">Shareable GIF</div>
+        <div class="motion-mark"><img src="/brand/katechon-motion.gif" alt="Katechon motion GIF"></div>
+        <div class="path">/brand/katechon-motion.gif</div>
+        <div class="copy-hint">Copy GIF</div>
+      </button>
+      <button class="asset-card" type="button" data-copy-src="/brand/katechon-mark-mono.svg" aria-label="Copy monochrome mark SVG">
+        <div class="label">Mono mark</div>
+        <div class="motion-mark"><img src="/brand/katechon-mark-mono.svg" alt="Katechon monochrome mark"></div>
+        <div class="path">/brand/katechon-mark-mono.svg</div>
+        <div class="copy-hint">Copy SVG</div>
+      </button>
+      <button class="asset-card" type="button" data-copy-src="/brand/logo-lab.html" data-copy-mode="url" aria-label="Copy logo lab URL">
+        <div class="label">Channel rails</div>
+        <div class="rail-demo"><img src="/brand/katechon-mark.svg" alt="Katechon channel rails"></div>
+        <div class="path">/brand/logo-lab.html</div>
+        <div class="copy-hint">Copy lab URL</div>
+      </button>
+      <div class="panel">
+        <div class="label">Usage</div>
+        <div class="notes">
+          <div><strong>Primary:</strong> <code>katechon-mark.svg</code> for app chrome, share cards, and social avatars.</div>
+          <div><strong>Small:</strong> <code>favicon.svg</code> and generated PNG icons for browser and homescreen contexts.</div>
+          <div><strong>Motion:</strong> <code>katechon-motion.gif</code> for direct sharing in chats and social posts.</div>
+          <div><strong>Mono:</strong> <code>katechon-mark-mono.svg</code> where a single-color sponsor or watermark treatment is needed.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const status = document.getElementById('copy-status');
+    const cards = Array.from(document.querySelectorAll('[data-copy-src]'));
+    let statusTimer = null;
+
+    function absoluteAssetUrl(path) {
+      return new URL(path, window.location.origin).href;
+    }
+
+    function mimeForPath(path) {
+      const clean = String(path || '').split('?')[0].toLowerCase();
+      if (clean.endsWith('.svg')) return 'image/svg+xml';
+      if (clean.endsWith('.gif')) return 'image/gif';
+      if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+      if (clean.endsWith('.png')) return 'image/png';
+      return 'application/octet-stream';
+    }
+
+    async function fetchBlob(path) {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`asset ${response.status}`);
+      const blob = await response.blob();
+      return blob.type ? blob : new Blob([await blob.arrayBuffer()], { type: mimeForPath(path) });
+    }
+
+    async function fetchText(path) {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`asset ${response.status}`);
+      return response.text();
+    }
+
+    async function copyText(value) {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+        return;
+      }
+      const area = document.createElement('textarea');
+      area.value = value;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.left = '-999px';
+      area.style.top = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+
+    async function copyClipboardItem(items) {
+      if (!navigator.clipboard || !window.ClipboardItem || !window.isSecureContext) {
+        throw new Error('binary clipboard unavailable');
+      }
+      await navigator.clipboard.write([new ClipboardItem(items)]);
+    }
+
+    function copyHtmlImageFallback(path) {
+      const wrapper = document.createElement('div');
+      wrapper.contentEditable = 'true';
+      wrapper.style.position = 'fixed';
+      wrapper.style.left = '-9999px';
+      wrapper.style.top = '0';
+      wrapper.innerHTML = `<img src="${absoluteAssetUrl(path)}" alt="Katechon asset">`;
+      document.body.appendChild(wrapper);
+      const range = document.createRange();
+      range.selectNodeContents(wrapper);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const ok = document.execCommand('copy');
+      selection.removeAllRanges();
+      wrapper.remove();
+      if (!ok) throw new Error('html image copy failed');
+    }
+
+    async function copySvgAsset(path) {
+      const source = await fetchText(path);
+      try {
+        await copyClipboardItem({
+          'image/svg+xml': new Blob([source], { type: 'image/svg+xml' }),
+          'text/plain': new Blob([source], { type: 'text/plain' }),
+        });
+        return 'Copied SVG image';
+      } catch (err) {
+        await copyText(source);
+        return 'Copied SVG source';
+      }
+    }
+
+    async function copyRasterAsset(path) {
+      const blob = await fetchBlob(path);
+      try {
+        await copyClipboardItem({ [blob.type || mimeForPath(path)]: blob });
+        return `Copied ${mimeForPath(path).replace('image/', '').toUpperCase()} image`;
+      } catch (err) {
+        copyHtmlImageFallback(path);
+        return 'Copied image';
+      }
+    }
+
+    async function copyAsset(card) {
+      const path = card.dataset.copySrc || '/brand/logo-lab.html';
+      if (card.dataset.copyMode === 'url') {
+        const value = absoluteAssetUrl(path);
+        await copyText(value);
+        return `Copied ${value}`;
+      }
+      if (mimeForPath(path) === 'image/svg+xml') return copySvgAsset(path);
+      return copyRasterAsset(path);
+    }
+
+    function setStatus(message, active = true) {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle('active', active);
+      if (statusTimer) window.clearTimeout(statusTimer);
+      statusTimer = window.setTimeout(() => {
+        status.textContent = 'Click an asset to copy the file';
+        status.classList.remove('active');
+      }, 2200);
+    }
+
+    cards.forEach((card) => {
+      card.addEventListener('click', async () => {
+        try {
+          const message = await copyAsset(card);
+          cards.forEach((item) => item.classList.remove('copied'));
+          card.classList.add('copied');
+          setStatus(message);
+          window.setTimeout(() => card.classList.remove('copied'), 1800);
+        } catch (err) {
+          setStatus('Copy failed', false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

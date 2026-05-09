@@ -6,6 +6,10 @@
   <meta name="theme-color" content="#111111">
   <title>Katechon — Data Room</title>
   <meta name="description" content="Katechon Technology · Investor access. Deck, one-pager, founder calendar, Telegram.">
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/brand/favicon.ico">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/brand/site.webmanifest">
 
   <!-- Open Graph (Telegram, WhatsApp, iMessage, etc.) -->
   <meta property="og:type" content="website">
@@ -78,6 +82,18 @@
       text-transform: uppercase;
     }
 
+    .brand-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-row img {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+    }
+
     h1 {
       font-size: clamp(3.2rem, 14vw, 5rem);
       font-weight: 900;
@@ -139,10 +155,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      color: var(--accent);
-      font-size: 1rem;
-      font-weight: 700;
-      letter-spacing: 0;
+    }
+
+    .link .mark img {
+      width: 30px;
+      height: 30px;
+      display: block;
     }
 
     .link .body {
@@ -237,7 +255,10 @@
 </head>
 <body>
   <main class="wrap">
-    <div class="eyebrow">Katechon Technology</div>
+    <div class="brand-row">
+      <img src="/brand/katechon-mark.svg" alt="">
+      <div class="eyebrow">Katechon Technology</div>
+    </div>
     <h1>DATA<br>ROOM</h1>
     <div class="subtitle">Investor Access</div>
 
@@ -245,7 +266,7 @@
 
     <nav class="links" aria-label="Data room resources">
       <a class="link" href="/app/dashboards/dune-deck/?embed=dashboard" rel="noopener">
-        <span class="mark" aria-hidden="true">✳</span>
+        <span class="mark" aria-hidden="true"><img src="/brand/katechon-mark-mono.svg" alt=""></span>
         <span class="body">
           <span class="label">Deck</span>
           <span class="desc">Full pitch presentation</span>
@@ -254,7 +275,7 @@
       </a>
 
       <a class="link" href="/pdf/" rel="noopener">
-        <span class="mark" aria-hidden="true">✳</span>
+        <span class="mark" aria-hidden="true"><img src="/brand/katechon-mark-mono.svg" alt=""></span>
         <span class="body">
           <span class="label">One-Pager</span>
           <span class="desc">Executive summary</span>
@@ -263,7 +284,7 @@
       </a>
 
       <a class="link" href="https://book.vimcal.com/p/simonjudde1d15/30-minute-meeting" target="_blank" rel="noopener">
-        <span class="mark" aria-hidden="true">✳</span>
+        <span class="mark" aria-hidden="true"><img src="/brand/katechon-mark-mono.svg" alt=""></span>
         <span class="body">
           <span class="label">Book a Call</span>
           <span class="desc">30 min with founders</span>
@@ -272,7 +293,7 @@
       </a>
 
       <a class="link" href="https://t.me/bigsky7" target="_blank" rel="noopener">
-        <span class="mark" aria-hidden="true">✳</span>
+        <span class="mark" aria-hidden="true"><img src="/brand/katechon-mark-mono.svg" alt=""></span>
         <span class="body">
           <span class="label">Telegram</span>
           <span class="desc">Chat directly with founders</span>

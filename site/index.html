@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#050608">
   <title>Katechon Technology</title>
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/brand/favicon.ico">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="manifest" href="/brand/site.webmanifest">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -43,6 +48,13 @@
       font-weight: 900;
       letter-spacing: 0.12em;
       line-height: 1.05;
+    }
+
+    .hero-mark {
+      width: clamp(72px, 8vw, 104px);
+      height: auto;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 30px rgba(224, 74, 47, 0.14));
     }
 
     .subtitle {
@@ -116,6 +128,7 @@
 </head>
 <body>
   <div class="landing">
+    <img class="hero-mark" src="/brand/katechon-mark.svg" alt="Katechon">
     <h1>KATECHON<br>TECHNOLOGY</h1>
     <div class="subtitle">REAL-TIME CONTENT GENERATION</div>
     <div class="actions">
