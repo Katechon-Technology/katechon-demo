@@ -817,10 +817,10 @@
       opacity: 0.94;
     }
     #dashboard-frame-stage.materialize-active .build-veil::before {
-      animation: build-binary 620ms steps(7, end) 28ms both;
+      animation: build-binary 180ms steps(3, end) 18ms both;
     }
     #dashboard-frame-stage.materialize-active .build-veil::after {
-      animation: build-sheen 720ms cubic-bezier(0.16, 1, 0.3, 1) 48ms both;
+      animation: build-sheen 210ms cubic-bezier(0.16, 1, 0.3, 1) 28ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer {
       opacity: 1;
@@ -828,36 +828,36 @@
       transform: scale(1);
     }
     #dashboard-frame-stage.materialize-active .build-board-map::after {
-      animation: build-buffer-scan 740ms cubic-bezier(0.16, 1, 0.3, 1) 24ms both;
+      animation: build-buffer-scan 218ms cubic-bezier(0.16, 1, 0.3, 1) 12ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-cell {
-      animation: build-cell-resolve 560ms steps(6, end) 32ms both;
+      animation: build-cell-resolve 176ms steps(4, end) 18ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-cell::before {
-      animation: build-cell-sheen 650ms cubic-bezier(0.16, 1, 0.3, 1) 42ms both;
+      animation: build-cell-sheen 190ms cubic-bezier(0.16, 1, 0.3, 1) 26ms both;
     }
     #dashboard-frame-stage.materialize-active .build-buffer-line {
-      animation: build-buffer-row 360ms steps(8, end) var(--buffer-row-delay) both;
+      animation: build-buffer-row 96ms steps(8, end) var(--buffer-row-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-frame {
       opacity: 1;
       transform: translate3d(-50%, -50%, 0) scale(1);
     }
     #dashboard-frame-stage.materialize-active .build-progress span {
-      animation: build-progress 780ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: build-progress 230ms cubic-bezier(0.16, 1, 0.3, 1) both;
     }
     #dashboard-frame-stage.materialize-active .build-terminal-row,
     #dashboard-frame-stage.materialize-active .build-source-row {
-      animation: build-row 300ms steps(7, end) var(--build-row-delay) both;
+      animation: build-row 72ms steps(7, end) var(--build-row-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-diff {
-      animation: build-flash 360ms linear var(--build-flash-delay) both;
+      animation: build-flash 106ms linear var(--build-flash-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-cursor {
-      animation: build-cursor 340ms steps(2, end) var(--build-cursor-delay) both;
+      animation: build-cursor 92ms steps(2, end) var(--build-cursor-delay) both;
     }
     #dashboard-frame-stage.materialize-active .build-scan {
-      animation: build-scan-forward 320ms cubic-bezier(0.16, 1, 0.3, 1) 560ms both;
+      animation: build-scan-forward 74ms cubic-bezier(0.16, 1, 0.3, 1) 172ms both;
     }
     #dashboard-frame-stage.materialize-active.materialize-backward .build-scan {
       animation-name: build-scan-backward;
@@ -3580,9 +3580,9 @@
     let startupAudioDashboardId = null;
     let startupAudioPayload = null;
     const prefetchedDashboardUrls = new Set();
-    const DASHBOARD_MATERIALIZE_DURATION = 980;
-    const DASHBOARD_MATERIALIZE_LOAD_TIMEOUT = 180;
-    const DASHBOARD_MATERIALIZE_SETTLE_DELAY = 120;
+    const DASHBOARD_MATERIALIZE_DURATION = 240;
+    const DASHBOARD_MATERIALIZE_LOAD_TIMEOUT = 60;
+    const DASHBOARD_MATERIALIZE_SETTLE_DELAY = 28;
     const DASHBOARD_NAV_STEP_MS = 82;
     const DASHBOARD_KEY_HOLD_START_MS = 180;
     const DASHBOARD_NAV_MAX_PENDING_STEPS = 10;
