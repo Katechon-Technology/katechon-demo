@@ -1723,6 +1723,16 @@ Suggested shape:
   "mode": "generated_page",
   "channelId": "polyrec",
   "prompt": "Build a politics market watch",
+  "depth": 1,
+  "stateId": "polyrec:politics-market-watch:1",
+  "parentStateId": "base:polyrec",
+  "ancestry": [
+    {
+      "depth": 0,
+      "label": "Polyrec",
+      "stateId": "base:polyrec"
+    }
+  ],
   "theme": {
     "density": "board",
     "accent": "violet",
@@ -1749,7 +1759,9 @@ Suggested shape:
 ```
 
 The exact schema can differ, but it must represent a whole generated page, not
-only `stageOverlay`, `rail`, and `modal` component fragments.
+only `stageOverlay`, `rail`, and `modal` component fragments. It must also
+represent the page's depth, parent, and ancestry so the user can move backward
+through generated states without losing the exact prior page.
 
 ### Required Renderer Behavior
 
@@ -1761,6 +1773,8 @@ After a successful hero prompt:
 - the primary stage is owned by the generated state,
 - the evidence rail is owned by the generated state,
 - interaction controls and next prompts are owned by the generated state,
+- the current depth is visible through a breadcrumb, `>` stack, or compact rail,
+- prior depths are clickable and restore exact prior page states,
 - avatar/control placement adapts to the generated page,
 - share/replay restores this generated page mode directly.
 
@@ -1810,7 +1824,8 @@ Compatibility rules:
 
 - `apply_channel_update` may continue to accept `surfaces`, but focused-channel
   hero prompts should emit or be upgraded into full-page state.
-- Existing share objects should persist full-page state when present.
+- Existing share objects should persist full-page state and depth ancestry when
+  present.
 - Existing generated components can be reused inside the full-page state.
 - Legacy dashboard mutation should not dominate the focused launch experience.
 
@@ -1820,7 +1835,9 @@ Compatibility rules:
 - The old dashboard shell no longer dominates after a successful generated
   state.
 - Full-page generated state can be shared and restored.
-- Full-page generated state can be forked.
+- Full-page generated state can be forked into a deeper generated state.
+- The current depth and ancestry are visible in generated page mode.
+- Clicking back to depth `0` restores the original/base channel.
 - The renderer supports at least `market_structure`, `ranked_board`, and
   `risk_radar` templates.
 - Avatar/control placement adapts for generated page mode.
@@ -1833,6 +1850,9 @@ Compatibility rules:
 - Share restore loses full-page mode.
 - Forking returns to the base dashboard instead of continuing from the generated
   page.
+- Depth navigation is absent, misleading, or only decorative.
+- Back navigation rerenders an approximate state instead of restoring the exact
+  prior state.
 - The transition is decorative but the information architecture stays fixed.
 
 ### Suggested Ownership
@@ -2086,31 +2106,31 @@ Investor-facing metrics:
 ### Agent 1: Crypto Trading
 
 ```text
-You own the crypto-trading channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the BTC/ETH/SOL prompt-to-morph loop maximally impressive and useful. Implement the three hero prompts, live/fallback provenance, generated stage and rail surfaces, and share/fork compatibility for crypto-generated states. Keep real trading out of scope. Do not modify Polyrec or Meme Coin behavior except through shared interfaces agreed in the goal doc. List every file you change.
+You own the crypto-trading channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the BTC/ETH/SOL prompt-to-morph loop maximally impressive and useful. Implement the three hero prompts, live/fallback provenance, generated full-page stage and rail surfaces, and share/fork compatibility for crypto-generated states. Every follow-up prompt or clickable next action should create a depth-specific state: base channel > generated state >> deeper investigation, with prior depths restorable by the shared runtime. Keep real trading out of scope. Do not modify Polyrec or Meme Coin behavior except through shared interfaces agreed in the goal doc. List every file you change.
 ```
 
 ### Agent 2: Polyrec
 
 ```text
-You own the polyrec channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make prediction-market discovery feel like a shareable live intelligence board. Implement the three hero prompts, ranked/interesting market surfaces, provenance, generated stage and rail surfaces, and share/fork compatibility for Polyrec-generated states. Do not claim trading/order-book precision unless the data supports it. Do not modify Crypto or Meme Coin behavior except through shared interfaces agreed in the goal doc. List every file you change.
+You own the polyrec channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make prediction-market discovery feel like a shareable live intelligence board. Implement the three hero prompts, ranked/interesting market surfaces, provenance, generated full-page stage and rail surfaces, and share/fork compatibility for Polyrec-generated states. Every follow-up prompt or clickable next action should create a depth-specific state: base channel > generated state >> deeper board/detail, with prior depths restorable by the shared runtime. Do not claim trading/order-book precision unless the data supports it. Do not modify Crypto or Meme Coin behavior except through shared interfaces agreed in the goal doc. List every file you change.
 ```
 
 ### Agent 3: Meme Coin
 
 ```text
-You own the meme-coin channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the channel culturally sharp, useful, and shareable: token velocity, attention/liquidity mismatch, viral-but-fragile boards, and narrative decay. Implement the three hero prompts, visible risk/source labels, generated stage and rail surfaces, and share/fork compatibility for Meme-generated states. Do not present content as financial advice or execution. Do not modify Crypto or Polyrec behavior except through shared interfaces agreed in the goal doc. List every file you change.
+You own the meme-coin channel for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the channel culturally sharp, useful, and shareable: token velocity, attention/liquidity mismatch, viral-but-fragile boards, and narrative decay. Implement the three hero prompts, visible risk/source labels, generated full-page stage and rail surfaces, and share/fork compatibility for Meme-generated states. Every follow-up prompt or clickable next action should create a depth-specific state: base channel > generated state >> token/detail, with prior depths restorable by the shared runtime. Do not present content as financial advice or execution. Do not modify Crypto or Polyrec behavior except through shared interfaces agreed in the goal doc. List every file you change.
 ```
 
 ### Agent 4: Viral Loop And Demo Orchestration
 
 ```text
-You own the shared viral loop and demo orchestration layer for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the three channel agents land as one coherent product: focused launch surface, no pre-magic email wall, avatar-first voice interaction, clickable prompt chips and next actions, no typed dashboard command boxes, channel share-object creation, share replay, fork flow, social metadata, launch analytics, and deterministic demo QA. Do not own the internal ranking/chart logic for crypto-trading, polyrec, or meme-coin except through shared integration contracts. The finished loop must be open -> Kat/click prompt -> morph -> share -> replay -> fork. List every file you change.
+You own the shared viral loop and demo orchestration layer for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Make the three channel agents land as one coherent product: focused launch surface, no pre-magic email wall, avatar-first voice interaction, clickable prompt chips and next actions, no typed dashboard command boxes, channel share-object creation, share replay, fork flow, social metadata, launch analytics, and deterministic demo QA. Share/replay/fork must preserve depth-specific ancestry: original channel > generated state >> deeper fork, with visible back navigation to prior depths. Do not own the internal ranking/chart logic for crypto-trading, polyrec, or meme-coin except through shared integration contracts. The finished loop must be open -> Kat/click prompt -> full-page morph -> share -> replay -> fork deeper. List every file you change.
 ```
 
 ### Agent 5: Generated Component QA
 
 ```text
-You own generated component QA for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Build an automated launch verification loop that tests all nine hero prompts across crypto-trading, polyrec, and meme-coin for API contract validity, browser rendering, nonblank generated stage/rail content, visible provenance/source labels, share-object restore, fork behavior, screenshots, and analytics events. The test suite must catch blank charts, empty boards, missing source labels, broken share restore, broken fork controls, layout overlap, stuck loading states, and uncaught console errors. Do not change channel behavior except to add stable selectors, test hooks, or deterministic demo fixtures. Provide the exact command to run the full launch QA suite and list every file you change.
+You own generated component QA for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. Build an automated launch verification loop that tests all nine hero prompts across crypto-trading, polyrec, and meme-coin for API contract validity, browser rendering, nonblank generated stage/rail content, visible provenance/source labels, share-object restore, fork behavior, screenshots, and analytics events. The suite must also verify depth behavior: share restores the same depth, ancestry is visible, back navigation returns to the original channel, and fork creates a deeper generated state. The test suite must catch blank charts, empty boards, missing source labels, broken share restore, broken fork controls, missing/broken depth navigation, layout overlap, stuck loading states, and uncaught console errors. Do not change channel behavior except to add stable selectors, test hooks, or deterministic demo fixtures. Provide the exact command to run the full launch QA suite and list every file you change.
 ```
 
 ### Agent 6: Visual Intelligence And Information Design
@@ -2122,7 +2142,7 @@ You own visual intelligence and information design for the Viral Market Channels
 ### Agent 7: Full-Surface Morph Runtime
 
 ```text
-You own the full-surface morph runtime for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. The focused launch channels must stop feeling like fixed dashboards with small generated overlays. Build or formalize a generated_page mode where a hero prompt transforms the whole channel page: title/thesis, global layout, primary stage, evidence rail, next prompts, avatar/control placement, and share/replay state. Support at least market_structure, ranked_board, and risk_radar page templates. Existing slot-based mutations can remain as fallback, but Crypto, Polyrec, and Meme hero prompts should render as complete generated pages that can be shared, restored, and forked. Do not change provider logic except to pass through clearer full-page state. List every file you change.
+You own the full-surface morph runtime for the Viral Market Channels goal in docs/plans/viral-market-channels-goal.md. The focused launch channels must stop feeling like fixed dashboards with small generated overlays. Build or formalize a generated_page mode where a hero prompt transforms the whole channel page: title/thesis, global layout, primary stage, evidence rail, next prompts, avatar/control placement, depth stack, and share/replay state. Depth `0` is the original channel; every prompt/click mutation creates depth `1+` as a complete page state shown with `>`, `>>`, `>>>`, or an equivalent breadcrumb. Users must be able to click back to any prior depth, including the original. Support at least market_structure, ranked_board, and risk_radar page templates. Existing slot-based mutations can remain as fallback, but Crypto, Polyrec, and Meme hero prompts should render as complete generated pages that can be shared, restored, and forked into deeper states. Do not change provider logic except to pass through clearer full-page state. List every file you change.
 ```
 
 ## Final Decision Rule
@@ -2130,7 +2150,7 @@ You own the full-surface morph runtime for the Viral Market Channels goal in doc
 When scope conflicts arise, choose the path that improves:
 
 ```text
-first prompt -> visible morph -> share -> fork
+first prompt -> visible full-page depth -> back/share -> fork deeper
 ```
 
 Everything else is secondary until that loop works.

@@ -8,5 +8,6 @@ logs/
 run/
 recordings/
 /data/
+artifacts/
 .vercel
 .env*.local
