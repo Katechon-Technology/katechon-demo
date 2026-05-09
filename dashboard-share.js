@@ -29,7 +29,7 @@ const DASHBOARD_SHARE_CATALOG = {
   },
   polyrec: {
     label: "Polyrec",
-    description: "Prediction market terminal for BTC markets, oracle timing, order books, and backtesting.",
+    description: "Prediction-market intelligence boards from public Polymarket discovery data.",
   },
   biotech: {
     label: "Biotech",

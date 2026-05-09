@@ -333,6 +333,20 @@
     body.dashboard-fullscreen #kat-narrator {
       z-index: 24;
     }
+    body.dashboard-fullscreen #browser-avatar-wrap {
+      right: max(8px, env(safe-area-inset-right)) !important;
+      bottom: -8svh !important;
+      width: clamp(260px, 20vw, 430px) !important;
+      height: 58svh !important;
+      opacity: 0.82;
+    }
+    body.dashboard-fullscreen #kat-narrator {
+      right: auto !important;
+      left: 18px !important;
+      top: auto !important;
+      bottom: 18px !important;
+      width: min(360px, calc(100vw - 36px)) !important;
+    }
     .frame-bar {
       height: 32px;
       flex-shrink: 0;
@@ -1992,6 +2006,43 @@
       text-transform: uppercase;
       text-shadow: 0 0 14px rgba(0,0,0,0.84);
     }
+    .launch-card .gif-label {
+      bottom: 42px;
+      padding-bottom: 6px;
+    }
+    .launch-prompt-row {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 9px;
+      z-index: 4;
+      display: flex;
+      gap: 6px;
+      min-width: 0;
+    }
+    .launch-prompt-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 32px;
+      padding: 6px 8px;
+      border: 1px solid rgba(125,232,255,0.32);
+      border-radius: 6px;
+      background: rgba(3,7,10,0.72);
+      color: rgba(242,244,247,0.88);
+      font: 700 9px/1.1 monospace;
+      letter-spacing: 0;
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      box-shadow: 0 6px 22px rgba(0,0,0,0.24);
+    }
+    .launch-prompt-btn:hover,
+    .launch-prompt-btn:focus-visible {
+      border-color: rgba(0,232,123,0.72);
+      background: rgba(0,232,123,0.16);
+      outline: none;
+    }
 
     #mobile-gate {
       position: fixed;
@@ -2247,7 +2298,7 @@
   </div>
 
   <!-- landing: email input -->
-  <div id="email-overlay" class="overlay">
+  <div id="email-overlay" class="overlay hidden">
     <div class="email-card">
       <div class="window-row">
         <div class="modal-mark" aria-label="Katechon">
@@ -2268,12 +2319,12 @@
   </div>
 
   <!-- after email: title + gif thumbnails -->
-  <div id="main-overlay" class="overlay hidden" data-layout="showcase">
+  <div id="main-overlay" class="overlay" data-layout="showcase">
     <div class="main-head">
       <div>
         <div class="main-kicker"><span class="status-dot"></span>Katechon channels</div>
-        <div id="main-title" class="main-title" aria-live="polite">Katechon Technology</div>
-        <div class="main-sub">Live software channels you can watch, navigate, and act inside.</div>
+        <div id="main-title" class="main-title" aria-live="polite">Turn a market into a live channel.</div>
+        <div class="main-sub">Ask about crypto, prediction markets, or meme coins. Katechon builds a live software state you can share and fork.</div>
         <div class="layout-control-row">
           <button id="layout-toggle" type="button" title="Change channel layout">
             <span>View</span>
@@ -2290,7 +2341,7 @@
     <div class="main-divider"></div>
     <div class="gif-groups">
       <div class="gif-group">
-        <div class="dashboard-group-label">Featured channels</div>
+        <div class="dashboard-group-label">Market channels</div>
         <div class="gif-row gif-row-primary">
           <div class="gif-box channel-hero" onclick="switchWs('spectre')">
             <div class="tile-kicker">01 / OSINT</div>
@@ -2305,7 +2356,7 @@
         </div>
       </div>
       <div class="gif-group">
-        <div class="dashboard-group-label">Channel library</div>
+        <div class="dashboard-group-label">Labs drawer</div>
         <div class="gif-row gif-row-dashboard">
           <div class="gif-box channel-preview channel-open" onclick="switchWs('dashboard123')" aria-label="Market Pulse">
             <div class="tile-kicker">03 / MARKETS</div>
@@ -2667,7 +2718,7 @@
     const truthyPageParam = name => /^(1|true|yes)$/i.test(String(pageParams.get(name) || ''));
     const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
     const isLocalDevelopment = LOCAL_DEV_HOSTS.has(window.location.hostname) || window.location.protocol === 'file:';
-    const localDevSkipEntryGate = isLocalDevelopment && !truthyPageParam('login');
+    const localDevSkipEntryGate = !truthyPageParam('login');
     const localDevPauseAutoNarration = isLocalDevelopment && !truthyPageParam('narration');
     const motionParamValue = String(pageParams.get('motion') || pageParams.get('transitions') || '');
     const forceMotion = /^(1|true|yes)$/i.test(motionParamValue) ||
@@ -3310,8 +3361,18 @@
     const AVATAR_DESKTOP_MAX_WIDTH = 860;
     const AVATAR_DESKTOP_MEDIA = window.matchMedia('(min-width: 861px)');
 
-    function dashboardPrototypeUrl(id, params = {}) {
-      const query = new URLSearchParams({ dashboard: id, ...params });
+    function forwardedDashboardParams(options = {}) {
+      const forwarded = {};
+      ['channelShare', 'shareId', 'share', 'replay', 'demo'].forEach(key => {
+        const value = options[key] ?? pageParams.get(key);
+        if (value) forwarded[key] = value;
+      });
+      if (options.prompt) forwarded.prompt = options.prompt;
+      return forwarded;
+    }
+
+    function dashboardPrototypeUrl(id, params = {}, options = {}) {
+      const query = new URLSearchParams({ dashboard: id, ...params, ...forwardedDashboardParams(options) });
       return appUrl(`/dashboards/${id}/?${query.toString()}`);
     }
 
@@ -3321,7 +3382,7 @@
       ? DASHBOARD_CATALOG.channelOrder
       : Object.keys(CHANNELS);
 
-    function staticChannelUrl(id, channel) {
+    function staticChannelUrl(id, channel, options = {}) {
       const base = channel.path || `/dashboards/${id}/`;
       const [pathname, search = ''] = base.split('?');
       const query = new URLSearchParams(search);
@@ -3329,13 +3390,16 @@
         const value = pageParams.get(key);
         if (value && !query.has(key)) query.set(key, value);
       });
+      Object.entries(forwardedDashboardParams(options)).forEach(([key, value]) => {
+        if (value && !query.has(key)) query.set(key, value);
+      });
       const suffix = query.toString();
       return appUrl(`${pathname}${suffix ? `?${suffix}` : ''}`);
     }
 
-    function channelUrl(id, channel) {
-      if (channel.route === 'static') return staticChannelUrl(id, channel);
-      return dashboardPrototypeUrl(id, channel.params || {});
+    function channelUrl(id, channel, options = {}) {
+      if (channel.route === 'static') return staticChannelUrl(id, channel, options);
+      return dashboardPrototypeUrl(id, channel.params || {}, options);
     }
 
     const DASHBOARDS = Object.fromEntries(CHANNEL_ORDER
@@ -3344,7 +3408,7 @@
         const channel = CHANNELS[id];
         return [id, {
           ...channel,
-          url: () => channelUrl(id, channel),
+          url: (options = {}) => channelUrl(id, channel, options),
         }];
       }));
 
@@ -3356,6 +3420,35 @@
         '"': '&quot;',
         "'": '&#39;',
       })[char]);
+    }
+
+    const launchSessionId = (() => {
+      try {
+        const key = 'katechon.launchSessionId';
+        const existing = sessionStorage.getItem(key);
+        if (existing) return existing;
+        const next = `launch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        sessionStorage.setItem(key, next);
+        return next;
+      } catch (_) {
+        return `launch-${Date.now().toString(36)}`;
+      }
+    })();
+
+    function trackLaunchEvent(type, detail = {}) {
+      fetch(appUrl('/api/launch-events'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          sessionId: launchSessionId,
+          channelId: detail.channelId,
+          shareId: detail.shareId || pageParams.get('channelShare') || pageParams.get('shareId') || pageParams.get('share') || '',
+          prompt: detail.prompt || '',
+          source: detail.source || 'launch',
+          detail,
+        }),
+      }).catch(() => {});
     }
 
     function pickerPreviewHtml(previewTitle) {
@@ -3381,18 +3474,29 @@
       return `<video data-src="${src}" aria-label="${aria}" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>`;
     }
 
+    function launchPromptsHtml(id, channel) {
+      const prompts = Array.isArray(channel.heroPrompts) ? channel.heroPrompts.slice(0, 3) : [];
+      if (!prompts.length) return '';
+      return `<div class="launch-prompt-row">${prompts.map((entry) => {
+        const prompt = typeof entry === 'string' ? entry : entry.prompt || entry.label || '';
+        const label = typeof entry === 'string' ? entry : entry.label || entry.prompt || '';
+        return `<button class="launch-prompt-btn" type="button" data-launch-channel="${escapePickerHtml(id)}" data-launch-prompt="${escapePickerHtml(prompt)}">${escapePickerHtml(label)}</button>`;
+      }).join('')}</div>`;
+    }
+
     function pickerTileHtml(id, channel) {
       const tile = channel.tile || {};
       const label = channel.label || id;
       const classes = tile.variant === 'hero'
         ? 'gif-box channel-hero'
-        : 'gif-box channel-preview channel-open';
+        : `gif-box channel-preview channel-open${tile.variant === 'launch' ? ' launch-card' : ''}`;
       return `
         <div class="${classes}" data-channel-id="${escapePickerHtml(id)}" aria-label="${escapePickerHtml(tile.ariaLabel || label)}">
           <div class="tile-kicker">${escapePickerHtml(tile.kicker || channel.channel || label)}</div>
           ${pickerPreviewHtml(tile.previewTitle)}
           ${pickerMediaHtml(tile.media, label)}
           <div class="gif-label">${escapePickerHtml(label)}</div>
+          ${tile.group === 'primary' ? launchPromptsHtml(id, channel) : ''}
         </div>
       `;
     }
@@ -3415,11 +3519,24 @@
       primaryRow.innerHTML = primary.join('');
       dashboardRow.innerHTML = dashboard.join('');
       document.querySelectorAll('[data-channel-id]').forEach(tile => {
-        tile.addEventListener('click', () => switchWs(tile.dataset.channelId));
+        tile.addEventListener('click', (event) => {
+          const promptButton = event.target.closest('[data-launch-prompt]');
+          if (promptButton) {
+            event.stopPropagation();
+            const channelId = promptButton.dataset.launchChannel || tile.dataset.channelId;
+            const prompt = promptButton.dataset.launchPrompt || '';
+            trackLaunchEvent('prompt_clicked', { channelId, prompt, source: 'launch-card' });
+            openDashboard(channelId, { prompt, fullscreen: true, skipNarration: true });
+            return;
+          }
+          switchWs(tile.dataset.channelId);
+        });
       });
     }
 
     renderChannelPicker();
+    trackLaunchEvent('visit', { source: 'landing' });
+    trackLaunchEvent('focused_launch_viewed', { source: 'landing' });
     const DASHBOARD_LAUNCH_PARAM_KEYS = ['dashboard', 'channel', 'watch'];
 
     function requestedDashboardId() {
@@ -4778,8 +4895,13 @@
       currentDashboardId = workspace;
       clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
-      const url = dashboard.url();
+      const url = dashboard.url(options);
       const rapidNavigation = options.rapid === true;
+      trackLaunchEvent('channel_opened', {
+        channelId: workspace,
+        prompt: options.prompt || '',
+        source: options.prompt ? 'launch-prompt' : options.sharedLaunch ? 'share' : 'launch',
+      });
       scheduleRemoteWorkspaceSwitch(workspace, rapidNavigation);
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
       updateDashboardPosition();

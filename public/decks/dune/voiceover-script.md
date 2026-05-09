@@ -2,24 +2,36 @@
 
 Source of truth: `deck.json`. Run `npm run dune:voiceover` after changing narration copy.
 
-Target runtime: 64-74 seconds total
+Target runtime: 80-95 seconds total
 
 ## Slide 1
 
-Katechon founder Simon Judd helped grow Index Coop to five hundred million dollars in AUM and raise ten million dollars. He then spent three years deep in GPU acceleration, cryptography, and computer science at Ingonyama and EPFL. That mix of distribution and systems depth is why Katechon exists.
+The framing is simple: the internet container is changing. Pages were fixed documents. Feeds were streams of posts. Channels are live software objects that people can watch, talk to, and reshape.
 
 ## Slide 2
 
-The iPhone made photos functionally infinite, and Instagram made them living objects. AI is doing the same to code: software can now be generated continuously, in real time, around what each user wants to understand or do.
+A Katechon channel is not a video channel. It is a live software object: inputs, outputs, a specialist agent, memory, state, and a surface that can change.
 
 ## Slide 3
 
-Today that software has no native container. People vibe-code dashboards for major events, then post screenshots and videos. Katechon keeps the dashboard alive so the next viewer can inspect it, personalize it, and act inside it.
+Kat is the face and continuity layer. Underneath, specialist agents do the actual channel work: markets, OSINT, news, science, infrastructure, and anything else the user opens.
 
 ## Slide 4
 
-In this demo, every dashboard and board is treated as software materializing in real time as the user navigates: intelligence rooms, markets, agents, science, and culture, all shaped by user interest and narrated by Kat.
+Mutable is the key unlock. The user does not adapt to the dashboard. The channel adapts to the user: focus, data, layout, surfaces, and next actions all move together.
 
 ## Slide 5
 
-Every new media format made its biggest company at discovery. As users watch and use Katechon, we learn which models, prompts, tools, states, and intents become software channels. And because wallets and transactions can live inside those channels, Katechon is a natural distribution layer for crypto trading, prediction markets, and token launchpads.
+A dashboard becomes a surface. The stage can be replaced, the rail can explain context, and action blocks can appear without losing the channel's state.
+
+## Slide 6
+
+Every meaningful turn becomes a state transition. The runtime parses intent, updates channel state, queries data, chooses a layout, replaces surfaces, and tells the user what changed.
+
+## Slide 7
+
+For example: BTC over three months. The crypto channel turns that phrase into a real investigation: it queries data, renders history, labels provenance, and offers the next useful moves.
+
+## Slide 8
+
+This is the future Katechon is building toward. Discovery stops being only links to pages or videos. It becomes routing people into useful live software states: things they watch, modify, command, and act inside.

@@ -1,93 +1,117 @@
 {
   "title": "Katechon Technology",
-  "description": "Katechon Technology pitch cut for Dune Ventures.",
-  "targetRuntime": "64-74 seconds total",
-  "assetVersion": "technology-deck-r5",
-  "visuals": [
-    {
-      "slug": "header",
-      "file": "assets/visuals/00-dashboard-header.jpg",
-      "prompt": "Cinematic 16:9 dashboard header for the Katechon Technology fundraise deck: live software channels arranged like a premium media control room, luminous application surfaces, avatar narration energy suggested through abstract signal waves, dark full-bleed investor demo aesthetic, refined red ember and emerald signal accents, no readable text, no logos, no watermark"
-    }
-  ],
+  "description": "Katechon Technology visual explainer for Dune Ventures.",
+  "targetRuntime": "80-95 seconds total",
+  "assetVersion": "technology-deck-r7",
   "slides": [
     {
-      "slug": "dune-01",
-      "eyebrow": "Founder-market fit",
-      "headline": "Simon Judd built for this moment.",
-      "line": "Index Coop scale, GPU cryptography, and EPFL systems research led to Katechon.",
+      "slug": "dune-01-shift",
+      "eyebrow": "Internet container",
+      "headline": "Pages ->\nChannels",
+      "line": "Static becomes live.",
+      "copyClass": "minimal",
       "image": "assets/visuals/00-dashboard-header.jpg",
-      "audio": "assets/narration/dune-01-founder-v2.mp3",
-      "narration": "Katechon founder Simon Judd helped grow Index Coop to five hundred million dollars in AUM and raise ten million dollars. He then spent three years deep in GPU acceleration, cryptography, and computer science at Ingonyama and EPFL. That mix of distribution and systems depth is why Katechon exists.",
-      "visualPrompt": "Cinematic 16:9 dashboard header for the Katechon Technology fundraise deck: live software channels arranged like a premium media control room, luminous application surfaces, avatar narration energy suggested through abstract signal waves, dark full-bleed investor demo aesthetic, refined red ember and emerald signal accents, no readable text, no logos, no watermark"
+      "narration": "The framing is simple: the internet container is changing. Pages were fixed documents. Feeds were streams of posts. Channels are live software objects that people can watch, talk to, and reshape.",
+      "primitive": {
+        "type": "shift",
+        "labels": ["PAGE", "FEED", "CHANNEL"]
+      }
     },
     {
-      "slug": "dune-02",
-      "eyebrow": "Inflection",
-      "headline": "Code hit the camera moment.",
-      "line": "AI makes software cheap enough to generate continuously around user interests.",
-      "copyClass": "compact",
+      "slug": "dune-02-channel",
+      "eyebrow": "Channel",
+      "headline": "Agent + I/O\n+ Surface",
+      "line": "",
+      "copyClass": "minimal",
       "image": "assets/visuals/01-live-software-channel.jpg",
-      "audio": "assets/narration/dune-02-inflection-v2.mp3",
-      "narration": "The iPhone made photos functionally infinite, and Instagram made them living objects. AI is doing the same to code: software can now be generated continuously, in real time, around what each user wants to understand or do.",
-      "visualPrompt": "Wide cinematic background for the inflection where software becomes content. A luminous semi-abstract field of generated application surfaces emerging like media cards from a bright model core, airy futuristic sci-fi composition, deep space with blue-black depth but not heavy or muddy, refined emerald, red ember, amber, and blue signal accents, premium interactive media aesthetic, crisp glass interface fragments. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
+      "narration": "A Katechon channel is not a video channel. It is a live software object: inputs, outputs, a specialist agent, memory, state, and a surface that can change.",
+      "primitive": {
+        "type": "channelObject",
+        "center": "CHANNEL",
+        "nodes": ["I/O", "AGENT", "STATE", "SURFACE", "MEMORY"]
+      }
     },
     {
-      "slug": "dune-03",
-      "eyebrow": "The gap",
-      "headline": "Screenshots are the wrong container.",
-      "line": "The dashboards people share should stay live, personalized, and actionable.",
-      "image": "assets/visuals/03-state-not-pixels.jpg",
-      "audio": "assets/narration/dune-03-container-v2.mp3",
-      "narration": "Today that software has no native container. People vibe-code dashboards for major events, then post screenshots and videos. Katechon keeps the dashboard alive so the next viewer can inspect it, personalize it, and act inside it.",
-      "stateRail": [
-        "inspectable",
-        "personalized",
-        "recomposable",
-        "actionable"
-      ],
-      "visualPrompt": "Wide cinematic background showing the difference between a flat recording and live structured software state. Semi-abstract layers of transparent data objects, nodes, state graphs, and recomposable interface planes unfolding in depth, with a faint dissolving pixel field in the background. Futuristic sci-fi but elegant and bright enough to feel premium, not heavy, not dense. Emerald, blue, amber, and red ember signal accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
-    },
-    {
-      "slug": "dune-04",
-      "eyebrow": "Katechon Technology",
-      "headline": "Live software channels.",
-      "line": "Each channel materializes as code when the user navigates to it.",
-      "copyClass": "compact",
+      "slug": "dune-03-agents",
+      "eyebrow": "Avatars / agents",
+      "headline": "Kat routes\nexpertise.",
+      "line": "",
+      "copyClass": "minimal",
       "image": "assets/visuals/02-interactive-media.jpg",
-      "audio": "assets/narration/dune-04-channels-v2.mp3",
-      "narration": "In this demo, every dashboard and board is treated as software materializing in real time as the user navigates: intelligence rooms, markets, agents, science, and culture, all shaped by user interest and narrated by Kat.",
-      "visualPrompt": "Wide cinematic background for live software channels. Semi-abstract futuristic media surface, floating channel panes, game-like state arcs, narrator energy represented as a clean luminous voice waveform, feels like interactive media rather than enterprise dashboard SaaS. Spacious, elegant, high-contrast, not cluttered, not a dark cockpit, not heavy. Blue-black sci-fi depth with emerald, red ember, amber, and soft cyan accents. Keep the left third quiet and dark for overlay copy, with no marks in that area. No readable text, no letters, no numbers, no symbols, no UI labels, no typography, no logos, no watermark, no people"
+      "narration": "Kat is the face and continuity layer. Underneath, specialist agents do the actual channel work: markets, OSINT, news, science, infrastructure, and anything else the user opens.",
+      "primitive": {
+        "type": "agentMesh",
+        "center": "KAT",
+        "agents": ["MARKETS", "OSINT", "NEWS", "GRID", "SCIENCE", "CULTURE"]
+      }
     },
     {
-      "slug": "dune-05",
-      "eyebrow": "The prize",
-      "headline": "Own discovery for generated software.",
-      "line": "Crypto trading, prediction markets, and token launchpads become native channel actions.",
-      "copyClass": "end",
+      "slug": "dune-04-mutable",
+      "eyebrow": "Mutable",
+      "headline": "The surface\nchanges.",
+      "line": "",
+      "copyClass": "minimal",
+      "image": "assets/visuals/03-state-not-pixels.jpg",
+      "narration": "Mutable is the key unlock. The user does not adapt to the dashboard. The channel adapts to the user: focus, data, layout, surfaces, and next actions all move together.",
+      "primitive": {
+        "type": "mutableSurface",
+        "command": "ASK",
+        "states": ["FOCUS", "DATA", "LAYOUT", "ACTION"]
+      }
+    },
+    {
+      "slug": "dune-05-dashboard",
+      "eyebrow": "Dashboard",
+      "headline": "Surface, not\ndestination.",
+      "line": "",
+      "copyClass": "minimal",
+      "image": "assets/visuals/00-dashboard-header.jpg",
+      "narration": "A dashboard becomes a surface. The stage can be replaced, the rail can explain context, and action blocks can appear without losing the channel's state.",
+      "primitive": {
+        "type": "dashboardSurface",
+        "zones": ["STAGE", "RAIL", "MODAL", "ACTIONS"]
+      }
+    },
+    {
+      "slug": "dune-06-turn",
+      "eyebrow": "Runtime",
+      "headline": "One turn ->\nnew state",
+      "line": "",
+      "copyClass": "minimal",
+      "image": "assets/visuals/03-state-not-pixels.jpg",
+      "narration": "Every meaningful turn becomes a state transition. The runtime parses intent, updates channel state, queries data, chooses a layout, replaces surfaces, and tells the user what changed.",
+      "primitive": {
+        "type": "turnFlow",
+        "steps": ["INTENT", "STATE", "QUERY", "LAYOUT", "SURFACE"]
+      }
+    },
+    {
+      "slug": "dune-07-command",
+      "eyebrow": "Command",
+      "headline": "BTC / 3M",
+      "line": "Watch it become software.",
+      "copyClass": "minimal",
+      "image": "assets/visuals/04-dune-fit.jpg",
+      "narration": "For example: BTC over three months. The crypto channel turns that phrase into a real investigation: it queries data, renders history, labels provenance, and offers the next useful moves.",
+      "primitive": {
+        "type": "liveExample",
+        "command": "BTC 3M",
+        "signals": ["QUERY", "CHART", "PROVENANCE", "NEXT"]
+      }
+    },
+    {
+      "slug": "dune-08-discovery",
+      "eyebrow": "Future internet",
+      "headline": "Useful states,\nnot links.",
+      "line": "",
+      "copyClass": "minimal end",
       "image": "assets/visuals/04-software-feed.jpg",
-      "imageAlt": "A cinematic software feed control plane connecting frontier model cores to live software channels and audience signals.",
-      "audio": "assets/narration/dune-05-monetization-v2.mp3",
-      "narration": "Every new media format made its biggest company at discovery. As users watch and use Katechon, we learn which models, prompts, tools, states, and intents become software channels. And because wallets and transactions can live inside those channels, Katechon is a natural distribution layer for crypto trading, prediction markets, and token launchpads.",
-      "lineage": [
-        {
-          "format": "websites",
-          "owner": "Google"
-        },
-        {
-          "format": "photos",
-          "owner": "Instagram"
-        },
-        {
-          "format": "video",
-          "owner": "TikTok"
-        },
-        {
-          "format": "software",
-          "owner": "Katechon"
-        }
-      ],
-      "visualPrompt": "Wide cinematic investor deck background, not an infographic. A colossal black-glass recommendation engine floats in deep space, routing luminous streams from frontier-model energy cores into thousands of live software-channel constellations. Abstract feed-era motifs appear only as unlabeled energy shapes: a red link mesh, a blue tile cloud, and amber vertical light columns. The whole scene feels like owning the algorithmic layer between models and users. Deep scale, crisp technical realism, premium dark environment, refined red ember, emerald signal, blue intelligence, amber opportunity accents. No captions, no typography, no readable UI, no logos, no people, no faces, 16:9 composition"
+      "narration": "This is the future Katechon is building toward. Discovery stops being only links to pages or videos. It becomes routing people into useful live software states: things they watch, modify, command, and act inside.",
+      "primitive": {
+        "type": "discoveryMap",
+        "center": "CHANNEL GRAPH",
+        "actions": ["WATCH", "MODIFY", "COMMAND", "ACT"]
+      }
     }
   ]
 }
