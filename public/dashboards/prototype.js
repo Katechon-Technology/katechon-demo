@@ -44,6 +44,7 @@
       commandStatus: "",
       lastPrompt: config.primaryPrompt || "",
       currentShareId: channelShareId || "",
+      headline: null,
     };
     const katTarget = {
       mode: false,
@@ -319,8 +320,24 @@
         state.feed = Array.isArray(config.feed) ? config.feed.map((item) => Array.isArray(item) ? [...item] : item) : state.feed;
       }
       if (payload.generated) state.generated = normalizeGeneratedDashboard(payload.generated);
+      applyDynamicHeadline(payload.state?.headline || payload.update?.headline || (patch.title ? { title: patch.title } : null), { force: true });
       state.activeFeed = 0;
       if (payload.narration) state.commandStatus = payload.narration;
+    }
+
+    function applyDynamicHeadline(headline, options = {}) {
+      const title = String(headline?.title || "").replace(/\s+/g, " ").trim().slice(0, 80);
+      if (!title) return false;
+      const sameTitle = state.headline?.title === title;
+      state.headline = { ...(headline || {}), title };
+      if (sameTitle && !options.force) return false;
+      config = { ...config, title };
+      const page = activeGeneratedPage();
+      if (page?.thesis) page.thesis.title = title;
+      document.title = `${title} - Katechon`;
+      const titleNode = $("title");
+      if (titleNode) titleNode.textContent = title;
+      return true;
     }
 
     function serializeKatTarget(target) {
@@ -762,6 +779,9 @@
       { field: "polymarketMarkets", label: "AI market odds", singular: "market", provider: "Polymarket" },
       { field: "marketSignals", label: "market signals", singular: "signal", provider: "Polymarket" },
       { field: "divergence", label: "benchmark-market divergence", singular: "signal", provider: "Arena SOTA" },
+      { field: "technologyStack", label: "technology stack", singular: "layer", provider: "Katechon" },
+      { field: "runtimeLoop", label: "runtime loop", singular: "step", provider: "Katechon" },
+      { field: "contentSeeds", label: "content seeds", singular: "seed", provider: "Katechon" },
     ];
 
     function liveCollectionFromData(data = state.livePayload?.data || {}, fieldHint = "") {
@@ -786,6 +806,8 @@
         row?.question ||
         row?.modelName ||
         row?.boardLabel ||
+        row?.layer ||
+        row?.step ||
         row?.entity ||
         row?.name ||
         row?.briefTitle ||
@@ -800,6 +822,8 @@
       return compactLiveText(
         row?.domain ||
         row?.organization ||
+        row?.role ||
+        row?.detail ||
         row?.entity ||
         row?.source ||
         row?.sourceCountry ||
@@ -822,6 +846,8 @@
       return compactLiveText(
         row?.domain ||
         row?.organization ||
+        row?.role ||
+        row?.detail ||
         row?.entity ||
         row?.source ||
         row?.sourceCountry ||
@@ -884,6 +910,9 @@
       }
       if (collection.field === "runs") return statusScore(row.conclusion || row.status) - index;
       if (collection.field === "slides") return numericValue(row.index) + 1 || index + 1;
+      if (collection.field === "technologyStack") return Math.max(16, 92 - index * 10);
+      if (collection.field === "runtimeLoop") return Math.max(16, 84 - index * 8);
+      if (collection.field === "contentSeeds") return Math.max(16, 76 - index * 7);
       if (collection.field === "arenaBoards") return numericValue(row.leaders?.[0]?.rating || row.visibleRows || row.modelCount) || Math.max(1, total - index);
       if (collection.field === "frontierModels" || collection.field === "capabilityMatrix") return numericValue(row.topThreeCount) * 20 + numericValue(row.topTenCount) * 4 + Math.max(0, 20 - numericValue(row.avgRank));
       if (collection.field === "polymarketMarkets") return numericValue(row.yesPct ?? row.yes) || Math.max(1, total - index);
@@ -916,6 +945,9 @@
       if (collection.field === "hn" && row.points !== undefined) return `${Math.round(numericValue(row.points))} pts`;
       if (collection.field === "datasets") return compactLiveText(row.updatedAt || row.domain || "dataset", 34);
       if (collection.field === "slides") return `slide ${numericValue(row.index) + 1 || index + 1}`;
+      if (collection.field === "technologyStack") return compactLiveText(row.status || "layer", 34);
+      if (collection.field === "runtimeLoop") return compactLiveText(row.signal || "step", 34);
+      if (collection.field === "contentSeeds") return compactLiveText(row.status || row.source || "seed", 34);
       if (collection.field === "arenaBoards") return row.leaders?.[0]?.modelName ? `#1 ${compactLiveText(row.leaders[0].modelName, 28)}` : "board";
       if (collection.field === "frontierModels" || collection.field === "capabilityMatrix") return row.bestRank ? `best #${row.bestRank}` : `${numericValue(row.topTenCount)} top-10`;
       if (collection.field === "polymarketMarkets") return `${Math.round(numericValue(row.yesPct ?? row.yes) || 0)}% YES`;
@@ -929,6 +961,7 @@
       if (collection.field === "objects" && value > 1800) return Math.max(10, Math.min(100, 24 + (value - 1990) * 2));
       if (collection.field === "sensors" && value > 100) return Math.max(8, Math.min(100, value / 12));
       if (collection.field === "slides") return Math.max(10, Math.min(100, (index + 1) / Math.max(1, total) * 100));
+      if (collection.field === "technologyStack" || collection.field === "runtimeLoop" || collection.field === "contentSeeds") return Math.max(16, Math.min(100, value));
       return Math.max(8, Math.min(100, value));
     }
 
@@ -1020,6 +1053,7 @@
         "gridops": { label: "load %", lo: 32, hi: 92, unit: "%" },
         "viralnet": { label: "active R0", lo: 60, hi: 180, unit: "" },
         "darkwatch": { label: "σ deviation", lo: 0, hi: 4, unit: "σ" },
+        "katechon-system": { label: "runtime depth", lo: 12, hi: 96, unit: "" },
       };
       return map[config.scene] || { label: "channel signal", lo: 14, hi: 86, unit: "" };
     }
@@ -1732,7 +1766,7 @@
       const data = component._chartPayload?.data || state.livePayload?.data || {};
       if (Array.isArray(chart.data) && chart.data.length) return chart.data.slice(0, 96);
 
-      const liveCollectionMatch = String(binding).match(/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|arenaBoards|frontierModels|capabilityMatrix|polymarketMarkets|marketSignals|divergence|records)$/);
+      const liveCollectionMatch = String(binding).match(/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|arenaBoards|frontierModels|capabilityMatrix|polymarketMarkets|marketSignals|divergence|technologyStack|runtimeLoop|contentSeeds|records)$/);
       if (liveCollectionMatch) {
         const collection = liveCollectionFromData(data, liveCollectionMatch[1] === "records" ? "" : liveCollectionMatch[1]);
         return liveCollectionChartRows(collection);
@@ -1885,7 +1919,7 @@
       if (binding === "liveData.tokens") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "change" };
       if (binding === "liveData.fuelMix") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "value" };
       if (binding === "liveData.corridors") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "stressPct" };
-      if (/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|records)$/.test(binding)) return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
+      if (/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|technologyStack|runtimeLoop|contentSeeds|records)$/.test(binding)) return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
       const first = rows[0] || {};
       return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || (Object.prototype.hasOwnProperty.call(first, "value") ? "value" : "index") };
     }
@@ -2556,6 +2590,7 @@
         darkwatch: "catalog signal",
         arena: "match signal",
         meme: "social signal",
+        "katechon-system": "platform signal",
       };
       return labels[scene] || "signal sketch";
     }
@@ -2575,6 +2610,7 @@
       if (scene === "darkwatch") return `${miniNodes(32, "mini-star")}<div class="mini-silence"></div>`;
       if (scene === "arena") return `${miniSignalStack(4)}<div class="mini-gauge"></div>`;
       if (scene === "meme") return `<div class="mini-line-chart"></div>${miniNodes(20, "mini-person")}${miniLinks(8, "mini-link")}`;
+      if (scene === "katechon-system") return `${miniSignalStack(5)}${miniNodes(12, "mini-map-node")}${miniLinks(9, "mini-link")}<div class="mini-gauge"></div>`;
       return `${miniNodes(10, "mini-map-node")}${miniLinks(7, "mini-map-line")}<div class="mini-gauge"></div>`;
     }
 
@@ -2695,6 +2731,7 @@
         gridops: renderGridOps,
         viralnet: renderViralNet,
         darkwatch: renderDarkWatch,
+        "katechon-system": renderKatechonSystem,
       };
       return (renderers[scene] || renderCommandMap)();
     }
@@ -2960,6 +2997,76 @@
       </div>`;
     }
 
+    function renderKatechonSystem() {
+      const data = state.livePayload?.data || {};
+      const stack = (Array.isArray(data.technologyStack) && data.technologyStack.length
+        ? data.technologyStack
+        : [
+          { layer: "Channel runtime", role: "Normalized state, manifest, query, update, share, and replay routes.", status: "active" },
+          { layer: "Kat continuity", role: "Voice-native guide that routes across channel agents and explains state.", status: "active" },
+          { layer: "Specialist agents", role: "Domain planners for data, layouts, components, and provenance.", status: "scoped" },
+          { layer: "Mutable surfaces", role: "Stage, rail, modal, evidence, and action slots replaced by validated specs.", status: "live" },
+          { layer: "Share graph", role: "Replayable and forkable channel states instead of screenshots.", status: "building" },
+        ]).slice(0, 6);
+      const loop = (Array.isArray(data.runtimeLoop) && data.runtimeLoop.length
+        ? data.runtimeLoop
+        : [
+          { step: "Watch", detail: "Open a channel and read current state.", signal: "live" },
+          { step: "Command", detail: "Ask Kat for a sharper question or surface.", signal: "voice" },
+          { step: "Query", detail: "Use channel capabilities against normalized data.", signal: "tools" },
+          { step: "Morph", detail: "Replace the surface with validated components.", signal: "surface" },
+          { step: "Share", detail: "Persist, replay, and fork the software state.", signal: "graph" },
+        ]).slice(0, 6);
+      const seeds = (Array.isArray(data.contentSeeds) && data.contentSeeds.length
+        ? data.contentSeeds
+        : state.feed.map((item) => ({ title: item[1], source: item[2], status: item[0] }))).slice(0, 5);
+      const stackRows = stack.map((item, index) => rankedRowHtml({
+        name: item.layer || item.title || `layer ${index + 1}`,
+        source: item.role || item.detail || "Katechon runtime",
+        delta: item.status || item.signal || "ready",
+        barPct: 92 - index * 9,
+        spark: Array.from({ length: 14 }, (_, j) => seededValue(index * 17 + j, 28, 94)),
+      })).join("");
+      const loopRows = loop.map((item, index) => `
+        <article class="rank-row" style="grid-template-columns:minmax(0,0.55fr) minmax(0,1.45fr) auto;">
+          <div class="rk-name">${escapeHtml(item.step || item.layer || `step ${index + 1}`)}<span class="rk-source">${escapeHtml(item.signal || item.status || "runtime")}</span></div>
+          <div class="rk-name">${escapeHtml(item.detail || item.role || "state transition")}<span class="rk-source">${escapeHtml(index === 0 ? "entry" : `phase ${index + 1}`)}</span></div>
+          <div class="rk-delta">${String(index + 1).padStart(2, "0")}</div>
+        </article>
+      `).join("");
+      const seedRows = seeds.map((seed, index) => `
+        <article class="rank-row" style="grid-template-columns:minmax(0,1.25fr) auto;">
+          <div class="rk-name">${escapeHtml(seed.title || seed.headline || seed.layer || `content seed ${index + 1}`)}<span class="rk-source">${escapeHtml(seed.source || seed.status || seed.slug || "Katechon")}</span></div>
+          <div class="rk-delta">${escapeHtml(seed.status || seed.signal || "ready")}</div>
+        </article>
+      `).join("");
+      return `<div class="dense-scene with-aside">
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">channel technology stack</span>
+            <span class="dense-panel-meta">${stack.length} layers · platform object</span>
+          </div>
+          <div class="dense-panel-body" style="grid-template-rows:minmax(0,1fr) auto;gap:8px;">
+            <div class="rank-list">${stackRows}</div>
+            <div class="heat-strip">
+              ${heatStripRowHtml("state continuity", Array.from({ length: 24 }, (_, i) => seededValue(i + 310, 28, 100)))}
+              ${heatStripRowHtml("surface mutation", Array.from({ length: 24 }, (_, i) => seededValue(i + 340, 18, 100)))}
+            </div>
+          </div>
+        </section>
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">watch · command · share</span>
+            <span class="dense-panel-meta">${loop.length} runtime steps</span>
+          </div>
+          <div class="dense-panel-body rank-list">
+            ${loopRows}
+            ${seedRows}
+          </div>
+        </section>
+      </div>`;
+    }
+
     function renderOrderbook() {
       // Crypto Trading: depth ladder bound to livePayload.book + price + tape.
       const data = state.livePayload?.data || {};
@@ -3200,7 +3307,11 @@
     }
 
     async function fetchLivePayload() {
-      const channelUrl = `/api/channels/${encodeURIComponent(dashboardId)}/live?dashboard=${encodeURIComponent(dashboardId)}`;
+      const query = new URLSearchParams({
+        dashboard: dashboardId,
+        sessionId: `prototype-${dashboardId}`,
+      });
+      const channelUrl = `/api/channels/${encodeURIComponent(dashboardId)}/live?${query.toString()}`;
       try {
         const resp = await fetch(appUrl(channelUrl), { cache: "no-store" });
         if (!resp.ok) throw new Error(`channel ${resp.status}`);
@@ -3216,6 +3327,7 @@
     function applyLivePayload(payload) {
       const data = payload && payload.data;
       if (!data) return;
+      const headlineChanged = applyDynamicHeadline(payload.headline);
       const provider = String(payload.liveProvider || payload.provider || config.api || payload.source || "").replace(/-synthetic$/, "");
       if (provider === "hyperliquid") applyHyperliquidData(data);
       else if (provider === "polymarket") applyPolymarketData(data);
@@ -3227,6 +3339,8 @@
       renderGeneratedRail();
       renderStage();
       renderMiniVisual();
+      renderStageThesis();
+      if (headlineChanged) renderGeneratedPage();
       animate(".metric, .feed-item.active", { scale: [1, 1.025, 1], duration: 520, ease: "out(3)" });
     }
 

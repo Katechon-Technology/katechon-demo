@@ -401,12 +401,13 @@
     }
     .generated-page-stage-body.has-chart .generated-component {
       min-height: 0;
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+      display: flex;
+      flex-direction: column;
     }
     .generated-page-stage-body.has-chart .generated-chart-shell {
+      flex: 1 1 220px;
       height: auto;
-      min-height: 0;
+      min-height: 220px;
     }
     .generated-page-actions {
       display: flex;
@@ -3631,7 +3632,7 @@
       h1 { font-size: 32px; }
       .generated-page { min-height: 720px; overflow: visible; }
       .generated-page-head { align-items: stretch; }
-      .generated-page-stage-body.has-chart .generated-chart-shell { min-height: 300px; }
+      .generated-page-stage-body.has-chart .generated-chart-shell { flex-basis: 240px; min-height: 220px; }
       .generated-page-rail { overflow: visible; }
       .generated-page-share { margin-left: 0; }
       .metrics { grid-template-columns: 1fr; }

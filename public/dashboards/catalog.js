@@ -11,6 +11,7 @@
     grid: ["#f9e66e", "#62ffbd", "#ff705f", "#070807", "#16170c"],
     dark: ["#b7c7ff", "#7dffdf", "#ff7b7b", "#020308", "#090b18"],
     meme: ["#ff4fd8", "#ffe66d", "#62ffbd", "#100409", "#1d0c18"],
+    katechon: ["#00e87b", "#7de8ff", "#f4d35e", "#030506", "#10151b"],
   };
 
   const dashboards = {
@@ -434,6 +435,38 @@
         ["58m", "The board logged absence before assigning cause.", "discipline"],
       ],
       caption: "Kat keeps Dark Forest measured: what should be here, what is absent, and what deviates.",
+    },
+    "dune-deck": {
+      palette: "katechon",
+      scene: "katechon-system",
+      api: null,
+      asset: "share-thumbnails/dune-deck.jpg",
+      kicker: "katechon technology / channel layer",
+      title: "Katechon Technology",
+      subtitle: "A platform summary channel for the live software object model: channel runtime, Kat, specialist agents, mutable surfaces, and share/fork state.",
+      primaryPrompt: "Generate a deeper Katechon technology explainer",
+      commandPlaceholder: "Ask for architecture, runtime loop, agents, moat, product wedge, or investor proof",
+      promptPlaceholder: "Ask for architecture, runtime loop, agents, moat, product wedge, or investor proof",
+      heroPrompts: [
+        "Generate a deeper Katechon technology explainer",
+        "Show the channel runtime architecture",
+        "Turn this into an investor proof board",
+        "Map Kat and specialist channel agents",
+      ],
+      visualLabel: "live software channel stack",
+      visualCopy: "Channel runtime, state, data providers, Kat, specialist agents, generated surfaces, and share/fork history stay visible as one operating model.",
+      feedLabel: "technology brief",
+      lens: "channel layer",
+      tabs: ["Runtime", "Agents", "Surfaces", "Proof"],
+      metrics: [["Channels", "18", "sequence"], ["Runtime", "v1", "channel API"], ["Surfaces", "5", "mutable slots"]],
+      feed: [
+        ["now", "Katechon packages generated software as stateful channels that can be watched, commanded, shared, and forked.", "object model"],
+        ["02m", "Kat remains the continuity layer while specialist channel agents own domain context and surface composition.", "agent routing"],
+        ["05m", "The dashboard runtime reads normalized channel state instead of one-off app integrations.", "runtime API"],
+        ["08m", "Generated content lands as validated channel surfaces with provenance, not arbitrary page code.", "safe mutation"],
+        ["12m", "The old slide deck now becomes source material for a live Katechon technology channel.", "content seed"],
+      ],
+      caption: "Kat reads Katechon as the platform channel: what the technology is, how it works, and which artifact we should generate next.",
     },
   };
 
@@ -899,18 +932,18 @@
     },
     "dune-deck": {
       label: "Katechon Technology",
-      title: "// DECK - KATECHON TECHNOLOGY",
+      title: "// KATECHON - TECHNOLOGY CHANNEL",
       channel: "18 / KATECHON",
-      route: "static",
-      path: "/dashboards/dune-deck/?embed=dashboard",
-      narration: false,
-      deckNarration: true,
-      deckNarrationFiles: [
-        "dune-01-founder-v2",
-        "dune-02-inflection-v2",
-        "dune-03-container-v2",
-        "dune-04-channels-v2",
-        "dune-05-monetization-v2",
+      route: "prototype",
+      narration: true,
+      primaryPrompt: "Generate a deeper Katechon technology explainer",
+      commandPlaceholder: "Ask for architecture, runtime loop, agents, moat, product wedge, or investor proof",
+      promptPlaceholder: "Ask for architecture, runtime loop, agents, moat, product wedge, or investor proof",
+      heroPrompts: [
+        "Generate a deeper Katechon technology explainer",
+        "Show the channel runtime architecture",
+        "Turn this into an investor proof board",
+        "Map Kat and specialist channel agents",
       ],
       tile: {
         group: "dashboard",

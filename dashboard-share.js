@@ -69,7 +69,7 @@ const DASHBOARD_SHARE_CATALOG = {
   },
   "dune-deck": {
     label: "Katechon Technology",
-    description: "Investor pitch deck for real-time generative software channels with per-slide avatar narration.",
+    description: "Platform channel for the Katechon runtime: live software objects, Kat, specialist agents, mutable surfaces, and share/fork state.",
   },
 };
 

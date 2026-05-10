@@ -431,7 +431,7 @@ const PANELS = [
   {
     id: "dune-deck",
     label: "Katechon Technology",
-    description: "Investor pitch deck for real-time generative software channels with per-slide avatar narration.",
+    description: "Katechon platform channel summarizing the channel runtime, Kat, specialist agents, mutable surfaces, and share/fork state graph.",
   },
 ];
 
@@ -859,6 +859,13 @@ function domainForChannel(channel) {
       defaultTimeframes: ["now", "5m", "24h"],
     };
   }
+  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+    return {
+      entities: ["channel runtime", "Kat", "specialist agents", "mutable surfaces", "share graph", "generated content"],
+      vocabulary: ["live software object", "channel layer", "stateful surface", "watch", "command", "share", "fork", "specialist channel agents", "provenance"],
+      defaultTimeframes: ["now", "current architecture", "next content"],
+    };
+  }
   return {
     entities: [],
     vocabulary: ["events", "metrics", "sources", "rankings", "relationships", "current state"],
@@ -885,7 +892,7 @@ function channelBaseTopic(channel) {
     "power-grid": "load, forecast, and grid strain",
     viral: "transmission risk and detection lag",
     "dark-forest": "the anomaly that refuses to disappear",
-    "dune-deck": "the proof point that moves the pitch",
+    "dune-deck": "the channel layer that turns generated software into live objects",
   };
   return topics[channel.id] || "the current channel signal";
 }
@@ -905,6 +912,9 @@ function openingPathsForChannel(channel) {
   }
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
     return ["graduation watch", "fresh mint firehose", "largest trade tape", "creator sell pressure", "liquidity risk"];
+  }
+  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+    return ["runtime architecture", "Kat and specialist agents", "share and fork loop", "generated surface grammar", "investor proof board"];
   }
   return ["overview", "events", "rankings", "entity detail", "relationship map"];
 }
@@ -5817,11 +5827,50 @@ async function getLocalDeckLiveData(req, channel) {
   const file = path.join(DUNE_DECK_DIR, "deck.json");
   const deck = JSON.parse(fs.readFileSync(file, "utf8"));
   const slides = Array.isArray(deck.slides) ? deck.slides : [];
+  const technologyStack = [
+    { layer: "Channel runtime", role: "Normalized state, context, docs, manifest, query, update, share, replay, and fork routes.", status: "active" },
+    { layer: "Kat continuity layer", role: "One voice-native guide that routes work to specialist channel agents and explains state changes.", status: "active" },
+    { layer: "Specialist channel agents", role: "Per-channel planners that own domain vocabulary, data capabilities, layout choice, and provenance.", status: "scoped" },
+    { layer: "Mutable dashboard surfaces", role: "Stage, rail, modal, evidence, and action slots update through validated component specs.", status: "live" },
+    { layer: "Share/fork state graph", role: "Generated channel states become replayable objects instead of flat screenshots or videos.", status: "building" },
+  ];
+  const runtimeLoop = [
+    { step: "Watch", detail: "Open a live channel with current state and source policy visible.", signal: "state" },
+    { step: "Command", detail: "Ask Kat for a sharper read, chart, board, or generated artifact.", signal: "voice" },
+    { step: "Query", detail: "Route through generic channel capabilities rather than one-off provider code.", signal: "tools" },
+    { step: "Morph", detail: "Replace the surface with validated components, bindings, and provenance.", signal: "surface" },
+    { step: "Share", detail: "Persist the resulting software state so another viewer can replay and fork it.", signal: "graph" },
+  ];
+  const defaultContentSeeds = [
+    { title: "What is a Katechon channel?", source: "object model", status: "seed" },
+    { title: "How Kat routes to specialist agents", source: "agent runtime", status: "seed" },
+    { title: "Why generated software needs state", source: "category thesis", status: "seed" },
+    { title: "How share, replay, and fork create distribution", source: "growth loop", status: "seed" },
+    { title: "What makes the channel layer defensible", source: "moat map", status: "seed" },
+  ];
+  const contentSeeds = slides.length
+    ? slides.slice(0, 8).map((slide, index) => ({
+        title: slide.headline || slide.eyebrow || `Generated slide ${index + 1}`,
+        source: slide.slug || "generated deck",
+        status: slide.eyebrow || "slide",
+      }))
+    : defaultContentSeeds;
+  const feed = [
+    ["now", "Katechon is the channel layer for generated software: live state, specialist agents, mutable surfaces, and replayable history.", "platform thesis"],
+    ["02m", "Kat provides continuity across channels while specialist agents own domain context and surface composition.", "agent model"],
+    ["05m", "The runtime routes every channel through normalized live, context, docs, manifest, query, turn, and update contracts.", "channel API"],
+    ["08m", "Generated views are validated component specs with data bindings and provenance, not arbitrary page code.", "surface grammar"],
+    ["12m", "The deck is now source material for a dashboard channel that can generate deeper Katechon content over time.", "content engine"],
+  ];
   return {
     kind: channel.contract,
     mode: "local-deck-json",
     title: deck.title || channel.label,
     assetVersion: deck.assetVersion || "",
+    targetRuntime: deck.targetRuntime || "",
+    technologyStack,
+    runtimeLoop,
+    contentSeeds,
     slides: slides.map((slide, index) => ({
       index,
       slug: slide.slug,
@@ -5830,9 +5879,14 @@ async function getLocalDeckLiveData(req, channel) {
       line: slide.line,
       narration: slide.narration,
     })),
-    metrics: [["Slides", String(slides.length), "deck"], ["Version", deck.assetVersion || "local", "asset"], ["Runtime", deck.targetRuntime || "n/a", "target"]],
-    feed: slides.slice(0, 6).map((slide, index) => [`${index + 1}`, `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}`, slide.slug || "deck"]),
-    highlights: slides.slice(0, 5).map((slide) => `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}.`),
+    metrics: [["Channels", "18", "sequence"], ["Runtime", "v1", "channel API"], ["Surfaces", "5", "mutable slots"]],
+    feed,
+    highlights: [
+      "Katechon packages generated software as live, stateful channels.",
+      "Kat routes requests across specialist agents while maintaining one continuous user experience.",
+      "Generated dashboard surfaces are composed from validated components with source provenance.",
+      ...slides.slice(0, 2).map((slide) => `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}.`),
+    ].slice(0, 6),
     updatedAt: fs.statSync(file).mtimeMs,
   };
 }
@@ -6285,7 +6339,7 @@ function channelLiveKey(channel, req) {
   if (provider === "cdc-socrata") return `${provider}:${channel.id}:${clampText(req.query.query || "catalog", 80).replace(/\s+/g, "_")}`;
   if (provider === "github-actions") return `${provider}:${channel.id}:${clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || process.env.ARENA_DEFAULT_GITHUB_REPO || "vercel/next.js", 120).replace(/\s+/g, "_")}`;
   if (provider === "ai-sota") return `${provider}:${channel.id}:latest`;
-  if (provider === "local-deck-json") return `${provider}:${channel.id}:deck`;
+  if (provider === "local-deck-json") return `${provider}:${channel.id}:${channel.contract || "deck"}:technology-summary`;
   return `${provider}:${channel.id}`;
 }
 
@@ -7596,39 +7650,54 @@ function headlinePart(value, max = 96) {
     .trim();
 }
 
-function headlineQuestion(value, fallback = "What matters now", max = 72) {
-  const text = headlinePart(value || fallback, max).replace(/\?+$/g, "");
-  return `${text || fallback}?`;
+function headlineHash(value) {
+  const text = String(value || "");
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = ((hash << 5) - hash + text.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
 }
 
-function headlineStory(value, fallback = "The current signal sets the next read", max = 92) {
-  const text = headlinePart(value || fallback, max);
-  return `${text || fallback}.`;
+function initialHeadlineHook(channel) {
+  return {
+    spectre: "Pressure Builds",
+    news: "The Board Just Moved",
+    dashboard123: "Market Signal Breaks",
+    "world-monitor": "Risk Map Tightens",
+    arena: "New Leader Emerges",
+    glance: "First Signal Hits",
+    "crypto-trading": "BTC Gets Pinned",
+    polyrec: "Weird Money Moves",
+    biotech: "Trial Signal Breaks",
+    space: "Object Needs a Look",
+    iran: "Pressure Tightens",
+    "meme-coin": "Fresh Tape Hits",
+    quantum: "Paper Changes the Map",
+    "deep-sea": "Sensor Breaks Pattern",
+    "power-grid": "Margin Watch Is On",
+    viral: "Detection Lag Widens",
+    "dark-forest": "The Dimming Persists",
+    "dune-deck": "Generated Software Gets a Channel",
+  }[channel.id] || "Signal Breaks Pattern";
 }
 
-function formatChannelHeadline(channel, question, story, max = 80) {
+function headlineTitleHook(value, max = 46) {
+  return headlinePart(value, max)
+    .replace(/^[-–—:;,.?!]+|[-–—:;,.?!]+$/g, "")
+    .replace(/\b(vs)\b/gi, "vs")
+    .trim();
+}
+
+function formatPunchHeadline(channel, hook, max = 58) {
   const prefix = `${channel.label}: `;
-  let questionText = headlinePart(question || "What matters now", 72);
-  let storyText = headlinePart(story || "The current signal sets the next read", 92);
-  const compose = () => `${prefix}${questionText}? ${storyText}.`;
-  let headline = compose();
-  if (headline.length <= max) return headline;
+  const budget = Math.max(12, max - prefix.length);
+  const clean = headlineTitleHook(hook || initialHeadlineHook(channel), budget);
+  return `${prefix}${clean || initialHeadlineHook(channel)}`;
+}
 
-  const minStoryBudget = 18;
-  const questionBudget = Math.max(18, max - prefix.length - minStoryBudget - 3);
-  questionText = headlinePart(question || "What matters now", questionBudget);
-  const storyBudget = Math.max(minStoryBudget, max - prefix.length - questionText.length - 3);
-  storyText = headlinePart(story || "The signal sets the read", storyBudget);
-  headline = compose();
-  if (headline.length <= max) return headline;
-
-  questionText = headlinePart(question || "What matters", Math.max(14, max - prefix.length - storyText.length - 3));
-  headline = compose();
-  if (headline.length <= max) return headline;
-
-  storyText = headlinePart("Signals set the read", Math.max(14, max - prefix.length - questionText.length - 3));
-  headline = compose();
-  return headline.length <= max ? headline : `${prefix}${headlinePart("What matters", 14)}? ${storyText}.`;
+function formatChannelHeadline(channel, question, story, max = 58) {
+  return formatPunchHeadline(channel, firstNonEmptyString([question, story, initialHeadlineHook(channel)]), max);
 }
 
 function liveStoryFromResult(result, provenance, fallback = "") {
@@ -7642,63 +7711,282 @@ function liveStoryFromResult(result, provenance, fallback = "") {
   ], "The current signal sets the next read");
 }
 
-function channelMomentHeadline(channel, intent, result, provenance, options = {}) {
+function headlineRowsFromResult(result) {
+  if (Array.isArray(result?.rows) && result.rows.length) return result.rows;
+  const data = result?.data || {};
+  for (const field of [
+    "graduationCandidates",
+    "fastMovers",
+    "recentMints",
+    "markets",
+    "tokens",
+    "polymarketMarkets",
+    "frontierModels",
+    "arenaBoards",
+    "articles",
+    "items",
+    "papers",
+    "sensors",
+    "datasets",
+    "runs",
+    "technologyStack",
+    "runtimeLoop",
+    "contentSeeds",
+    "slides",
+  ]) {
+    if (Array.isArray(data[field]) && data[field].length) return data[field];
+  }
+  return tupleRowsToObjects(result?.liveSummary?.feed || []);
+}
+
+function headlineRowLabel(row, fallback = "") {
+  if (Array.isArray(row)) return headlineTitleHook(row[1] || row[0] || fallback, 34);
+  if (!row || typeof row !== "object") return headlineTitleHook(fallback, 34);
+  return headlineTitleHook(
+    row.symbol ||
+    row.name ||
+    row.modelName ||
+    row.boardLabel ||
+    row.layer ||
+    row.step ||
+    row.entity ||
+    row.label ||
+    row.question ||
+    row.title ||
+    row.briefTitle ||
+    row.id ||
+    fallback,
+    34
+  );
+}
+
+function headlineSymbol(value, fallback = "Signal") {
+  const text = headlinePart(value || fallback, 18).replace(/^[#$@]+/, "").trim();
+  if (!text) return fallback;
+  if (/^[a-z0-9]{2,10}$/i.test(text)) return text.toUpperCase();
+  return text.split(/\s+/).slice(0, 3).join(" ");
+}
+
+function headlineCandleChange(candles = []) {
+  const rows = Array.isArray(candles) ? candles.filter(Boolean) : [];
+  if (rows.length < 2) return 0;
+  const first = closeFromCandle(rows[0]);
+  const last = closeFromCandle(rows[rows.length - 1]);
+  return first && last ? ((last - first) / Math.abs(first)) * 100 : 0;
+}
+
+function addHeadlineCandidate(candidates, value) {
+  const hook = headlineTitleHook(value, 46);
+  if (hook && !candidates.includes(hook)) candidates.push(hook);
+}
+
+function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance = {}, options = {}) {
   const entity = options.entity || intent.entities?.[0] || "";
-  const topic = headlinePart(options.fallbackTitle || intent.topic || channelBaseTopic(channel), 80);
-  const story = provenance.sourceType === "unavailable"
-    ? "The source gap is visible instead of being filled"
-    : liveStoryFromResult(result, provenance, options.story || topic);
-  const topLabel = headlinePart(options.topLabel || "", 46);
-  const timeframe = intent.timeframe?.label || "now";
+  const rows = headlineRowsFromResult(result);
+  const leadRow = rows[0] || null;
+  const leadLabel = headlineSymbol(options.topLabel || headlineRowLabel(leadRow), entity || "Signal");
+  const data = result?.data || {};
+  const metrics = tupleRowsFromAny(result?.liveSummary?.metrics, 3);
+  const candidates = [];
+
+  if (provenance.sourceType === "unavailable") {
+    addHeadlineCandidate(candidates, "Source Goes Dark");
+    addHeadlineCandidate(candidates, "Data Gap Becomes the Story");
+    addHeadlineCandidate(candidates, "Fresh Read Is Blocked");
+    return candidates;
+  }
 
   if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
-    if (intent.intent === "liquidity_depth") return formatChannelHeadline(channel, `Is ${entity || "BTC"} trapped`, "Depth and spread are the pressure points");
-    if (intent.intent === "comparison") return formatChannelHeadline(channel, `Which asset is leading`, `${(intent.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} shows the split`);
-    if (intent.intent === "risk_anomaly") return formatChannelHeadline(channel, `Is volatility waking up`, "The range band shows whether structure is widening");
-    return formatChannelHeadline(channel, `Is ${entity || "BTC"} carrying the move`, `${timeframe} structure tells the story`);
+    const coin = headlineSymbol(entity || data.coin || "BTC", "BTC");
+    const change = headlineCandleChange(data.candles);
+    const spread = Number(data.spreadBps || 0);
+    if (intent.intent === "liquidity_depth") {
+      addHeadlineCandidate(candidates, `${coin} Hits the Wall`);
+      addHeadlineCandidate(candidates, "The Book Gets Thin");
+      addHeadlineCandidate(candidates, "Bid Wall Moves In");
+    } else if (intent.intent === "comparison") {
+      addHeadlineCandidate(candidates, `${(intent.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} Splits`);
+      addHeadlineCandidate(candidates, "One Coin Breaks Away");
+      addHeadlineCandidate(candidates, "The Pair Diverges");
+    } else if (intent.intent === "risk_anomaly") {
+      addHeadlineCandidate(candidates, "Range Wakes Up");
+      addHeadlineCandidate(candidates, "Volatility Enters");
+      addHeadlineCandidate(candidates, `${coin} Leaves the Box`);
+    } else if (change > 0.75) {
+      addHeadlineCandidate(candidates, `${coin} Breaks Higher`);
+      addHeadlineCandidate(candidates, "Buyers Take the Tape");
+    } else if (change < -0.75) {
+      addHeadlineCandidate(candidates, `${coin} Loses the Bid`);
+      addHeadlineCandidate(candidates, "Sellers Take Control");
+    } else {
+      addHeadlineCandidate(candidates, `${coin} Gets Pinned`);
+      addHeadlineCandidate(candidates, "Range Stays Tight");
+    }
+    if (spread > 5) addHeadlineCandidate(candidates, "Spread Blows Out");
+    return candidates;
   }
 
   if (channel.id === "polyrec" || channel.liveProvider === "polymarket") {
-    if (intent.intent === "close_volume") return formatChannelHeadline(channel, "Which tight market has real weight", "Close odds and volume set the board");
-    if (intent.intent === "category_board") return formatChannelHeadline(channel, "Which category is getting priced", "Active volume decides what to inspect");
-    if (intent.intent === "keyword_search") return formatChannelHeadline(channel, "Did the keyword find a live edge", "Matched markets stay tied to source rows");
-    return formatChannelHeadline(channel, "Which weird bet is worth the stare", "Odds shape sets the read");
+    if (intent.intent === "close_volume") {
+      addHeadlineCandidate(candidates, "Close Odds, Real Money");
+      addHeadlineCandidate(candidates, "The 50-50 Bet Gets Loud");
+    } else if (intent.intent === "category_board") {
+      addHeadlineCandidate(candidates, "One Category Heats Up");
+      addHeadlineCandidate(candidates, "Volume Picks a Lane");
+    } else if (intent.intent === "keyword_search") {
+      addHeadlineCandidate(candidates, "Search Finds a Live Edge");
+      addHeadlineCandidate(candidates, "Keyword Hits Money");
+    } else {
+      addHeadlineCandidate(candidates, "The Strange Bet Wakes Up");
+      addHeadlineCandidate(candidates, "Weird Money Moves");
+    }
+    if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, "Top Market Reprices");
+    return candidates;
   }
 
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
-    if (intent.intent === "graduation_watch") return formatChannelHeadline(channel, "Who is close enough to graduate", topLabel ? `${topLabel} leads the curve watch` : "Curve fill and trade flow set the list");
-    if (intent.intent === "fresh_mints") return formatChannelHeadline(channel, "Which mint just hit the wire", topLabel ? `${topLabel} leads the fresh row` : "Age and first buy set the order");
-    if (intent.intent === "trade_tape") return formatChannelHeadline(channel, "Which print is loudest now", topLabel ? `${topLabel} is the tape to inspect` : "The tape separates confirmation from churn");
-    if (intent.intent === "dev_sell_watch") return formatChannelHeadline(channel, "Is creator sell pressure flashing", topLabel ? `${topLabel} is the warning row` : "Sell size and curve position set the read");
-    if (intent.intent === "narrative_decay") return formatChannelHeadline(channel, "Is the story already fading", topLabel ? `${topLabel} carries the decay signal` : "Cooling attention shows up beside liquidity");
-    if (intent.intent === "viral_fragile") return formatChannelHeadline(channel, "Does viral also mean fragile", topLabel ? `${topLabel} leads the fragility board` : "Attention is moving faster than support");
-    if (intent.intent === "attention_liquidity_risk") return formatChannelHeadline(channel, "Is the hype actually liquid", topLabel ? `${topLabel} carries the mismatch` : "Attention and liquidity are not the same signal");
-    return formatChannelHeadline(channel, "What is actually pumping", topLabel || "Velocity stays tied to visible liquidity");
+    if (intent.intent === "graduation_watch") {
+      addHeadlineCandidate(candidates, `${leadLabel} Nears Graduation`);
+      addHeadlineCandidate(candidates, "85 SOL Comes Into View");
+    } else if (intent.intent === "fresh_mints") {
+      addHeadlineCandidate(candidates, `${leadLabel} Just Hit the Wire`);
+      addHeadlineCandidate(candidates, "Fresh Mint Goes Loud");
+    } else if (intent.intent === "trade_tape") {
+      addHeadlineCandidate(candidates, `${leadLabel} Prints Loud`);
+      addHeadlineCandidate(candidates, "The Tape Gets Noisy");
+    } else if (intent.intent === "dev_sell_watch") {
+      addHeadlineCandidate(candidates, "Creator Sell Flash");
+      addHeadlineCandidate(candidates, `${leadLabel} Shows Pressure`);
+    } else if (intent.intent === "narrative_decay") {
+      addHeadlineCandidate(candidates, "Story Starts to Fade");
+      addHeadlineCandidate(candidates, `${leadLabel} Loses Heat`);
+    } else if (intent.intent === "viral_fragile") {
+      addHeadlineCandidate(candidates, "Viral Looks Fragile");
+      addHeadlineCandidate(candidates, `${leadLabel} Runs Thin`);
+    } else if (intent.intent === "attention_liquidity_risk") {
+      addHeadlineCandidate(candidates, "Hype Outruns Liquidity");
+      addHeadlineCandidate(candidates, `${leadLabel} Carries the Mismatch`);
+    } else {
+      addHeadlineCandidate(candidates, `${leadLabel} Is Moving`);
+      addHeadlineCandidate(candidates, "Fresh Tape Hits");
+    }
+    return candidates;
   }
 
   if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
-    if (intent.intent === "grid_risk") return formatChannelHeadline(channel, "Where is the grid starting to strain", "Load and margin set the watch");
-    if (intent.intent === "fuel_mix") return formatChannelHeadline(channel, "What is carrying the grid right now", "Fuel mix shows the load");
-    return formatChannelHeadline(channel, "Is load outrunning forecast", "The forecast gap frames the risk");
+    const marginText = metrics.find((row) => /^margin$/i.test(row[0] || ""))?.[1] || "";
+    const margin = Number(String(marginText).replace(/[^\d.-]/g, ""));
+    if (Number.isFinite(margin) && margin < 5) addHeadlineCandidate(candidates, "Reserve Margin Thins");
+    if (intent.intent === "grid_risk") addHeadlineCandidate(candidates, "Grid Stress Climbs");
+    if (intent.intent === "fuel_mix") addHeadlineCandidate(candidates, "Fuel Mix Takes Over");
+    addHeadlineCandidate(candidates, "Load Is Pushing");
+    addHeadlineCandidate(candidates, "Forecast Gap Opens");
+    return candidates;
   }
 
-  const generic = {
-    spectre: ["Which signal becomes an incident", "Source spread sets the read"],
-    news: ["Which story deserves the board", "Fresh source movement sets priority"],
-    "world-monitor": ["Where is pressure turning into risk", "Events and market context shape the map"],
-    arena: ["Which model is proving it today", "Runs, scores, and failures make the match"],
-    glance: ["What deserves attention first", "Feeds, weather, and community signals set the scan"],
-    biotech: ["Which trial signal is moving", "Status and evidence decide the brief"],
-    space: ["Which object deserves another look", "Catalog context carries the signal"],
-    iran: ["Where is regional pressure tightening", "Public sources and energy context frame the watch"],
-    quantum: ["Which paper changes the field map", "Topic velocity sets the read"],
-    "deep-sea": ["Which sensor is breaking pattern", "Wave, wind, and pressure carry the anomaly"],
-    viral: ["Is detection behind", "R0, lag, and contacts set the risk"],
-    "dark-forest": ["Which dimming signal refuses to disappear", "Catalog context frames the anomaly"],
-    "dune-deck": ["What proof moves the pitch", "Slide state and traction tell the story"],
-  }[channel.id];
-  if (generic) return formatChannelHeadline(channel, generic[0], provenance.sourceType === "unavailable" ? "The source gap is visible" : generic[1]);
-  return formatChannelHeadline(channel, `What matters in ${channel.label}`, story);
+  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+    if (/\b(agent|kat|specialist)\b/.test(`${intent.intent || ""} ${intent.topic || ""}`)) {
+      addHeadlineCandidate(candidates, "Kat Routes the Work");
+      addHeadlineCandidate(candidates, "Specialist Agents Take the Channel");
+    } else if (/\b(share|fork|replay|distribution)\b/.test(`${intent.intent || ""} ${intent.topic || ""}`)) {
+      addHeadlineCandidate(candidates, "Channel States Spread");
+      addHeadlineCandidate(candidates, "Replay Becomes Distribution");
+    } else {
+      addHeadlineCandidate(candidates, "Runtime Becomes the Product");
+      addHeadlineCandidate(candidates, "Generated Software Gets a Channel");
+    }
+    if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, leadLabel);
+    return candidates;
+  }
+
+  ({
+    spectre: ["Incident Pressure Builds", "Source Stack Turns Hot"],
+    news: ["The Board Just Moved", "Fresh Source Breaks Through"],
+    "world-monitor": ["Risk Map Tightens", "Pressure Finds a Node"],
+    arena: ["New Leader Emerges", "Benchmark Meets the Market"],
+    glance: ["First Signal Hits", "Noise Turns Into Signal"],
+    biotech: ["Trial Signal Breaks", "Evidence Moves First"],
+    space: ["Object Needs a Look", "Orbit Signal Changes"],
+    iran: ["Pressure Tightens", "Regional Risk Narrows"],
+    quantum: ["Paper Changes the Map", "Coherence Window Opens"],
+    "deep-sea": ["Sensor Breaks Pattern", "Abyssal Signal Jumps"],
+    viral: ["Detection Lag Widens", "R0 Refuses to Drop", "Contacts Cluster Fast"],
+    "dark-forest": ["The Dimming Persists", "Catalog Anomaly Holds"],
+    "dune-deck": ["Generated Software Gets a Channel", "Runtime Becomes the Product"],
+  }[channel.id] || [initialHeadlineHook(channel), "Signal Breaks Pattern"]).forEach((candidate) => addHeadlineCandidate(candidates, candidate));
+  if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, `${leadLabel} Breaks Pattern`);
+  return candidates;
+}
+
+function headlineSignalSignature(channel, intent = {}, result = {}, provenance = {}) {
+  const data = result?.data || {};
+  const rows = headlineRowsFromResult(result);
+  let lead = headlineRowLabel(rows[0], "");
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    lead = intent.entities?.[0] || data.coin || "BTC";
+  } else if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    lead = data.respondent || data.respondentName || intent.entities?.[0] || "grid";
+  } else if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    lead = headlineSymbol(lead, "meme");
+  }
+  const metricShape = tupleRowsFromAny(result?.liveSummary?.metrics, 3)
+    .map((row) => `${row[0]}:${row[2]}`)
+    .join("|");
+  const sourceState = provenance.sourceType === "unavailable" ? "unavailable" : "available";
+  return [
+    channel.id,
+    intent.intent || intent.mode || intent.layout || "overview",
+    (intent.entities || []).join(","),
+    intent.timeframe?.label || "",
+    sourceState,
+    lead,
+    metricShape,
+  ].join("::").slice(0, 500);
+}
+
+function resolveChannelHeadline(channel, priorState, intent, result, provenance, options = {}) {
+  const candidates = dynamicHeadlineCandidates(channel, intent, result, provenance, options);
+  if (!candidates.length) candidates.push(initialHeadlineHook(channel));
+  const signature = headlineSignalSignature(channel, intent, result, provenance);
+  const previous = priorState?.headline && typeof priorState.headline === "object" ? priorState.headline : {};
+  const now = Date.now();
+  const priorGeneratedAt = Number(previous.generatedAtMs || Date.parse(previous.generatedAt || "") || 0);
+  const cadenceMs = Number(options.cadenceMs || CHANNEL_HEADLINE_REFRESH_MS);
+  const signatureChanged = previous.signature !== signature;
+  const stale = !priorGeneratedAt || now - priorGeneratedAt >= cadenceMs;
+  if (previous.title && !signatureChanged && !stale) {
+    return { ...previous, changed: false, cadenceMs };
+  }
+
+  let variantIndex = signatureChanged
+    ? 0
+    : (Number(previous.variantIndex || 0) + 1) % candidates.length;
+  let hook = candidates[variantIndex] || candidates[0];
+  let title = formatPunchHeadline(channel, hook);
+  if (previous.signature && previous.signature !== "initial" && previous.title === title && candidates.length > 1) {
+    variantIndex = (variantIndex + 1) % candidates.length;
+    hook = candidates[variantIndex] || hook;
+    title = formatPunchHeadline(channel, hook);
+  }
+
+  return {
+    title,
+    hook,
+    signature,
+    variantIndex,
+    generatedAt: new Date(now).toISOString(),
+    generatedAtMs: now,
+    cadenceMs,
+    sourceType: provenance.sourceType || result.sourceType || "unknown",
+    freshness: provenance.freshness || result.freshness || "unknown",
+    reason: signatureChanged ? "signal_changed" : "cadence_refresh",
+    candidates: candidates.slice(0, 5).map((candidate) => formatPunchHeadline(channel, candidate)),
+    changed: true,
+  };
+}
+
+function channelMomentHeadline(channel, intent, result, provenance, options = {}) {
+  return resolveChannelHeadline(channel, null, intent, result, provenance, options).title;
 }
 
 function nextActionsForIntent(channel, intent) {
@@ -7727,6 +8015,11 @@ function nextActionsForIntent(channel, intent) {
     if (intent.intent === "viral_fragile") return ["Compare liquidity risk", "Show fastest movers", "Inspect narrative decay"];
     if (intent.intent === "narrative_decay") return ["Find fresh spikes", "Compare liquidity risk", "Build viral but fragile board"];
     return ["Show what is about to graduate", "Find fresh mints under one minute", "Find the loudest buy"];
+  }
+  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+    if (intent.layout === "relationship_map") return ["Map Kat and specialist agents", "Show the share/fork graph", "Explain the runtime contract"];
+    if (intent.layout === "investor") return ["Build investor proof board", "Show the moat map", "Turn this into content for Dune"];
+    return ["Show channel runtime architecture", "Generate a deeper technology explainer", "Map Kat and specialist agents"];
   }
   return ["Open overview", "Show events", "Inspect top entity", "Map relationships"];
 }
@@ -7817,7 +8110,7 @@ function buildGeneratedPageState(channel, intent, options = {}) {
       actions: "fork_prompts",
     },
     thesis: {
-      title: options.title || intent.topic || formatChannelHeadline(channel, "What matters now", channelBaseTopic(channel)),
+      title: options.title || intent.topic || formatPunchHeadline(channel, initialHeadlineHook(channel)),
       summary: options.summary || options.body || "",
     },
     stage: {
@@ -9022,6 +9315,23 @@ function buildChannelTurnUpdate(channel, intent, result, provenance) {
   return buildGenericTurnUpdate(channel, intent, result, provenance);
 }
 
+function applyDynamicHeadlineToUpdate(channel, priorState, intent, result, provenance, update) {
+  const headline = resolveChannelHeadline(channel, priorState, intent, result, provenance, {
+    topLabel: update?.headline?.hook,
+  });
+  update.headline = headline;
+  update.patch = { ...(update.patch || {}), title: headline.title };
+  if (update.generatedPage?.thesis) update.generatedPage.thesis.title = headline.title;
+  for (const surfaceUpdate of update.surfaces || []) {
+    for (const component of surfaceUpdate.components || []) {
+      if (component?.type === "insight-card" && /channel agent|source gap|overview/i.test(String(component.eyebrow || ""))) {
+        component.title = headline.title;
+      }
+    }
+  }
+  return update;
+}
+
 function surfaceIdsFromUpdate(surfaces = []) {
   return Object.fromEntries(generatedSurfaceNames().concat("below").map((surface) => [surface, []]));
 }
@@ -9041,6 +9351,7 @@ function updateChannelSessionFromTurn(channel, sessionState, turnId, userText, i
       template: update.layout?.template || intent.layout,
       rationale: update.layout?.rationale || "",
     },
+    headline: update.headline || sessionState.headline || null,
     turns: [
       ...(sessionState.turns || []),
       { role: "user", text: userText, at: new Date().toISOString(), turnId },
@@ -9193,7 +9504,7 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
     emit({ type: "channel.data.query.failed", capability: intent.capability, error: err.message, provenanceId: provenance.id });
   }
 
-  const update = buildChannelTurnUpdate(channel, intent, result, provenance);
+  const update = applyDynamicHeadlineToUpdate(channel, currentState, intent, result, provenance, buildChannelTurnUpdate(channel, intent, result, provenance));
   if (update.generatedPage) {
     const stackBefore = depthStackFromState(currentState);
     applyDepthToGeneratedPage(channel, update.generatedPage, stackBefore);
@@ -9364,6 +9675,80 @@ async function getKatChannelContext(req, channel) {
   return buildKatContextPacket(channel, liveEnvelope, { contextMode: fresh ? "fresh" : "fast" });
 }
 
+function headlineCapabilityForState(channel, state) {
+  const intent = state?.focus?.intent || "";
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    return intent === "liquidity_depth" ? "entity_detail" : "timeseries";
+  }
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    return intent === "fuel_mix" || intent === "grid_risk" ? "rankings" : "timeseries";
+  }
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") return "rankings";
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") return "rankings";
+  if (intent === "events" || intent === "search") return "events";
+  if (intent === "relationships") return "relationships";
+  return "snapshot";
+}
+
+function headlineIntentFromState(channel, state) {
+  const focus = state?.focus || {};
+  const layout = state?.layout?.template || focus.mode || "overview";
+  return {
+    intent: focus.intent || layout,
+    topic: focus.topic || channelBaseTopic(channel),
+    entities: Array.isArray(focus.entities) ? focus.entities : [],
+    timeframe: focus.timeframe || { label: "now" },
+    mode: focus.mode || layout,
+    layout,
+    capability: headlineCapabilityForState(channel, state),
+    detail: "compact",
+    params: {},
+    userText: focus.topic || channelBaseTopic(channel),
+  };
+}
+
+function headlineResultFromEnvelope(channel, intent, envelope) {
+  const summary = summarizeChannelLive(channel, envelope);
+  const rows = providerRowsForCapability(channel, intent.capability, envelope, summary, intent.params || {});
+  const compact = compactChannelLiveEnvelope(envelope);
+  const provenance = buildProvenanceRecord(channel, intent.capability, intent.params || {}, envelope, rows.length);
+  return {
+    result: {
+      ok: true,
+      source: envelope.source,
+      sourceType: provenance.sourceType,
+      stale: envelope.stale,
+      freshness: provenance.freshness,
+      updatedAt: envelope.updatedAt,
+      fallbackReason: envelope.fallbackReason,
+      liveSummary: summary,
+      rows,
+      data: compact.data,
+      provenance: [provenance],
+      dataBinding: provenance.dataBinding,
+    },
+    provenance,
+  };
+}
+
+function resolveLiveChannelHeadline(channel, sessionId, envelope) {
+  const state = getChannelSessionState(channel, sessionId);
+  const intent = headlineIntentFromState(channel, state);
+  const { result, provenance } = headlineResultFromEnvelope(channel, intent, envelope);
+  const headline = resolveChannelHeadline(channel, state, intent, result, provenance);
+  if (headline.changed) {
+    saveChannelSessionState(channel, sessionId, {
+      ...state,
+      headline,
+      patch: {
+        ...(state.patch || {}),
+        title: headline.title,
+      },
+    });
+  }
+  return headline;
+}
+
 app.get("/api/channels", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.json({
@@ -9377,6 +9762,7 @@ app.get("/api/channels", (req, res) => {
       manifest: "/api/channels/:channel/manifest",
       agent: "/api/channels/:channel/agent",
       state: "/api/channels/:channel/state",
+      headline: "/api/channels/:channel/headline",
       turn: "/api/channels/:channel/turn",
       turnStream: "/api/channels/:channel/turn/stream",
       query: "/api/channels/:channel/query",
@@ -9397,10 +9783,28 @@ app.get("/api/channels/:channel/live", async (req, res) => {
   try {
     const channel = getChannel(req.params.channel);
     if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const sessionId = normalizeSessionId(req.query.sessionId || req.query.session || `prototype-${channel.id}`);
+    const envelope = await getChannelLiveEnvelope(req, channel);
+    const headline = resolveLiveChannelHeadline(channel, sessionId, envelope);
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.json(await getChannelLiveEnvelope(req, channel));
+    res.json({ ...envelope, headline });
   } catch (err) {
     console.error("channel live error:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/api/channels/:channel/headline", async (req, res) => {
+  try {
+    const channel = getChannel(req.params.channel);
+    if (!channel) return res.status(404).json({ ok: false, error: "unknown channel" });
+    const sessionId = normalizeSessionId(req.query.sessionId || req.query.session || `prototype-${channel.id}`);
+    const envelope = await getChannelLiveEnvelope(req, channel);
+    const headline = resolveLiveChannelHeadline(channel, sessionId, envelope);
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({ ok: true, channel: publicChannel(channel), sessionId, headline });
+  } catch (err) {
+    console.error("channel headline error:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -9628,24 +10032,30 @@ function shareHeadline(channel, state, prompt) {
   const text = normalizeAgentText(prompt || state.focus?.topic || "");
   const entity = state.focus?.entities?.[0] || "BTC";
   if (channel.id === "crypto-trading") {
-    if (/\b(liquidity|depth|book)\b/.test(text)) return formatChannelHeadline(channel, `Is ${entity} trapped`, "Depth and spread set the read");
-    if (/\b(compare|versus|vs)\b/.test(text) || (state.focus?.entities || []).length > 1) return formatChannelHeadline(channel, "Which asset is leading", `${(state.focus?.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} shows the split`);
-    if (/\b(volatility|drawdown|range|regime)\b/.test(text)) return formatChannelHeadline(channel, "Is volatility waking up", "Range and drawdown set the regime");
-    return formatChannelHeadline(channel, "Is BTC carrying the move", "Price structure tells the story");
+    if (/\b(liquidity|depth|book)\b/.test(text)) return formatPunchHeadline(channel, `${entity} Hits the Wall`);
+    if (/\b(compare|versus|vs)\b/.test(text) || (state.focus?.entities || []).length > 1) return formatPunchHeadline(channel, `${(state.focus?.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} Splits`);
+    if (/\b(volatility|drawdown|range|regime)\b/.test(text)) return formatPunchHeadline(channel, "Range Wakes Up");
+    return formatPunchHeadline(channel, "BTC Gets Pinned");
   }
   if (channel.id === "polyrec") {
-    if (/\b(close|50 50|volume)\b/.test(text)) return formatChannelHeadline(channel, "Which tight market has weight", "Close odds and volume set the board");
-    if (/\b(election|politic|macro|fed|rate|inflation)\b/.test(text)) return formatChannelHeadline(channel, "Which political bet is moving", "Volume and odds decide the watch");
-    if (/\b(crypto|btc|bitcoin|eth|ethereum)\b/.test(text)) return formatChannelHeadline(channel, "Which crypto bet is repricing", "Active markets set the board");
-    return formatChannelHeadline(channel, "Which weird bet is worth the stare", "Question shape and odds movement set the read");
+    if (/\b(close|50 50|volume)\b/.test(text)) return formatPunchHeadline(channel, "Close Odds, Real Money");
+    if (/\b(election|politic|macro|fed|rate|inflation)\b/.test(text)) return formatPunchHeadline(channel, "Political Bet Moves");
+    if (/\b(crypto|btc|bitcoin|eth|ethereum)\b/.test(text)) return formatPunchHeadline(channel, "Crypto Bet Reprices");
+    return formatPunchHeadline(channel, "Weird Money Moves");
   }
   if (channel.id === "meme-coin") {
-    if (/\b(decay|fade|fading|peak)\b/.test(text)) return formatChannelHeadline(channel, "Is the story already fading", "Cooling attention shows beside liquidity");
-    if (/\b(fragile|viral)\b/.test(text)) return formatChannelHeadline(channel, "Does viral also mean fragile", "Attention is outrunning support");
-    if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return formatChannelHeadline(channel, "Is the hype actually liquid", "Attention and liquidity split the board");
-    return formatChannelHeadline(channel, "What is actually pumping", "Velocity stays tied to visible liquidity");
+    if (/\b(decay|fade|fading|peak)\b/.test(text)) return formatPunchHeadline(channel, "Story Starts to Fade");
+    if (/\b(fragile|viral)\b/.test(text)) return formatPunchHeadline(channel, "Viral Looks Fragile");
+    if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return formatPunchHeadline(channel, "Hype Outruns Liquidity");
+    return formatPunchHeadline(channel, "Fresh Tape Hits");
   }
-  return formatChannelHeadline(channel, "What matters now", channelBaseTopic(channel));
+  if (channel.id === "dune-deck") {
+    if (/\b(agent|kat|specialist)\b/.test(text)) return formatPunchHeadline(channel, "Kat Routes the Work");
+    if (/\b(share|fork|replay|distribution)\b/.test(text)) return formatPunchHeadline(channel, "Channel States Spread");
+    if (/\b(runtime|architecture|api|surface)\b/.test(text)) return formatPunchHeadline(channel, "Runtime Becomes the Product");
+    return formatPunchHeadline(channel, "Generated Software Gets a Channel");
+  }
+  return formatPunchHeadline(channel, initialHeadlineHook(channel));
 }
 
 function buildChannelShareObject(channel, sessionId, options = {}) {
@@ -9945,6 +10355,8 @@ function sendPitchDeckSnapshotIndex(req, res) {
 app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
 app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
 app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
+app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
 
 function renderExternalDashboardFallback(id, err) {
