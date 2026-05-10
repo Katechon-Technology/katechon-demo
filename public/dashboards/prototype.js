@@ -45,6 +45,11 @@
       lastPrompt: config.primaryPrompt || "",
       currentShareId: channelShareId || "",
     };
+    const katTarget = {
+      mode: false,
+      selection: null,
+      voicePointerId: null,
+    };
 
     const animeApi = window.anime || {};
     const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -318,12 +323,42 @@
       if (payload.narration) state.commandStatus = payload.narration;
     }
 
-    async function runChannelCommand(prompt) {
-      const userText = String(prompt || "").trim();
+    function serializeKatTarget(target) {
+      if (!target || typeof target !== "object") return null;
+      return {
+        id: String(target.id || "").slice(0, 80),
+        kind: String(target.kind || "dashboard region").slice(0, 80),
+        label: String(target.label || "Dashboard region").slice(0, 140),
+        value: String(target.value || "").slice(0, 140),
+        note: String(target.note || "").slice(0, 180),
+      };
+    }
+
+    function targetInstructionText(prompt, target) {
+      const cleanPrompt = String(prompt || "").trim();
+      const cleanTarget = serializeKatTarget(target);
+      if (!cleanTarget) return cleanPrompt;
+      const parts = [
+        `Selected dashboard target: ${cleanTarget.label}`,
+        cleanTarget.value ? `value: ${cleanTarget.value}` : "",
+        cleanTarget.note ? `context: ${cleanTarget.note}` : "",
+        `target kind: ${cleanTarget.kind}`,
+      ].filter(Boolean).join("; ");
+      return `${cleanPrompt}\n\n${parts}. Modify this selected part of the current dashboard. Prefer a generated overlay or focused drilldown instead of replacing unrelated surfaces.`;
+    }
+
+    async function runChannelCommand(prompt, options = {}) {
+      const rawPrompt = String(prompt || "").trim();
+      const target = serializeKatTarget(options.target);
+      const userText = targetInstructionText(rawPrompt, target);
       if (!userText || state.commandRunning) return;
       state.commandRunning = true;
-      state.lastPrompt = userText;
-      trackLaunchEvent("prompt_submitted", { prompt: userText, source: state.currentShareId ? "share-fork" : "command" });
+      state.lastPrompt = rawPrompt || userText;
+      trackLaunchEvent("prompt_submitted", {
+        prompt: rawPrompt || userText,
+        source: options.source || (state.currentShareId ? "share-fork" : "command"),
+        target,
+      });
       setCommandStatus("building channel state");
       renderCommandPanel();
       try {
@@ -331,6 +366,7 @@
         const body = {
           userText,
           sessionId: `prototype-${dashboardId}`,
+          target,
         };
         const endpoint = forkId
           ? `/api/channel-shares/${encodeURIComponent(forkId)}/fork`
@@ -349,18 +385,19 @@
         applyChannelTurnPayload(rawPayload.turn || rawPayload);
         const turnPayload = rawPayload.turn || rawPayload;
         trackLaunchEvent("channel_morphed", {
-          prompt: userText,
-          source: rawPayload.share?.id ? "share-fork" : "command",
+          prompt: rawPrompt || userText,
+          source: options.source || (rawPayload.share?.id ? "share-fork" : "command"),
+          target,
           fallback: Boolean(turnPayload.provenance?.some((record) => ["synthetic_fallback", "unavailable"].includes(record.sourceType))),
         });
         if (turnPayload.provenance?.some((record) => ["synthetic_fallback", "unavailable"].includes(record.sourceType))) {
-          trackLaunchEvent("fallback_seen", { prompt: userText, source: "command" });
+          trackLaunchEvent("fallback_seen", { prompt: rawPrompt || userText, source: options.source || "command", target });
         }
         setCommandStatus("generated state ready");
         render();
       } catch (err) {
         console.warn("channel command failed:", err);
-        trackLaunchEvent("error_seen", { prompt: userText, source: "command", message: err.message || String(err) });
+        trackLaunchEvent("error_seen", { prompt: rawPrompt || userText, source: options.source || "command", target, message: err.message || String(err) });
         setCommandStatus(`command failed: ${err.message || err}`);
       } finally {
         state.commandRunning = false;
@@ -438,6 +475,237 @@
         shareButton.disabled = state.commandRunning;
         shareButton.onclick = () => shareChannelState();
       }
+    }
+
+    function compactTargetText(value, max = 120) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+    }
+
+    function textFrom(root, selector, max = 120) {
+      return compactTargetText(root?.querySelector?.(selector)?.textContent || "", max);
+    }
+
+    function targetFromElement(element) {
+      const node = element?.closest?.([
+        "[data-kat-label]",
+        ".generated-component",
+        ".evidence-card",
+        ".metric",
+        ".feed-item",
+        ".rank-row",
+        ".dense-panel",
+        ".scene-card",
+        ".stage-badge",
+        "#pulse-strip",
+        "#stage-thesis",
+        "#small-multiples",
+        "#mini-visual",
+        "#stage",
+        ".module",
+        ".topbar",
+      ].join(","));
+      const rectNode = node || element?.closest?.(".app") || document.body;
+      const rect = rectNode.getBoundingClientRect();
+      const base = {
+        id: rectNode.id || rectNode.dataset?.generatedId || rectNode.dataset?.katTarget || rectNode.className || "dashboard-region",
+        kind: "dashboard region",
+        label: config.title || "Dashboard region",
+        value: "",
+        note: config.lens || config.visualLabel || "",
+        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      };
+      if (!node) return base;
+      if (node.dataset?.katLabel) {
+        return { ...base, kind: node.dataset.katKind || base.kind, label: compactTargetText(node.dataset.katLabel), value: compactTargetText(node.dataset.katValue || "") };
+      }
+      if (node.matches(".metric")) {
+        return { ...base, kind: "metric", label: textFrom(node, ".metric-label") || "Metric", value: textFrom(node, ".metric-value"), note: textFrom(node, ".metric-note") };
+      }
+      if (node.matches("#pulse-strip")) {
+        return { ...base, kind: "live pulse", label: textFrom(node, "#pulse-kicker") || "Channel pulse", value: textFrom(node, "#pulse-now"), note: textFrom(node, "#pulse-range") };
+      }
+      if (node.matches("#stage-thesis")) {
+        return { ...base, kind: "thesis", label: textFrom(node, "#thesis-headline") || "Channel thesis", value: textFrom(node, "#thesis-big"), note: textFrom(node, "#thesis-trail") };
+      }
+      if (node.matches(".generated-component")) {
+        return { ...base, kind: "generated component", label: textFrom(node, ".generated-title") || textFrom(node, ".generated-eyebrow") || "Generated component", value: textFrom(node, ".generated-metric-value"), note: textFrom(node, ".generated-body, .generated-note, .generated-source") };
+      }
+      if (node.matches(".evidence-card")) {
+        return { ...base, kind: "evidence card", label: textFrom(node, ".ev-label") || "Evidence card", value: textFrom(node, ".ev-value"), note: textFrom(node, ".ev-foot") || textFrom(node, ".ev-meta") };
+      }
+      if (node.matches(".feed-item")) {
+        return { ...base, kind: "feed item", label: textFrom(node, ".feed-title") || "Feed item", value: textFrom(node, ".feed-time"), note: textFrom(node, ".feed-meta") };
+      }
+      if (node.matches(".rank-row")) {
+        return { ...base, kind: "ranked row", label: textFrom(node, ".rk-name") || "Ranked row", value: textFrom(node, ".rk-delta"), note: textFrom(node, ".rk-source") };
+      }
+      if (node.matches(".dense-panel")) {
+        return { ...base, kind: "dashboard panel", label: textFrom(node, ".dense-panel-title") || "Dashboard panel", value: textFrom(node, ".dense-panel-meta"), note: compactTargetText(node.textContent, 160) };
+      }
+      if (node.matches(".stage-badge")) {
+        return { ...base, kind: "stage badge", label: compactTargetText(node.textContent, 100) || "Stage badge" };
+      }
+      if (node.matches("#mini-visual")) {
+        return { ...base, kind: "mini visual", label: textFrom(node, "#mini-label") || "Mini visual", value: textFrom(node, "#mini-chip") };
+      }
+      if (node.matches("#small-multiples")) {
+        return { ...base, kind: "small multiples", label: "Small multiples", note: config.lens || config.title || "" };
+      }
+      if (node.matches("#stage, .scene-card")) {
+        return { ...base, kind: "stage visual", label: $("visual-label")?.textContent || "Stage visual", note: $("visual-copy")?.textContent || "" };
+      }
+      if (node.matches(".module")) {
+        return { ...base, kind: "module", label: textFrom(node, ".section-label") || textFrom(node, ".pulse-kicker") || "Dashboard module", note: compactTargetText(node.textContent, 160) };
+      }
+      if (node.matches(".topbar")) {
+        return { ...base, kind: "dashboard header", label: config.title || "Dashboard header", note: config.kicker || config.subtitle || "" };
+      }
+      return base;
+    }
+
+    function setKatTargetMode(active) {
+      katTarget.mode = Boolean(active);
+      document.body.classList.toggle("kat-target-mode", katTarget.mode);
+      const toggle = $("kat-target-toggle");
+      if (toggle) {
+        toggle.classList.toggle("active", katTarget.mode);
+        toggle.setAttribute("aria-pressed", String(katTarget.mode));
+      }
+    }
+
+    function updateKatTargetStatus(message = "") {
+      const status = $("kat-target-status");
+      if (status) status.textContent = message;
+    }
+
+    function positionKatTargetModal(point) {
+      const modal = $("kat-target-modal");
+      if (!modal) return;
+      modal.hidden = false;
+      modal.style.left = "0px";
+      modal.style.top = "0px";
+      const rect = modal.getBoundingClientRect();
+      const margin = 12;
+      const x = Math.min(Math.max(point.x + 14, margin), Math.max(margin, window.innerWidth - rect.width - margin));
+      const y = Math.min(Math.max(point.y + 14, margin), Math.max(margin, window.innerHeight - rect.height - margin));
+      modal.style.left = `${x}px`;
+      modal.style.top = `${y}px`;
+    }
+
+    function showKatTargetRing(target) {
+      const ring = $("kat-target-ring");
+      if (!ring || !target?.rect) return;
+      ring.hidden = false;
+      ring.style.left = `${Math.max(4, target.rect.left - 4)}px`;
+      ring.style.top = `${Math.max(4, target.rect.top - 4)}px`;
+      ring.style.width = `${Math.max(24, target.rect.width + 8)}px`;
+      ring.style.height = `${Math.max(24, target.rect.height + 8)}px`;
+    }
+
+    function hideKatTargetModal() {
+      katTarget.selection = null;
+      katTarget.voicePointerId = null;
+      const modal = $("kat-target-modal");
+      const ring = $("kat-target-ring");
+      const input = $("kat-target-input");
+      if (modal) modal.hidden = true;
+      if (ring) ring.hidden = true;
+      if (input) input.value = "";
+      $("kat-target-voice")?.classList.remove("listening");
+      updateKatTargetStatus("");
+    }
+
+    function openKatTargetModal(target, point) {
+      setKatTargetMode(false);
+      katTarget.selection = { target: serializeKatTarget(target), point };
+      $("kat-target-name").textContent = target.label || "Dashboard region";
+      $("kat-target-input").value = "";
+      updateKatTargetStatus(target.value ? compactTargetText(target.value, 80) : target.kind || "");
+      showKatTargetRing(target);
+      positionKatTargetModal(point);
+      requestAnimationFrame(() => $("kat-target-input")?.focus());
+    }
+
+    async function submitKatTargetPrompt(instruction, source = "target-modal") {
+      const text = String(instruction || "").trim();
+      const target = katTarget.selection?.target;
+      if (!text || !target) {
+        $("kat-target-input")?.focus();
+        return;
+      }
+      updateKatTargetStatus("building targeted mutation");
+      $("kat-target-submit").disabled = true;
+      try {
+        await runChannelCommand(text, { target, source });
+        hideKatTargetModal();
+      } finally {
+        $("kat-target-submit").disabled = false;
+      }
+    }
+
+    function shouldIgnoreKatTargetClick(event) {
+      const interactive = "button, a, input, textarea, select, label, [contenteditable], .kat-target-modal, .action-rail, .generated-modal, [data-kat-target-ignore]";
+      return Boolean(event.target?.closest?.(interactive));
+    }
+
+    function wireKatTargetInteractions() {
+      $("kat-target-toggle")?.addEventListener("click", () => setKatTargetMode(!katTarget.mode));
+      $("kat-target-close")?.addEventListener("click", hideKatTargetModal);
+      $("kat-target-form")?.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submitKatTargetPrompt($("kat-target-input")?.value || "");
+      });
+      document.querySelectorAll("[data-target-quick]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const value = button.getAttribute("data-target-quick") || "";
+          $("kat-target-input").value = value;
+          $("kat-target-input").focus();
+        });
+      });
+      document.addEventListener("click", (event) => {
+        if (!katTarget.mode && !event.shiftKey) return;
+        if (shouldIgnoreKatTargetClick(event)) return;
+        if (!event.target?.closest?.(".app")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const target = targetFromElement(event.target);
+        openKatTargetModal(target, { x: event.clientX, y: event.clientY });
+      }, true);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          if (katTarget.mode) setKatTargetMode(false);
+          if (!$("kat-target-modal")?.hidden) hideKatTargetModal();
+        }
+      });
+      const voice = $("kat-target-voice");
+      voice?.addEventListener("pointerdown", (event) => {
+        if (!katTarget.selection?.target) return;
+        event.preventDefault();
+        katTarget.voicePointerId = event.pointerId;
+        voice.classList.add("listening");
+        updateKatTargetStatus("listening");
+        try { voice.setPointerCapture(event.pointerId); } catch (_) {}
+        window.parent?.postMessage({
+          type: "kat-target-voice-start",
+          dashboard: dashboardId,
+          target: katTarget.selection.target,
+        }, window.location.origin);
+      });
+      const releaseVoice = (event) => {
+        if (katTarget.voicePointerId !== event.pointerId) return;
+        try { voice?.releasePointerCapture(event.pointerId); } catch (_) {}
+        katTarget.voicePointerId = null;
+        voice?.classList.remove("listening");
+        updateKatTargetStatus("processing voice");
+        window.parent?.postMessage({
+          type: "kat-target-voice-stop",
+          dashboard: dashboardId,
+          target: katTarget.selection?.target || null,
+        }, window.location.origin);
+      };
+      voice?.addEventListener("pointerup", releaseVoice);
+      voice?.addEventListener("pointercancel", releaseVoice);
     }
 
     function startShareReplay() {
@@ -1080,10 +1348,20 @@
       const message = event.data || {};
       if (message.dashboard && message.dashboard !== dashboardId) return;
       if (message.type === "watch-run-prompt") {
-        runChannelCommand(message.prompt || "");
+        const targeted = Boolean(message.target);
+        if (targeted) updateKatTargetStatus("building voice mutation");
+        runChannelCommand(message.prompt || "", { target: message.target || null, source: message.source || "watch-run-prompt" })
+          .finally(() => {
+            if (targeted) hideKatTargetModal();
+          });
       }
       if (message.type === "watch-share-state") {
         shareChannelState();
+      }
+      if (message.type === "kat-target-voice-status") {
+        if (message.status === "listening") $("kat-target-voice")?.classList.add("listening");
+        else $("kat-target-voice")?.classList.remove("listening");
+        updateKatTargetStatus(message.label || message.status || "");
       }
     });
 
@@ -2639,42 +2917,71 @@
     }
 
     function applyHyperliquidData(data) {
-      const mid = Number(data.mid || data.mark || 0);
-      const spread = Number(data.spreadBps || 4.2);
-      const depth = Number(data.depthUsd || 72000);
-      if (mid > 0) state.metrics[0] = [data.coin || "BTC", `$${Math.round(mid).toLocaleString()}`, "live"];
-      state.metrics[1] = state.metrics[1][0] === "Spread" ? ["Spread", `${spread.toFixed(2)}bp`, "tight"] : state.metrics[1];
-      state.metrics[2] = state.metrics[2][0] === "Depth" ? ["Depth", `$${Math.round(depth / 1000)}K`, "nearby"] : state.metrics[2];
+      const mid = Number(data.mid ?? data.mark);
+      const spread = Number(data.spreadBps);
+      const depth = Number(data.depthUsd);
+      const coin = data.coin || "BTC";
+      state.metrics[0] = [coin, Number.isFinite(mid) && mid > 0 ? `$${Math.round(mid).toLocaleString()}` : "—", "live"];
+      state.metrics[1] = ["Spread", Number.isFinite(spread) ? `${spread.toFixed(2)}bp` : "—", "tight"];
+      state.metrics[2] = ["Depth", Number.isFinite(depth) ? `$${Math.round(depth / 1000)}K` : "—", "nearby"];
       if (Array.isArray(data.candles) && data.candles.length) {
-        state.feed = data.candles.slice(-5).reverse().map((candle, index) => [
-          `${index * 3}m`,
-          `${data.coin || "BTC"} candle closed at $${Math.round(Number(candle.c || candle.close || mid)).toLocaleString()}.`,
-          "read-only market data",
-        ]);
+        state.feed = data.candles.slice(-5).reverse().map((candle, index) => {
+          const close = Number(candle.c ?? candle.close);
+          return [
+            `${index * 3}m`,
+            Number.isFinite(close)
+              ? `${coin} candle closed at $${Math.round(close).toLocaleString()}.`
+              : `${coin} candle missing close price.`,
+            "read-only market data",
+          ];
+        });
+      } else {
+        state.feed = [["—", "no candles in /api/channels/crypto-trading/live", "loading"]];
       }
     }
 
     function applyPolymarketData(data) {
-      const markets = Array.isArray(data.markets) ? data.markets.slice(0, 5) : [];
-      if (!markets.length) return;
-      state.metrics[0] = ["Markets", String(markets.length), "ranked"];
-      state.metrics[1] = ["Top YES", `${Math.round((markets[0].yes || 0.5) * 100)}%`, "implied"];
-      state.feed = markets.map((market, index) => [
-        `${index * 4}m`,
-        market.question || "Public prediction market updated.",
-        `${Math.round((market.yes || 0.5) * 100)}% yes / ${market.category || "market"}`,
-      ]);
+      const allMarkets = Array.isArray(data.markets) ? data.markets : [];
+      const markets = allMarkets.slice(0, 5);
+      if (!markets.length) {
+        state.metrics[0] = ["Markets", "—", "ranked"];
+        state.metrics[1] = ["Top YES", "—", "close"];
+        state.feed = [["—", "no markets in /api/channels/polyrec/live", "loading"]];
+        return;
+      }
+      state.metrics[0] = ["Markets", String(allMarkets.length), "ranked"];
+      const topYes = Number(markets[0].yes);
+      state.metrics[1] = ["Top YES", Number.isFinite(topYes) ? `${Math.round(topYes * 100)}%` : "—", "implied"];
+      state.feed = markets.map((market, index) => {
+        const yes = Number(market.yes);
+        return [
+          `${index * 4}m`,
+          market.question || "Public prediction market (no question text).",
+          `${Number.isFinite(yes) ? Math.round(yes * 100) + "%" : "—"} yes / ${market.category || "market"}`,
+        ];
+      });
     }
 
     function applyPumpfunData(data) {
-      const tokens = Array.isArray(data.tokens) ? data.tokens.slice(0, 5) : [];
-      if (!tokens.length) return;
-      state.metrics[0] = ["Tokens", String(tokens.length), "ranked"];
-      state.metrics[1] = ["Leader", String(tokens[0].symbol || tokens[0].name || "MEME").slice(0, 8).toUpperCase(), "velocity"];
-      state.metrics[2] = ["Fragility", `${Number(tokens[0].fragilityScore || 0).toFixed(0)}/100`, tokens[0].riskLabel || "risk"];
+      const allTokens = Array.isArray(data.tokens) ? data.tokens : [];
+      const tokens = allTokens.slice(0, 5);
+      if (!tokens.length) {
+        state.metrics[0] = ["Tokens", "—", "ranked"];
+        state.metrics[1] = ["Leader", "—", "velocity"];
+        state.metrics[2] = ["Fragility", "—", "risk"];
+        state.feed = [["—", "no tokens in /api/channels/meme-coin/live", "loading"]];
+        return;
+      }
+      state.metrics[0] = ["Tokens", String(allTokens.length), "ranked"];
+      const leader = String(tokens[0].symbol || tokens[0].name || "").slice(0, 8).toUpperCase();
+      state.metrics[1] = ["Leader", leader || "—", "velocity"];
+      const fragility = Number(tokens[0].fragilityScore);
+      state.metrics[2] = ["Fragility", Number.isFinite(fragility) ? `${Math.round(fragility)}/100` : "—", tokens[0].riskLabel || "risk"];
       state.feed = tokens.map((token, index) => [
         index === 0 ? "now" : `${index * 3}m`,
-        `${token.name || token.symbol || "Token"} moved through the social market watchlist with ${token.riskLabel || "visible"} liquidity risk.`,
+        token.name || token.symbol
+          ? `${token.name || token.symbol} on the social market watchlist with ${token.riskLabel || "no risk label"} liquidity risk.`
+          : "Token missing name and symbol.",
         `liq ${compactMoney(token.liquidityUsd)} / read-only`,
       ]);
     }
@@ -2689,10 +2996,18 @@
 
     function applyPowerGridData(data) {
       const latest = data.latest || (Array.isArray(data.series) ? data.series[data.series.length - 1] : null);
-      if (!latest) return;
+      if (!latest) {
+        state.metrics[0] = ["Load", "—", data.respondent || "EIA"];
+        state.metrics[1] = ["Frequency", "—", "hz proxy"];
+        state.metrics[2] = ["Reserve", "—", "margin proxy"];
+        state.feed = [["—", "no latest in /api/channels/power-grid/live", "loading"]];
+        return;
+      }
       state.metrics[0] = ["Load", formatGridMw(latest.loadMw), data.respondent || "EIA"];
-      state.metrics[1] = ["Frequency", `${Number(latest.frequencyHz || 60).toFixed(3)}`, "hz proxy"];
-      state.metrics[2] = ["Reserve", `${Number(latest.operatingMarginPct || 0).toFixed(1)}%`, "margin proxy"];
+      const hz = Number(latest.frequencyHz);
+      state.metrics[1] = ["Frequency", Number.isFinite(hz) ? hz.toFixed(3) : "—", "hz proxy"];
+      const margin = Number(latest.operatingMarginPct);
+      state.metrics[2] = ["Reserve", Number.isFinite(margin) ? `${margin.toFixed(1)}%` : "—", "margin proxy"];
       if (Array.isArray(data.feed) && data.feed.length) {
         state.feed = data.feed.slice(0, 6).map((item) => Array.isArray(item)
           ? [item[0] ?? "", item[1] ?? "", item[2] ?? ""]
@@ -2719,4 +3034,7 @@
       .catch((err) => {
         console.warn(err);
       })
-      .finally(render);
+      .finally(() => {
+        wireKatTargetInteractions();
+        render();
+      });

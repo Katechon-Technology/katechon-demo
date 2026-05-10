@@ -3803,6 +3803,8 @@
       played: false,
       stack: [],
     };
+    let dashboardTargetVoice = null;
+    let dashboardTargetVoiceTimer = null;
 
     function escapePickerHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -4472,6 +4474,51 @@
       defaultHeight: 220,
     });
 
+    function postDashboardTargetVoiceStatus(status, label = status) {
+      if (!dashboardTargetVoice?.frame) return;
+      try {
+        dashboardTargetVoice.frame.postMessage({
+          type: 'kat-target-voice-status',
+          dashboard: dashboardTargetVoice.dashboard,
+          status,
+          label,
+        }, window.location.origin);
+      } catch (_) {}
+    }
+
+    function clearDashboardTargetVoice() {
+      if (dashboardTargetVoiceTimer) clearTimeout(dashboardTargetVoiceTimer);
+      dashboardTargetVoiceTimer = null;
+      dashboardTargetVoice = null;
+    }
+
+    function startDashboardTargetVoice(event) {
+      if (event.origin !== window.location.origin) return;
+      const dashboard = String(event.data.dashboard || currentDashboardId || '').replace(/[^\w-]/g, '');
+      if (!dashboard || !DASHBOARDS[dashboard]) return;
+      clearDashboardTargetVoice();
+      dashboardTargetVoice = {
+        dashboard,
+        target: event.data.target || null,
+        frame: event.source,
+      };
+      dashboardTargetVoiceTimer = setTimeout(clearDashboardTargetVoice, 45000);
+      postDashboardTargetVoiceStatus('listening', 'listening');
+      showToast('target voice listening...', '#ff4444');
+      startPushToTalk().catch((err) => {
+        console.warn('target voice failed:', err);
+        postDashboardTargetVoiceStatus('error', 'voice failed');
+        clearDashboardTargetVoice();
+      });
+    }
+
+    function stopDashboardTargetVoice(event) {
+      if (event.origin !== window.location.origin) return;
+      if (!dashboardTargetVoice) return;
+      postDashboardTargetVoiceStatus('processing', 'processing voice');
+      stopPushToTalk();
+    }
+
     window.addEventListener('message', (event) => {
       if (!event.data) return;
       if (event.data.type === 'avatar-ready') {
@@ -4512,6 +4559,15 @@
             source: 'watch-feed',
           });
         }
+        return;
+      }
+      if (event.data.type === 'kat-target-voice-start') {
+        startDashboardTargetVoice(event);
+        return;
+      }
+      if (event.data.type === 'kat-target-voice-stop') {
+        stopDashboardTargetVoice(event);
+        return;
       }
     });
 
@@ -6055,6 +6111,9 @@
     }
 
     function buildRealtimeInstructions(context) {
+      const targetContext = dashboardTargetVoice?.target
+        ? `Selected dashboard target for this push-to-talk:\n${JSON.stringify(dashboardTargetVoice.target, null, 2)}`
+        : '';
       return [
         'You are Kat, the voice-native agent inside Katechon.',
         'Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.',
@@ -6066,8 +6125,9 @@
         'Every generated chart or insight must include provenance and a DataBinding. If public data is not available, label it Data unavailable instead of inventing live facts.',
         'Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.',
         'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
+        targetContext,
         `Active channel context:\n${JSON.stringify(context, null, 2)}`,
-      ].join('\n\n');
+      ].filter(Boolean).join('\n\n');
     }
 
     function realtimeSend(event) {
@@ -6293,6 +6353,10 @@
                   : 'dashboard updated',
           '#00e87b'
         );
+        if (dashboardTargetVoice && name === 'route_channel_turn') {
+          postDashboardTargetVoiceStatus('complete', 'voice mutation sent');
+          clearDashboardTargetVoice();
+        }
       }
       sendRealtimeDashboardContext(result.dashboard?.id || result.workspace || currentDashboardId).catch(() => {});
     }
@@ -6791,6 +6855,25 @@
 
     async function handleCommand(text) {
       showToast(`"${text}"`, '#e8e8ec');
+      if (dashboardTargetVoice?.frame && dashboardTargetVoice?.dashboard) {
+        const request = dashboardTargetVoice;
+        clearDashboardTargetVoice();
+        request.frame.postMessage({
+          type: 'kat-target-voice-status',
+          dashboard: request.dashboard,
+          status: 'processing',
+          label: 'building voice mutation',
+        }, window.location.origin);
+        request.frame.postMessage({
+          type: 'watch-run-prompt',
+          dashboard: request.dashboard,
+          prompt: text,
+          target: request.target || null,
+          source: 'target-voice',
+        }, window.location.origin);
+        showToast('Kat is mutating the selected region', '#00e87b');
+        return;
+      }
       const r = await fetch(appUrl('/api/agent'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

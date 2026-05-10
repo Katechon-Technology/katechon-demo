@@ -2773,6 +2773,7 @@
       border-color: color-mix(in srgb, var(--accent) 60%, white);
       background: color-mix(in srgb, var(--accent) 10%, rgba(0,0,0,0.30));
     }
+    .action-rail-target,
     .action-rail-share {
       flex-shrink: 0;
       min-height: 30px;
@@ -2787,11 +2788,157 @@
       text-transform: uppercase;
       cursor: pointer;
     }
+    .action-rail-target {
+      border-color: color-mix(in srgb, var(--accent) 42%, rgba(255,255,255,0.20));
+      color: color-mix(in srgb, var(--accent) 82%, white);
+    }
+    .action-rail-target.active {
+      background: color-mix(in srgb, var(--accent) 16%, rgba(0,0,0,0.32));
+      box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 20%, transparent);
+    }
     .action-rail-share:hover,
-    .action-rail-share:focus-visible {
+    .action-rail-share:focus-visible,
+    .action-rail-target:hover,
+    .action-rail-target:focus-visible {
       outline: none;
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent) 14%, rgba(0,0,0,0.30));
+    }
+
+    body.kat-target-mode .workspace,
+    body.kat-target-mode .topbar {
+      cursor: crosshair;
+    }
+    body.kat-target-mode .metric:hover,
+    body.kat-target-mode .module:hover,
+    body.kat-target-mode .feed-item:hover,
+    body.kat-target-mode .generated-component:hover,
+    body.kat-target-mode .dense-panel:hover,
+    body.kat-target-mode .scene-card:hover {
+      outline: 1px solid color-mix(in srgb, var(--accent) 58%, white);
+      outline-offset: 3px;
+    }
+    .kat-target-ring {
+      position: fixed;
+      z-index: 42;
+      pointer-events: none;
+      border: 1px solid color-mix(in srgb, var(--accent) 72%, white);
+      border-radius: 10px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.42), 0 0 30px color-mix(in srgb, var(--accent) 26%, transparent);
+    }
+    .kat-target-ring[hidden],
+    .kat-target-modal[hidden] {
+      display: none;
+    }
+    .kat-target-modal {
+      position: fixed;
+      z-index: 43;
+      width: min(360px, calc(100vw - 24px));
+      padding: 12px;
+      border: 1px solid color-mix(in srgb, var(--accent2) 34%, rgba(255,255,255,0.14));
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), transparent 52%),
+        rgba(4, 7, 10, 0.96);
+      box-shadow: 0 22px 72px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.07);
+      backdrop-filter: blur(16px) saturate(1.18);
+    }
+    .kat-target-form {
+      display: grid;
+      gap: 10px;
+    }
+    .kat-target-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: start;
+    }
+    .kat-target-kicker {
+      color: var(--accent);
+      font: 800 9px/1 "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .kat-target-name {
+      margin-top: 5px;
+      color: rgba(243,246,248,0.92);
+      font-size: 15px;
+      font-weight: 760;
+      line-height: 1.16;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .kat-target-close {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .kat-target-input {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 11px;
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 7px;
+      background: rgba(0,0,0,0.34);
+      color: var(--text);
+      font: 13px/1.25 Inter, "Helvetica Neue", Arial, sans-serif;
+      outline: none;
+    }
+    .kat-target-input:focus {
+      border-color: color-mix(in srgb, var(--accent) 62%, white);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .kat-target-quick {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    .kat-target-chip {
+      min-height: 28px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: rgba(243,246,248,0.78);
+      font: 800 9px/1 "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .kat-target-actions {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 8px;
+    }
+    .kat-target-voice,
+    .kat-target-submit {
+      min-height: 34px;
+      padding: 0 12px;
+      font: 800 10px/1 "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+    }
+    .kat-target-voice.listening {
+      border-color: var(--danger);
+      color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 12%, rgba(0,0,0,0.32));
+    }
+    .kat-target-submit {
+      border-color: color-mix(in srgb, var(--accent) 56%, white);
+      background: color-mix(in srgb, var(--accent) 18%, rgba(0,0,0,0.30));
+      color: rgba(243,246,248,0.94);
+    }
+    .kat-target-status {
+      min-height: 13px;
+      color: var(--soft);
+      font: 9px/1.2 "SFMono-Regular", Consolas, monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     /* Dense scene-internal components used by re-built scene renderers */
@@ -3632,9 +3779,34 @@
         <span class="action-rail-label">next ▸</span>
         <div class="action-rail-prompts" id="action-rail-prompts"></div>
       </div>
+      <button class="action-rail-target" id="kat-target-toggle" type="button" aria-pressed="false" data-testid="kat-target-toggle">Modify</button>
       <button class="action-rail-share" id="action-rail-share" type="button" data-testid="action-rail-share">Share state</button>
     </section>
   </main>
+  <div class="kat-target-ring" id="kat-target-ring" hidden></div>
+  <section class="kat-target-modal" id="kat-target-modal" role="dialog" aria-modal="false" aria-labelledby="kat-target-name" hidden>
+    <form class="kat-target-form" id="kat-target-form">
+      <header class="kat-target-head">
+        <div>
+          <div class="kat-target-kicker">Kat target</div>
+          <div class="kat-target-name" id="kat-target-name">Dashboard region</div>
+        </div>
+        <button class="kat-target-close" id="kat-target-close" type="button" aria-label="Close Kat target">&times;</button>
+      </header>
+      <input class="kat-target-input" id="kat-target-input" type="text" autocomplete="off" placeholder="Ask Kat to change this">
+      <div class="kat-target-quick" aria-label="Quick target prompts">
+        <button class="kat-target-chip" type="button" data-target-quick="Build a detailed graph">Graph</button>
+        <button class="kat-target-chip" type="button" data-target-quick="Expand this into a focused inspector">Inspect</button>
+        <button class="kat-target-chip" type="button" data-target-quick="Compare this against the next strongest signal">Compare</button>
+        <button class="kat-target-chip" type="button" data-target-quick="Explain what changed and why it matters">Explain</button>
+      </div>
+      <div class="kat-target-actions">
+        <button class="kat-target-voice" id="kat-target-voice" type="button" aria-label="Hold to ask Kat by voice">Hold</button>
+        <button class="kat-target-submit" id="kat-target-submit" type="submit">Apply</button>
+      </div>
+      <div class="kat-target-status" id="kat-target-status"></div>
+    </form>
+  </section>
   <div class="generated-modal" id="generated-modal" hidden></div>
 
   <script src="/dashboards/catalog.js"></script>
