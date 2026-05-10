@@ -434,11 +434,20 @@
       box-shadow: 0 20px 70px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06);
       backdrop-filter: blur(16px) saturate(1.2);
     }
+    .watch-kat-panel.is-dragging {
+      user-select: none;
+    }
     .watch-kat-head {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    .watch-kat-panel.is-dragging .watch-kat-head {
+      cursor: grabbing;
     }
     .watch-kat-controls {
       display: grid;
@@ -3632,6 +3641,8 @@
     const mainNarrationButton = document.getElementById('main-narration');
     const katControlPanel = document.getElementById('kat-control-panel');
     const katControlPanelHandle = katControlPanel?.querySelector('.kat-control-head');
+    const watchKatPanel = document.querySelector('.watch-kat-panel');
+    const watchKatPanelHandle = watchKatPanel?.querySelector('.watch-kat-head');
     const browserAvatar = document.getElementById('browser-avatar');
     const katNarrator = document.getElementById('kat-narrator');
     const katChannel = document.getElementById('kat-channel');
@@ -3659,6 +3670,7 @@
       "These channels are generated in real time based on user input, data feeds, and real world events. " +
       "Channels cover geopolitical events, information flows, market structure, research signals, and agent workflows.";
     const KAT_CONTROL_PANEL_STORAGE_KEY = 'katechon.katControlPanelPlacement.v1';
+    const WATCH_KAT_PANEL_STORAGE_KEY = 'katechon.watchKatPanelPlacement.v1';
     const KAT_CONTROL_PANEL_MARGIN = 10;
 
     function loadDeferredFrame(frame) {
@@ -4317,87 +4329,112 @@
     else AVATAR_DESKTOP_MEDIA.addListener?.(applyAvatarPlacement);
     applyAvatarPlacement();
 
-    function clampKatControlPanelPosition(position) {
-      if (!katControlPanel) return null;
-      const rect = katControlPanel.getBoundingClientRect();
-      const width = rect.width || katControlPanel.offsetWidth || 252;
-      const height = rect.height || katControlPanel.offsetHeight || 112;
-      const maxX = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerWidth - width - KAT_CONTROL_PANEL_MARGIN);
-      const maxY = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerHeight - height - KAT_CONTROL_PANEL_MARGIN);
-      const rawX = Number(position?.x);
-      const rawY = Number(position?.y);
-      return {
-        x: Math.min(Math.max(Number.isFinite(rawX) ? rawX : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxX),
-        y: Math.min(Math.max(Number.isFinite(rawY) ? rawY : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxY),
-      };
-    }
+    function makeDraggableFloatingPanel({ panel, handle, storageKey, defaultWidth, defaultHeight }) {
+      if (!panel || !handle) return;
+      const interactiveSelector = 'button, a, input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+      let position = loadPosition();
+      let drag = null;
 
-    function loadKatControlPanelPosition() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(KAT_CONTROL_PANEL_STORAGE_KEY) || 'null');
-        if (!saved || typeof saved !== 'object') return null;
-        const x = Number(saved.x);
-        const y = Number(saved.y);
-        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-        return { x, y };
-      } catch (_) {
-        return null;
+      function clampPosition(nextPosition) {
+        const rect = panel.getBoundingClientRect();
+        const savedWidth = Number(nextPosition?.w);
+        const width = rect.width || panel.offsetWidth || (Number.isFinite(savedWidth) ? savedWidth : defaultWidth);
+        const height = rect.height || panel.offsetHeight || defaultHeight;
+        const maxX = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerWidth - width - KAT_CONTROL_PANEL_MARGIN);
+        const maxY = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerHeight - height - KAT_CONTROL_PANEL_MARGIN);
+        const rawX = Number(nextPosition?.x);
+        const rawY = Number(nextPosition?.y);
+        return {
+          x: Math.min(Math.max(Number.isFinite(rawX) ? rawX : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxX),
+          y: Math.min(Math.max(Number.isFinite(rawY) ? rawY : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxY),
+        };
       }
-    }
 
-    let katControlPanelPosition = loadKatControlPanelPosition();
-    let katControlPanelDrag = null;
-
-    function applyKatControlPanelPosition(position, options = {}) {
-      if (!katControlPanel) return;
-      const clamped = clampKatControlPanelPosition(position);
-      if (!clamped) return;
-      katControlPanelPosition = clamped;
-      katControlPanel.style.left = `${clamped.x}px`;
-      katControlPanel.style.top = `${clamped.y}px`;
-      katControlPanel.style.right = 'auto';
-      katControlPanel.style.bottom = 'auto';
-      if (options.persist) {
-        try { localStorage.setItem(KAT_CONTROL_PANEL_STORAGE_KEY, JSON.stringify(clamped)); } catch (_) {}
+      function loadPosition() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
+          if (!saved || typeof saved !== 'object') return null;
+          const x = Number(saved.x);
+          const y = Number(saved.y);
+          const w = Number(saved.w);
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+          return Number.isFinite(w) ? { x, y, w } : { x, y };
+        } catch (_) {
+          return null;
+        }
       }
-    }
 
-    function finishKatControlPanelDrag(event) {
-      if (!katControlPanelDrag || event.pointerId !== katControlPanelDrag.pointerId) return;
-      try { katControlPanelHandle?.releasePointerCapture(event.pointerId); } catch (_) {}
-      katControlPanel?.classList.remove('is-dragging');
-      katControlPanelDrag = null;
-      if (katControlPanelPosition) applyKatControlPanelPosition(katControlPanelPosition, { persist: true });
-    }
+      function applyPosition(nextPosition, options = {}) {
+        const rect = panel.getBoundingClientRect();
+        const savedWidth = Number(nextPosition?.w);
+        const maxWidth = Math.max(1, window.innerWidth - KAT_CONTROL_PANEL_MARGIN * 2);
+        const width = Math.min(maxWidth, Math.max(1, rect.width || (Number.isFinite(savedWidth) ? savedWidth : defaultWidth)));
+        const clamped = clampPosition(nextPosition);
+        position = { ...clamped, w: width };
+        panel.style.position = 'fixed';
+        panel.style.left = `${clamped.x}px`;
+        panel.style.top = `${clamped.y}px`;
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.width = `${width}px`;
+        if (options.persist) {
+          try { localStorage.setItem(storageKey, JSON.stringify(position)); } catch (_) {}
+        }
+      }
 
-    if (katControlPanelPosition) requestAnimationFrame(() => applyKatControlPanelPosition(katControlPanelPosition));
-    katControlPanelHandle?.addEventListener('pointerdown', (event) => {
-      if (event.button !== undefined && event.button !== 0) return;
-      event.preventDefault();
-      const rect = katControlPanel.getBoundingClientRect();
-      katControlPanelDrag = {
-        pointerId: event.pointerId,
-        offsetX: event.clientX - rect.left,
-        offsetY: event.clientY - rect.top,
-      };
-      katControlPanel.classList.add('is-dragging');
-      try { katControlPanelHandle.setPointerCapture(event.pointerId); } catch (_) {}
-      applyKatControlPanelPosition({ x: rect.left, y: rect.top });
-    });
-    katControlPanelHandle?.addEventListener('pointermove', (event) => {
-      if (!katControlPanelDrag || event.pointerId !== katControlPanelDrag.pointerId) return;
-      event.preventDefault();
-      applyKatControlPanelPosition({
-        x: event.clientX - katControlPanelDrag.offsetX,
-        y: event.clientY - katControlPanelDrag.offsetY,
+      function finishDrag(event) {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        try { handle.releasePointerCapture(event.pointerId); } catch (_) {}
+        panel.classList.remove('is-dragging');
+        drag = null;
+        if (position) applyPosition(position, { persist: true });
+      }
+
+      if (position) requestAnimationFrame(() => applyPosition(position));
+      handle.addEventListener('pointerdown', (event) => {
+        if (event.button !== undefined && event.button !== 0) return;
+        if (event.target?.closest?.(interactiveSelector)) return;
+        event.preventDefault();
+        const rect = panel.getBoundingClientRect();
+        drag = {
+          pointerId: event.pointerId,
+          offsetX: event.clientX - rect.left,
+          offsetY: event.clientY - rect.top,
+        };
+        panel.classList.add('is-dragging');
+        try { handle.setPointerCapture(event.pointerId); } catch (_) {}
+        applyPosition({ x: rect.left, y: rect.top });
       });
+      handle.addEventListener('pointermove', (event) => {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        event.preventDefault();
+        applyPosition({
+          x: event.clientX - drag.offsetX,
+          y: event.clientY - drag.offsetY,
+        });
+      });
+      handle.addEventListener('pointerup', finishDrag);
+      handle.addEventListener('pointercancel', finishDrag);
+      handle.addEventListener('lostpointercapture', finishDrag);
+      window.addEventListener('resize', () => {
+        if (!position) return;
+        requestAnimationFrame(() => applyPosition(position, { persist: true }));
+      });
+    }
+
+    makeDraggableFloatingPanel({
+      panel: katControlPanel,
+      handle: katControlPanelHandle,
+      storageKey: KAT_CONTROL_PANEL_STORAGE_KEY,
+      defaultWidth: 252,
+      defaultHeight: 112,
     });
-    katControlPanelHandle?.addEventListener('pointerup', finishKatControlPanelDrag);
-    katControlPanelHandle?.addEventListener('pointercancel', finishKatControlPanelDrag);
-    katControlPanelHandle?.addEventListener('lostpointercapture', finishKatControlPanelDrag);
-    window.addEventListener('resize', () => {
-      if (!katControlPanelPosition) return;
-      requestAnimationFrame(() => applyKatControlPanelPosition(katControlPanelPosition, { persist: true }));
+    makeDraggableFloatingPanel({
+      panel: watchKatPanel,
+      handle: watchKatPanelHandle,
+      storageKey: WATCH_KAT_PANEL_STORAGE_KEY,
+      defaultWidth: 360,
+      defaultHeight: 220,
     });
 
     window.addEventListener('message', (event) => {
