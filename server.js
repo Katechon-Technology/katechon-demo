@@ -41,6 +41,7 @@ const {
   dataCapabilitiesForChannel,
   getChannel,
   listChannels,
+  providerById,
   publicChannel,
   surfaceRegistry,
   syntheticChannelData,
@@ -84,6 +85,7 @@ const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const DASHBOARD_OVERRIDES_FILE = path.resolve(__dirname, process.env.DASHBOARD_OVERRIDES_FILE || "data/dashboard-overrides.json");
 const CHANNEL_SESSIONS_FILE = path.resolve(__dirname, process.env.CHANNEL_SESSIONS_FILE || "data/channel-sessions.json");
 const CHANNEL_SHARES_FILE = path.resolve(__dirname, process.env.CHANNEL_SHARES_FILE || "data/channel-shares.json");
+const PROVIDER_CACHE_FILE = path.resolve(__dirname, process.env.PROVIDER_CACHE_FILE || "data/provider-cache.json");
 const LAUNCH_EVENT_TYPES = new Set([
   "visit",
   "focused_launch_viewed",
@@ -976,39 +978,92 @@ function saveChannelSessionState(channel, sessionId, sessionState, eventRecord =
 
 function sourceTypeForEnvelope(envelope, capability = "snapshot") {
   const source = String(envelope?.source || "");
-  if (!source || envelope?.ok === false) return "unavailable";
+  if (!source || envelope?.ok === false || envelope?.freshness === "unavailable") return "unavailable";
   if (source.includes("synthetic") || source === "channel-synthetic") return "synthetic_fallback";
-  if (envelope.stale) return "cached_api";
+  if (envelope.stale || envelope?.freshness === "cached") return "cached_api";
   if (["timeseries", "historical_state"].includes(capability)) return "historical_api";
   return "live_api";
 }
 
+function freshnessForEnvelope(envelope) {
+  const explicit = cleanComponentId(envelope?.freshness || "");
+  if (["live", "cached", "unavailable"].includes(explicit)) return explicit;
+  const sourceType = sourceTypeForEnvelope(envelope);
+  if (sourceType === "unavailable") return "unavailable";
+  if (sourceType === "cached_api" || envelope?.stale) return "cached";
+  return "live";
+}
+
+function freshnessLabel(freshness) {
+  if (freshness === "live") return "Live data";
+  if (freshness === "cached") return "Data cached";
+  return "Data unavailable";
+}
+
 function sourceLabelForType(sourceType) {
-  if (sourceType === "synthetic_fallback") return "fallback data";
-  if (sourceType === "cached_api") return "cached provider data";
+  if (sourceType === "synthetic_fallback") return "fixture data";
+  if (sourceType === "cached_api") return "Data cached";
   if (sourceType === "historical_api") return "historical provider data";
-  if (sourceType === "live_api") return "live provider data";
+  if (sourceType === "live_api") return "Live data";
   if (sourceType === "derived_from_api") return "derived provider data";
-  return "unavailable data";
+  return "Data unavailable";
+}
+
+function sourceUrlsForEnvelope(channel, envelope) {
+  const fromEnvelope = Array.isArray(envelope?.publicSourceUrls) ? envelope.publicSourceUrls : [];
+  const providerUrls = (envelope?.providerIds || channel.providers || [channel.liveProvider])
+    .map((id) => providerById(id)?.docsUrl)
+    .filter(Boolean);
+  return Array.from(new Set([...fromEnvelope, ...providerUrls])).slice(0, 8);
+}
+
+function providerIdsForEnvelope(channel, envelope) {
+  return Array.from(new Set([
+    ...(Array.isArray(envelope?.providerIds) ? envelope.providerIds : []),
+    ...(Array.isArray(channel.providers) ? channel.providers : []),
+    channel.liveProvider,
+  ].filter(Boolean))).filter((id) => id !== "channel-synthetic");
+}
+
+function buildDataBinding(channel, capability, params, envelope, provenanceIds = []) {
+  return {
+    channelId: channel.id,
+    providerIds: providerIdsForEnvelope(channel, envelope),
+    capability: cleanComponentId(capability || "snapshot") || "snapshot",
+    query: sanitizeCapabilityParams(params || envelope?.query || {}),
+    freshness: freshnessForEnvelope(envelope),
+    provenanceIds: sanitizeStringArray(provenanceIds, 12, 100) || [],
+    publicSourceUrls: sourceUrlsForEnvelope(channel, envelope),
+  };
 }
 
 function buildProvenanceRecord(channel, capability, params, envelope, rowCount = 0) {
   const sourceType = sourceTypeForEnvelope(envelope, capability);
+  const id = `prov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  const freshness = freshnessForEnvelope(envelope);
+  const providerIds = providerIdsForEnvelope(channel, envelope);
+  const publicSourceUrls = sourceUrlsForEnvelope(channel, envelope);
+  const cacheTtlMs = Number(envelope?.cache?.ttlMs || envelope?.ttlMs || LIVE_API_TTL_MS);
+  const bindingEnvelope = { ...envelope, providerIds, publicSourceUrls, freshness };
   return {
-    id: `prov_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    id,
     sourceType,
     provider: String(envelope?.source || channel.liveProvider || "unavailable"),
+    providerIds,
     capability,
     params: sanitizeCapabilityParams(params || {}),
     queriedAt: new Date().toISOString(),
+    freshness,
+    publicSourceUrls,
     cache: {
-      status: envelope?.stale ? "stale" : "fresh",
-      ttlMs: LIVE_API_TTL_MS,
+      status: freshness === "cached" ? "stale" : freshness,
+      ttlMs: cacheTtlMs,
     },
     rowCount: Math.max(0, Number(rowCount) || 0),
-    status: sourceType === "unavailable" ? "failed" : "success",
-    stale: Boolean(envelope?.stale),
+    status: sourceType === "unavailable" ? "unavailable" : "success",
+    stale: freshness === "cached" || Boolean(envelope?.stale),
     fallbackReason: envelope?.fallbackReason || null,
+    dataBinding: buildDataBinding(channel, capability, params, bindingEnvelope, [id]),
   };
 }
 
@@ -1016,14 +1071,17 @@ function componentSourceState(provenance) {
   const provider = String(provenance.provider || "");
   const providerLabel = provider.replace(/-synthetic$/, "");
   const hyperliquidLabel = provenance.sourceType === "historical_api" ? "Hyperliquid history" : "Hyperliquid live";
-  const liveProviderLabel = providerLabel === "hyperliquid" ? hyperliquidLabel : sourceLabelForType(provenance.sourceType);
+  const freshness = provenance.freshness || (provenance.stale ? "cached" : provenance.sourceType === "unavailable" ? "unavailable" : "live");
+  const liveProviderLabel = providerLabel === "hyperliquid" && freshness === "live" ? hyperliquidLabel : freshnessLabel(freshness);
   return {
     provenanceId: provenance.id,
     sourceType: provenance.sourceType,
     provider: provenance.provider,
-    label: ["live_api", "historical_api"].includes(provenance.sourceType) ? liveProviderLabel : sourceLabelForType(provenance.sourceType),
+    label: liveProviderLabel,
+    freshness,
     stale: Boolean(provenance.stale),
     fallbackReason: provenance.fallbackReason || null,
+    publicSourceUrls: Array.isArray(provenance.publicSourceUrls) ? provenance.publicSourceUrls.slice(0, 8) : [],
   };
 }
 
@@ -1157,8 +1215,32 @@ function sanitizeSourceState(raw) {
       if (value) state[field] = value;
     }
   }
+  const freshness = cleanComponentId(raw.freshness || "");
+  if (["live", "cached", "unavailable"].includes(freshness)) state.freshness = freshness;
+  const publicSourceUrls = sanitizeStringArray(raw.publicSourceUrls, 8, 240);
+  if (publicSourceUrls) state.publicSourceUrls = publicSourceUrls;
   if (raw.stale !== undefined) state.stale = Boolean(raw.stale);
   return state;
+}
+
+function sanitizeDataBinding(raw, channel = null) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const channelId = cleanDashboardId(raw.channelId || channel?.id || "");
+  const capability = cleanComponentId(raw.capability || "snapshot") || "snapshot";
+  const freshness = cleanComponentId(raw.freshness || "");
+  if (!["live", "cached", "unavailable"].includes(freshness)) return null;
+  const providerIds = sanitizeStringArray(raw.providerIds, 8, 80) || (channel?.providers || []).filter(Boolean);
+  const provenanceIds = sanitizeStringArray(raw.provenanceIds, 12, 100) || [];
+  const publicSourceUrls = sanitizeStringArray(raw.publicSourceUrls, 8, 240) || [];
+  return {
+    channelId,
+    providerIds,
+    capability,
+    query: sanitizeCapabilityParams(raw.query || {}),
+    freshness,
+    provenanceIds,
+    publicSourceUrls,
+  };
 }
 
 function sanitizeInteractions(value) {
@@ -1230,6 +1312,9 @@ function sanitizeComponent(raw) {
   const sourceState = sanitizeSourceState(raw.sourceState);
   if (sourceState) component.sourceState = sourceState;
 
+  const dataBinding = sanitizeDataBinding(raw.dataBinding);
+  if (dataBinding) component.dataBinding = dataBinding;
+
   const interactions = sanitizeInteractions(raw.interactions);
   if (interactions) component.interactions = interactions;
   return component;
@@ -1293,6 +1378,7 @@ function sanitizeGeneratedPage(raw, channel = null) {
   const layoutRaw = raw.layout && typeof raw.layout === "object" && !Array.isArray(raw.layout) ? raw.layout : {};
   const themeRaw = raw.theme && typeof raw.theme === "object" && !Array.isArray(raw.theme) ? raw.theme : {};
   const sourceState = sanitizeSourceState(raw.sourceState);
+  const dataBinding = sanitizeDataBinding(raw.dataBinding, channel);
   const provenance = (Array.isArray(raw.provenance) ? raw.provenance : Array.isArray(raw.provenanceRecords) ? raw.provenanceRecords : [])
     .map((record) => sanitizeProvenanceRecord(record, channel || { liveProvider: cleanComponentId(raw.channelId || "") }))
     .filter(Boolean)
@@ -1334,6 +1420,7 @@ function sanitizeGeneratedPage(raw, channel = null) {
     actions: sanitizeStringArray(raw.actions || raw.nextActions, 6, 120) || [],
     provenance,
     sourceState: sourceState || undefined,
+    dataBinding: dataBinding || undefined,
   };
 }
 
@@ -1560,7 +1647,7 @@ function applyDashboardMutation(dashboardId, rawMutation, instruction, source = 
 function sanitizeCapabilityParams(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const params = {};
-  for (const field of ["entity", "metric", "detail", "topic", "direction", "compareTo", "coin", "interval", "respondent", "category", "oddsRange", "keyword"]) {
+  for (const field of ["entity", "metric", "detail", "topic", "direction", "compareTo", "coin", "interval", "respondent", "category", "oddsRange", "keyword", "repo", "station", "term", "timespan"]) {
     if (raw[field] !== undefined) {
       const value = clampText(raw[field], 80);
       if (value) params[field] = value;
@@ -1577,6 +1664,10 @@ function sanitizeCapabilityParams(raw) {
   if (Array.isArray(raw.categories)) {
     const categories = sanitizeStringArray(raw.categories, 6, 48)?.map(cleanComponentId).filter(Boolean).slice(0, 6);
     if (categories?.length) params.categories = categories;
+  }
+  if (Array.isArray(raw.stations)) {
+    const stations = sanitizeStringArray(raw.stations, 6, 24);
+    if (stations?.length) params.stations = stations;
   }
   for (const field of ["lookbackHours", "hours", "limit", "depth", "candles", "minVolume"]) {
     if (raw[field] !== undefined) {
@@ -1623,9 +1714,12 @@ function sanitizeProvenanceRecord(raw, channel) {
     id: cleanComponentId(raw.id) || `prov_${Date.now().toString(36)}`,
     sourceType,
     provider: clampText(raw.provider || channel.liveProvider || "unavailable", 80),
+    providerIds: sanitizeStringArray(raw.providerIds, 8, 80) || (channel.providers || [channel.liveProvider]).filter(Boolean),
     capability,
     params: sanitizeCapabilityParams(raw.params || {}),
     queriedAt: clampText(raw.queriedAt, 40) || new Date().toISOString(),
+    freshness: ["live", "cached", "unavailable"].includes(cleanComponentId(raw.freshness || "")) ? cleanComponentId(raw.freshness) : (raw.stale ? "cached" : sourceType === "unavailable" ? "unavailable" : "live"),
+    publicSourceUrls: sanitizeStringArray(raw.publicSourceUrls, 8, 240) || [],
     cache: raw.cache && typeof raw.cache === "object" && !Array.isArray(raw.cache)
       ? { status: clampText(raw.cache.status, 32), ttlMs: Number(raw.cache.ttlMs) || undefined }
       : undefined,
@@ -1633,6 +1727,7 @@ function sanitizeProvenanceRecord(raw, channel) {
     status: clampText(raw.status || "success", 32),
     stale: Boolean(raw.stale),
     fallbackReason: clampText(raw.fallbackReason, 180) || null,
+    dataBinding: sanitizeDataBinding(raw.dataBinding, channel) || undefined,
   };
 }
 
@@ -1653,6 +1748,39 @@ function sanitizeSurfaceUpdate(raw) {
     mode,
     components,
   };
+}
+
+function attachDataBindingToComponent(component, dataBinding) {
+  if (!component || !dataBinding || component.dataBinding) return component;
+  return {
+    ...component,
+    dataBinding,
+  };
+}
+
+function attachDataBindingsToUpdate(update, provenanceRecords) {
+  if (!update || !Array.isArray(provenanceRecords) || !provenanceRecords.length) return update;
+  const primaryBinding = provenanceRecords.find((record) => record.dataBinding)?.dataBinding;
+  if (!primaryBinding) return update;
+  const next = { ...update };
+  if (Array.isArray(next.surfaces)) {
+    next.surfaces = next.surfaces.map((surface) => ({
+      ...surface,
+      components: (surface.components || []).map((component) => attachDataBindingToComponent(component, primaryBinding)),
+    }));
+  }
+  if (next.generatedPage) {
+    next.generatedPage = {
+      ...next.generatedPage,
+      dataBinding: next.generatedPage.dataBinding || primaryBinding,
+      stage: {
+        ...next.generatedPage.stage,
+        components: (next.generatedPage.stage?.components || []).map((component) => attachDataBindingToComponent(component, primaryBinding)),
+      },
+      rail: (next.generatedPage.rail || []).map((component) => attachDataBindingToComponent(component, primaryBinding)),
+    };
+  }
+  return next;
 }
 
 function sanitizeChannelUpdate(raw, channel) {
@@ -1702,7 +1830,7 @@ function sanitizeChannelUpdate(raw, channel) {
   if (narration) update.narration = narration;
 
   if (!update.layout && !update.patch && !update.themeTokens && !update.surfaces && !update.generatedPage) return null;
-  return update;
+  return attachDataBindingsToUpdate(update, provenanceRecords);
 }
 
 function applyChannelUpdate(dashboardId, rawUpdate, instruction, source = "kat-runtime") {
@@ -2505,7 +2633,7 @@ function realtimeInstructions(dashboardId) {
     "Generated charts and components should replace the target generated surface by default; append only when the user explicitly asks to keep multiple.",
     "For primary charts, prefer surface=stageOverlay so the chart renders as a clean stage surface over the dashboard graphic.",
     "Use dataRequests in apply_channel_update to document what you queried or intended to query, but do not invent unsupported data.",
-    "Every generated chart or insight must include provenance; synthetic fallback must be named as fallback.",
+    "Every generated chart or insight must include provenance and a data binding; unavailable provider states must be explicit and retryable.",
     "Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.",
     "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
     `Current channel context:\n${JSON.stringify(context, null, 2)}`,
@@ -2834,16 +2962,19 @@ function appendSearch(url, search) {
 }
 
 function redactLiveErrorMessage(message) {
-  return String(message || "live provider unavailable")
-    .replace(/([?&]api_key=)[^&\s]+/gi, "$1<redacted>")
-    .replace(/(api_key=)[^&\s]+/gi, "$1<redacted>")
-    .replace(/(authorization:\s*bearer\s+)[^\s]+/gi, "$1<redacted>");
+  const text = String(message || "");
+  if (/429|rate.?limit|too many requests/i.test(text)) return "Live source is rate-limited.";
+  if (/timeout|timed out|aborted|ECONNRESET|ETIMEDOUT/i.test(text)) return "Live source took too long.";
+  if (/network|fetch|ENOTFOUND|ECONNREFUSED|EAI_AGAIN/i.test(text)) return "Live source is temporarily unavailable.";
+  return "Live source is temporarily unavailable.";
 }
 
 const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 900);
 const EIA_API_TIMEOUT_MS = Number(process.env.EIA_API_TIMEOUT_MS || Math.max(3500, LIVE_API_TIMEOUT_MS));
 const LIVE_API_TTL_MS = Number(process.env.LIVE_API_TTL_MS || 12000);
+const LIVE_API_STALE_TTL_MS = Number(process.env.LIVE_API_STALE_TTL_MS || 6 * 60 * 60 * 1000);
 const LIVE_API_CACHE = new Map();
+const LIVE_API_REFRESHING = new Map();
 const HYPERLIQUID_INTERVAL_MS = {
   "1m": 60 * 1000,
   "3m": 3 * 60 * 1000,
@@ -2859,6 +2990,64 @@ const HYPERLIQUID_INTERVAL_MS = {
 };
 const HYPERLIQUID_MAX_CANDLES = 180;
 const HYPERLIQUID_MAX_LOOKBACK_HOURS = 24 * 120;
+
+function readProviderCacheFile() {
+  try {
+    if (!fs.existsSync(PROVIDER_CACHE_FILE)) return;
+    const raw = fs.readFileSync(PROVIDER_CACHE_FILE, "utf8").trim();
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    const entries = parsed.entries && typeof parsed.entries === "object" ? parsed.entries : {};
+    for (const [key, entry] of Object.entries(entries)) {
+      if (!entry || typeof entry !== "object" || !entry.data || !Number.isFinite(Number(entry.time))) continue;
+      LIVE_API_CACHE.set(key, {
+        time: Number(entry.time),
+        source: String(entry.source || key.split(":")[0] || "provider"),
+        data: entry.data,
+        providerIds: Array.isArray(entry.providerIds) ? entry.providerIds : undefined,
+        publicSourceUrls: Array.isArray(entry.publicSourceUrls) ? entry.publicSourceUrls : undefined,
+        query: entry.query && typeof entry.query === "object" ? entry.query : undefined,
+        health: entry.health && typeof entry.health === "object" ? entry.health : undefined,
+        ttlMs: Number(entry.ttlMs) || undefined,
+        staleTtlMs: Number(entry.staleTtlMs) || undefined,
+      });
+    }
+  } catch (err) {
+    console.warn(`Provider cache could not be loaded: ${redactLiveErrorMessage(err.message)}`);
+  }
+}
+
+function writeProviderCacheFile() {
+  try {
+    fs.mkdirSync(path.dirname(PROVIDER_CACHE_FILE), { recursive: true });
+    const maxEntries = Number(process.env.PROVIDER_CACHE_MAX_ENTRIES || 160);
+    const entries = Array.from(LIVE_API_CACHE.entries())
+      .sort((a, b) => Number(b[1]?.time || 0) - Number(a[1]?.time || 0))
+      .slice(0, maxEntries);
+    const body = {
+      version: 1,
+      writtenAt: new Date().toISOString(),
+      entries: Object.fromEntries(entries.map(([key, entry]) => [key, {
+        time: entry.time,
+        source: entry.source,
+        data: entry.data,
+        providerIds: entry.providerIds,
+        publicSourceUrls: entry.publicSourceUrls,
+        query: entry.query,
+        health: entry.health,
+        ttlMs: entry.ttlMs,
+        staleTtlMs: entry.staleTtlMs,
+      }])),
+    };
+    const tmpFile = `${PROVIDER_CACHE_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmpFile, `${JSON.stringify(body, null, 2)}\n`);
+    fs.renameSync(tmpFile, PROVIDER_CACHE_FILE);
+  } catch (err) {
+    console.warn(`Provider cache could not be written: ${redactLiveErrorMessage(err.message)}`);
+  }
+}
+
+readProviderCacheFile();
 
 function liveSeed(seed) {
   let hash = 2166136261;
@@ -2884,8 +3073,31 @@ async function fetchLiveJson(url, options = {}) {
       ...(options.headers || {}),
     },
   });
-  if (!resp.ok) throw new Error(`${new URL(url).hostname} ${resp.status}`);
+  if (!resp.ok) {
+    const err = new Error(`${new URL(url).hostname} ${resp.status}`);
+    err.status = resp.status;
+    err.providerHost = new URL(url).hostname;
+    throw err;
+  }
   return resp.json();
+}
+
+async function fetchLiveText(url, options = {}) {
+  const resp = await fetch(url, {
+    timeout: LIVE_API_TIMEOUT_MS,
+    ...options,
+    headers: {
+      Accept: "text/plain, application/xml, text/xml, application/rss+xml, */*",
+      ...(options.headers || {}),
+    },
+  });
+  if (!resp.ok) {
+    const err = new Error(`${new URL(url).hostname} ${resp.status}`);
+    err.status = resp.status;
+    err.providerHost = new URL(url).hostname;
+    throw err;
+  }
+  return resp.text();
 }
 
 async function fetchHyperliquidInfo(body) {
@@ -3437,24 +3649,803 @@ async function getEIAGridLiveData(req) {
   return data;
 }
 
-async function getCachedLive(req, key, loader, fallback) {
-  const source = key.split(":")[0];
+function decodeXmlText(value) {
+  return String(value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function xmlTag(block, tag) {
+  const match = String(block || "").match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i"));
+  return match ? decodeXmlText(match[1]) : "";
+}
+
+function parseRssItems(xml, sourceLabel, limit = 12) {
+  const blocks = String(xml || "").match(/<item[\s\S]*?<\/item>/gi)
+    || String(xml || "").match(/<entry[\s\S]*?<\/entry>/gi)
+    || [];
+  return blocks.slice(0, limit).map((block, index) => ({
+    id: xmlTag(block, "guid") || xmlTag(block, "id") || `${sourceLabel}-${index}`,
+    title: xmlTag(block, "title") || "Untitled feed item",
+    url: xmlTag(block, "link") || "",
+    source: sourceLabel,
+    publishedAt: xmlTag(block, "pubDate") || xmlTag(block, "updated") || xmlTag(block, "published") || "",
+    summary: xmlTag(block, "description") || xmlTag(block, "summary") || "",
+  })).filter((item) => item.title);
+}
+
+function rssFeedsForChannel(channel) {
+  if (channel.id === "glance") {
+    return [
+      ["Hacker News", "https://hnrss.org/frontpage"],
+      ["The Verge", "https://www.theverge.com/rss/index.xml"],
+      ["BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"],
+    ];
+  }
+  if (channel.id === "news") {
+    return [
+      ["BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"],
+      ["NPR News", "https://feeds.npr.org/1001/rss.xml"],
+      ["NYTimes", "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"],
+    ];
+  }
+  return [
+    ["BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"],
+    ["NPR News", "https://feeds.npr.org/1001/rss.xml"],
+  ];
+}
+
+async function getRssLiveData(req, channel) {
+  const feeds = rssFeedsForChannel(channel);
+  const settled = await Promise.allSettled(feeds.map(async ([label, url]) => ({
+    label,
+    url,
+    items: parseRssItems(await fetchLiveText(url, { timeout: LIVE_API_TIMEOUT_MS }), label, 8),
+  })));
+  const feedResults = settled.filter((entry) => entry.status === "fulfilled").map((entry) => entry.value);
+  const items = feedResults.flatMap((entry) => entry.items.map((item) => ({ ...item, sourceUrl: entry.url }))).slice(0, 18);
+  if (!items.length) throw new Error("rss returned no feed items");
+  const hn = channel.id === "glance" ? await fetchHackerNewsRows().catch(() => []) : [];
+  const weather = channel.id === "glance" ? await fetchOpenMeteoSnapshot().catch(() => null) : null;
+  const metrics = [
+    ["Sources", String(feedResults.length), "RSS"],
+    ["Items", String(items.length + hn.length), "latest"],
+    ["Weather", weather ? `${Math.round(Number(weather.temperature || 0))}F` : "n/a", "Open-Meteo"],
+  ];
+  const feed = [
+    ...items.slice(0, 5).map((item, index) => [index === 0 ? "now" : `${index * 4}m`, item.title, item.source]),
+    ...hn.slice(0, 3).map((item, index) => [`hn ${index + 1}`, item.title, `${item.points || 0} pts`]),
+  ].slice(0, 8);
+  return {
+    kind: channel.contract,
+    mode: "public-rss",
+    items,
+    hn,
+    weather,
+    metrics,
+    feed,
+    highlights: feed.map((row) => `${row[1]} (${row[2]}).`).slice(0, 5),
+    updatedAt: Date.now(),
+  };
+}
+
+function gdeltQueryForChannel(channel, query = {}) {
+  if (query.query) return query.query;
+  if (channel.id === "iran") return "Iran OR Tehran OR Strait of Hormuz OR uranium OR sanctions";
+  if (channel.id === "spectre") return "infrastructure OR conflict OR cyber OR satellite OR border";
+  if (channel.id === "world-monitor") return "geopolitical risk OR energy security OR election OR conflict";
+  if (channel.id === "news") return "breaking news OR election OR economy OR technology";
+  return channel.label || "world news";
+}
+
+async function getGdeltLiveData(req, channel) {
+  const q = gdeltQueryForChannel(channel, req.query || {});
+  const url = new URL("https://api.gdeltproject.org/api/v2/doc/doc");
+  url.searchParams.set("query", q);
+  url.searchParams.set("mode", "ArtList");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("maxrecords", String(Math.min(50, Number(req.query.limit || 20) || 20)));
+  url.searchParams.set("sort", "HybridRel");
+  url.searchParams.set("timespan", req.query.timespan || "24h");
+  const json = await fetchLiveJson(url.toString());
+  const articles = (Array.isArray(json.articles) ? json.articles : []).map((article, index) => ({
+    id: article.url || `gdelt-${index}`,
+    title: article.title || "GDELT article",
+    url: article.url || "",
+    sourceCountry: article.sourcecountry || article.sourceCountry || "",
+    domain: article.domain || "",
+    seendate: article.seendate || "",
+    language: article.language || "",
+  })).slice(0, 30);
+  if (!articles.length) throw new Error("gdelt returned no articles");
+  return {
+    kind: channel.contract,
+    mode: "gdelt-doc",
+    query: q,
+    articles,
+    metrics: [
+      ["Articles", String(articles.length), "GDELT"],
+      ["Domains", String(new Set(articles.map((item) => item.domain).filter(Boolean)).size), "source spread"],
+      ["Window", "24h", "DOC 2.0"],
+    ],
+    feed: articles.slice(0, 6).map((article, index) => [index === 0 ? "now" : `${index * 5}m`, article.title, article.domain || article.sourceCountry || "GDELT"]),
+    highlights: articles.slice(0, 5).map((article) => `${article.title} via ${article.domain || "GDELT"}.`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function fetchHackerNewsRows() {
+  const json = await fetchLiveJson("https://hn.algolia.com/api/v1/search_by_date?tags=story&hitsPerPage=20");
+  return (Array.isArray(json.hits) ? json.hits : []).slice(0, 12).map((hit) => ({
+    id: hit.objectID,
+    title: hit.title || hit.story_title || "HN story",
+    url: hit.url || hit.story_url || "",
+    author: hit.author || "",
+    points: Number(hit.points || 0),
+    comments: Number(hit.num_comments || 0),
+    createdAt: hit.created_at || "",
+  }));
+}
+
+async function fetchOpenMeteoSnapshot() {
+  const json = await fetchLiveJson("https://api.open-meteo.com/v1/forecast?latitude=40.7128&longitude=-74.0060&current_weather=true&temperature_unit=fahrenheit&timezone=America%2FNew_York");
+  const current = json.current_weather || {};
+  return {
+    temperature: current.temperature,
+    windspeed: current.windspeed,
+    time: current.time,
+  };
+}
+
+async function getDexScreenerLiveData() {
+  const [profilesRaw, boostsRaw] = await Promise.all([
+    fetchLiveJson("https://api.dexscreener.com/token-profiles/latest/v1"),
+    fetchLiveJson("https://api.dexscreener.com/token-boosts/top/v1").catch(() => []),
+  ]);
+  const profiles = Array.isArray(profilesRaw) ? profilesRaw : [];
+  const boosts = Array.isArray(boostsRaw) ? boostsRaw : [];
+  const seen = new Set();
+  const tokens = [...boosts, ...profiles]
+    .map((item) => ({
+      chainId: cleanComponentId(item.chainId || "solana") || "solana",
+      tokenAddress: clampText(item.tokenAddress || item.address, 120),
+      url: item.url || "",
+      boostAmount: Number(item.amount || item.totalAmount || 0),
+      description: clampText(item.description, 160),
+    }))
+    .filter((item) => item.tokenAddress && !seen.has(`${item.chainId}:${item.tokenAddress}`) && seen.add(`${item.chainId}:${item.tokenAddress}`))
+    .slice(0, 24);
+  const byChain = new Map();
+  tokens.forEach((item) => {
+    const list = byChain.get(item.chainId) || [];
+    list.push(item);
+    byChain.set(item.chainId, list);
+  });
+  const pairResponses = await Promise.all(Array.from(byChain.entries()).slice(0, 4).map(async ([chainId, entries]) => {
+    const addresses = entries.slice(0, 30).map((item) => item.tokenAddress).join(",");
+    return fetchLiveJson(`https://api.dexscreener.com/tokens/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(addresses)}`);
+  }));
+  const pairs = pairResponses.flatMap((response) => Array.isArray(response) ? response : response?.pairs || []);
+  const normalized = pairs.map(normalizeDexScreenerPair).filter(Boolean);
+  if (!normalized.length) throw new Error("dexscreener returned no token pairs");
+  const ranked = rankPumpfunTokens(normalized, "velocity").slice(0, 24);
+  return {
+    kind: "token-velocity-v1",
+    mode: "dexscreener-public",
+    tokens: ranked,
+    pairs,
+    boosts: boosts.slice(0, 12),
+    metrics: [
+      ["Tokens", String(ranked.length), "DEX Screener"],
+      ["Leader", String(ranked[0]?.symbol || ranked[0]?.name || "n/a").toUpperCase().slice(0, 10), "velocity"],
+      ["Liquidity", formatCompactUsd(ranked[0]?.liquidityUsd || 0), "visible"],
+    ],
+    feed: ranked.slice(0, 6).map((token, index) => [
+      index === 0 ? "now" : `${index * 3}m`,
+      `${token.name || token.symbol} shows ${formatPercent(token.change1h || token.change24h || 0)} short-window movement with ${formatCompactUsd(token.liquidityUsd)} visible liquidity.`,
+      token.dexId || token.chainId || "dexscreener",
+    ]),
+    highlights: ranked.slice(0, 5).map((token) => token.why),
+    updatedAt: Date.now(),
+  };
+}
+
+function normalizeDexScreenerPair(pair = {}, index = 0) {
+  const base = pair.baseToken || {};
+  const name = clampText(base.name || base.symbol || `Pair ${index + 1}`, 80);
+  const symbol = clampText(String(base.symbol || name).toUpperCase(), 18);
+  const change1h = numberOr(pair.priceChange?.h1 ?? pair.priceChange?.m5 ?? pair.priceChange?.h6, 0);
+  const change24h = numberOr(pair.priceChange?.h24, change1h);
+  const liquidityUsd = numberOr(pair.liquidity?.usd, 0);
+  const volume24hUsd = numberOr(pair.volume?.h24, 0);
+  const marketCapUsd = numberOr(pair.marketCap || pair.fdv, 0);
+  const txns = pair.txns || {};
+  const h1Txns = numberOr(txns.h1?.buys, 0) + numberOr(txns.h1?.sells, 0);
+  const attentionScore = clampNumber(Math.round(Math.abs(change1h) * 2 + Math.log10(volume24hUsd + 10) * 8 + h1Txns * 0.8), 1, 100);
+  const liquidityScore = clampNumber(Math.round(Math.log10(liquidityUsd + 10) * 12), 1, 100);
+  const liquidityRisk = clampNumber(Math.round(attentionScore - liquidityScore + (liquidityUsd < 100000 ? 18 : 0)), 0, 100);
+  const fragilityScore = clampNumber(Math.round(liquidityRisk * 0.65 + attentionScore * 0.25 + Math.max(0, -change24h) * 0.3), 0, 100);
+  const decayScore = clampNumber(Math.round(Math.max(0, change24h - change1h) * 1.1 + Math.max(0, -change1h) * 1.7 + fragilityScore * 0.35), 0, 100);
+  return {
+    id: pair.pairAddress || base.address || `${symbol}-${index}`,
+    name,
+    symbol,
+    label: symbol,
+    chainId: pair.chainId || "",
+    dexId: pair.dexId || "",
+    pairAddress: pair.pairAddress || "",
+    url: pair.url || "",
+    price: numberOr(pair.priceUsd, 0),
+    priceLabel: pair.priceUsd ? `$${Number(pair.priceUsd).toPrecision(6)}` : "n/a",
+    change1h,
+    change24h,
+    change: change1h,
+    marketCap: formatCompactUsd(marketCapUsd),
+    marketCapUsd,
+    volume24hUsd,
+    liquidityUsd,
+    attentionScore,
+    liquidityScore,
+    liquidityRisk,
+    fragilityScore,
+    decayScore,
+    riskLabel: memeRiskLabel(Math.max(liquidityRisk, fragilityScore)),
+    why: `${symbol} pairs ${formatPercent(change1h)} 1H price change with ${formatCompactUsd(liquidityUsd)} visible DEX liquidity.`,
+  };
+}
+
+async function getClinicalTrialsLiveData(req, channel) {
+  const term = clampText(req.query.query || req.query.term || "CRISPR OR oncology OR protein", 120);
+  const url = new URL("https://clinicaltrials.gov/api/v2/studies");
+  url.searchParams.set("query.term", term);
+  url.searchParams.set("pageSize", String(Math.min(50, Number(req.query.limit || 12) || 12)));
+  url.searchParams.set("format", "json");
+  const json = await fetchLiveJson(url.toString());
+  const studies = (Array.isArray(json.studies) ? json.studies : []).map((study, index) => {
+    const protocol = study.protocolSection || {};
+    const identification = protocol.identificationModule || {};
+    const status = protocol.statusModule || {};
+    const sponsor = protocol.sponsorCollaboratorsModule || {};
+    return {
+      id: identification.nctId || `trial-${index}`,
+      title: identification.briefTitle || "Clinical trial",
+      status: status.overallStatus || "",
+      startDate: status.startDateStruct?.date || "",
+      sponsor: sponsor.leadSponsor?.name || "",
+      conditions: protocol.conditionsModule?.conditions || [],
+    };
+  });
+  if (!studies.length) throw new Error("clinicaltrials returned no studies");
+  return {
+    kind: channel.contract,
+    mode: "clinicaltrials-v2",
+    studies,
+    metrics: [["Studies", String(studies.length), "ClinicalTrials.gov"], ["Recruiting", String(studies.filter((s) => /recruit/i.test(s.status)).length), "status"], ["Query", term.slice(0, 22), "term"]],
+    feed: studies.slice(0, 6).map((study, index) => [index === 0 ? "now" : `${index + 1}`, study.title, study.status || study.sponsor || study.id]),
+    highlights: studies.slice(0, 5).map((study) => `${study.title} (${study.status || "status unavailable"}).`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getNasaExoplanetLiveData(req, channel) {
+  const darkForest = channel.id === "dark-forest";
+  const query = darkForest
+    ? "select+top+20+pl_name,hostname,disc_year,sy_dist,pl_orbper,pl_rade+from+pscomppars+where+pl_orbper+is+not+null+order+by+pl_orbper+desc"
+    : "select+top+20+pl_name,hostname,disc_year,sy_dist,pl_rade,pl_bmasse+from+pscomppars+order+by+disc_year+desc";
+  const url = `https://exoplanetarchive.ipac.caltech.edu/TAP/sync?query=${query}&format=json`;
+  const rows = await fetchLiveJson(url);
+  const objects = (Array.isArray(rows) ? rows : []).map((row, index) => ({
+    id: row.pl_name || `object-${index}`,
+    name: row.pl_name || "Catalog object",
+    host: row.hostname || "",
+    year: row.disc_year || "",
+    distancePc: numberOr(row.sy_dist, 0),
+    radiusEarth: numberOr(row.pl_rade, 0),
+    massEarth: numberOr(row.pl_bmasse, 0),
+    periodDays: numberOr(row.pl_orbper, 0),
+  }));
+  if (!objects.length) throw new Error("nasa exoplanet archive returned no rows");
+  return {
+    kind: channel.contract,
+    mode: "nasa-exoplanet-tap",
+    objects,
+    metrics: [["Objects", String(objects.length), "TAP"], ["Latest", String(objects[0]?.year || "n/a"), "discovery"], ["Nearest", `${Math.round(Math.min(...objects.map((o) => o.distancePc).filter(Boolean)) || 0)} pc`, "catalog"]],
+    feed: objects.slice(0, 6).map((object, index) => [index === 0 ? "now" : `${index + 1}`, `${object.name} around ${object.host || "host unknown"}`, object.year ? `discovered ${object.year}` : "NASA archive"]),
+    highlights: objects.slice(0, 5).map((object) => `${object.name} is cataloged around ${object.host || "unknown host"}.`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getArxivLiveData(req, channel) {
+  const search = encodeURIComponent(req.query.query || "quantum computing");
+  const text = await fetchLiveText(`https://export.arxiv.org/api/query?search_query=all:${search}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`);
+  const papers = parseRssItems(text, "arXiv", 15).map((item) => ({
+    ...item,
+    authors: [],
+  }));
+  if (!papers.length) throw new Error("arxiv returned no papers");
+  return {
+    kind: channel.contract,
+    mode: "arxiv-atom",
+    papers,
+    metrics: [["Papers", String(papers.length), "arXiv"], ["Window", "latest", "submitted"], ["Query", decodeURIComponent(search).slice(0, 22), "search"]],
+    feed: papers.slice(0, 6).map((paper, index) => [index === 0 ? "now" : `${index + 1}`, paper.title, paper.publishedAt || "arXiv"]),
+    highlights: papers.slice(0, 5).map((paper) => `${paper.title} was returned by arXiv.`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getNoaaNdbcLiveData(req, channel) {
+  const stations = String(req.query.stations || "46042,41009,51001").split(",").map((station) => station.trim().toLowerCase()).filter(Boolean).slice(0, 6);
+  const settled = await Promise.allSettled(stations.map(async (station) => parseNdbcRealtimeText(station, await fetchLiveText(`https://www.ndbc.noaa.gov/data/realtime2/${encodeURIComponent(station)}.txt`))));
+  const sensors = settled.filter((entry) => entry.status === "fulfilled" && entry.value).map((entry) => entry.value);
+  if (!sensors.length) throw new Error("noaa ndbc returned no station rows");
+  return {
+    kind: channel.contract,
+    mode: "noaa-ndbc-realtime",
+    sensors,
+    metrics: [["Stations", String(sensors.length), "NDBC"], ["Wind", `${Math.round(sensors[0]?.windSpeedMs || 0)} m/s`, sensors[0]?.station || ""], ["Waves", `${Number(sensors[0]?.waveHeightM || 0).toFixed(1)} m`, "latest"]],
+    feed: sensors.slice(0, 6).map((sensor, index) => [index === 0 ? "now" : `${index + 1}`, `${sensor.station.toUpperCase()} wind ${sensor.windSpeedMs || "n/a"} m/s, wave ${sensor.waveHeightM || "n/a"} m.`, sensor.time || "NOAA"]),
+    highlights: sensors.slice(0, 5).map((sensor) => `${sensor.station.toUpperCase()} latest observation is wind ${sensor.windSpeedMs || "n/a"} m/s and wave ${sensor.waveHeightM || "n/a"} m.`),
+    updatedAt: Date.now(),
+  };
+}
+
+function parseNdbcRealtimeText(station, text) {
+  const lines = String(text || "").trim().split(/\r?\n/).filter(Boolean);
+  const header = lines.find((line) => line.startsWith("#YY")) || "";
+  const row = lines.find((line) => !line.startsWith("#"));
+  if (!row) return null;
+  const names = header.replace(/^#/, "").trim().split(/\s+/);
+  const values = row.trim().split(/\s+/);
+  const object = Object.fromEntries(names.map((name, index) => [name, values[index]]));
+  const time = `${object.YY || ""}-${object.MM || ""}-${object.DD || ""}T${object.hh || "00"}:${object.mm || "00"}Z`;
+  return {
+    station,
+    time,
+    windSpeedMs: asNumber(object.WSPD),
+    gustMs: asNumber(object.GST),
+    waveHeightM: asNumber(object.WVHT),
+    dominantPeriodSec: asNumber(object.DPD),
+    pressureHpa: asNumber(object.PRES),
+    airTempC: asNumber(object.ATMP),
+    waterTempC: asNumber(object.WTMP),
+  };
+}
+
+async function getCdcSocrataLiveData(req, channel) {
+  const search = encodeURIComponent(req.query.query || "respiratory virus surveillance");
+  const json = await fetchLiveJson(`https://api.us.socrata.com/api/catalog/v1?domains=data.cdc.gov&search_context=data.cdc.gov&search=${search}&limit=20`);
+  const results = (Array.isArray(json.results) ? json.results : []).map((entry, index) => {
+    const resource = entry.resource || {};
+    return {
+      id: resource.id || `cdc-${index}`,
+      title: resource.name || "CDC dataset",
+      description: resource.description || "",
+      updatedAt: resource.updatedAt || resource.updated_at || "",
+      rows: Number(resource.rows_updated_at || 0),
+      domain: entry.metadata?.domain || "data.cdc.gov",
+    };
+  });
+  if (!results.length) throw new Error("cdc catalog returned no datasets");
+  return {
+    kind: channel.contract,
+    mode: "cdc-socrata-catalog",
+    datasets: results,
+    metrics: [["Datasets", String(results.length), "CDC"], ["Domain", "data.cdc.gov", "Socrata"], ["Query", decodeURIComponent(search).slice(0, 22), "catalog"]],
+    feed: results.slice(0, 6).map((dataset, index) => [index === 0 ? "now" : `${index + 1}`, dataset.title, dataset.domain]),
+    highlights: results.slice(0, 5).map((dataset) => `${dataset.title} is available through CDC Open Data.`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getGithubActionsLiveData(req, channel) {
+  const repo = clampText(process.env.ARENA_GITHUB_REPO || req.query.repo, 120);
+  if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error("ARENA_GITHUB_REPO is not configured");
+  const json = await fetchLiveJson(`https://api.github.com/repos/${repo}/actions/runs?per_page=20`, {
+    headers: process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {},
+  });
+  const runs = (Array.isArray(json.workflow_runs) ? json.workflow_runs : []).slice(0, 20).map((run) => ({
+    id: run.id,
+    name: run.name,
+    status: run.status,
+    conclusion: run.conclusion,
+    branch: run.head_branch,
+    event: run.event,
+    url: run.html_url,
+    createdAt: run.created_at,
+    updatedAt: run.updated_at,
+  }));
+  if (!runs.length) throw new Error("github actions returned no runs");
+  return {
+    kind: channel.contract,
+    mode: "github-actions-public",
+    repo,
+    runs,
+    metrics: [["Runs", String(runs.length), repo], ["Completed", String(runs.filter((run) => run.status === "completed").length), "workflow"], ["Failures", String(runs.filter((run) => run.conclusion === "failure").length), "latest"]],
+    feed: runs.slice(0, 6).map((run, index) => [index === 0 ? "now" : `${index + 1}`, `${run.name || "Workflow"} ${run.conclusion || run.status}`, run.branch || run.event || repo]),
+    highlights: runs.slice(0, 5).map((run) => `${run.name || "Workflow"} is ${run.conclusion || run.status}.`),
+    updatedAt: Date.now(),
+  };
+}
+
+async function getLocalDeckLiveData(req, channel) {
+  const file = path.join(DUNE_DECK_DIR, "deck.json");
+  const deck = JSON.parse(fs.readFileSync(file, "utf8"));
+  const slides = Array.isArray(deck.slides) ? deck.slides : [];
+  return {
+    kind: channel.contract,
+    mode: "local-deck-json",
+    title: deck.title || channel.label,
+    assetVersion: deck.assetVersion || "",
+    slides: slides.map((slide, index) => ({
+      index,
+      slug: slide.slug,
+      eyebrow: slide.eyebrow,
+      headline: slide.headline,
+      line: slide.line,
+      narration: slide.narration,
+    })),
+    metrics: [["Slides", String(slides.length), "deck"], ["Version", deck.assetVersion || "local", "asset"], ["Runtime", deck.targetRuntime || "n/a", "target"]],
+    feed: slides.slice(0, 6).map((slide, index) => [`${index + 1}`, `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}`, slide.slug || "deck"]),
+    highlights: slides.slice(0, 5).map((slide) => `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}.`),
+    updatedAt: fs.statSync(file).mtimeMs,
+  };
+}
+
+function publicSourceUrlsForAdapter(adapter) {
+  return Array.from(new Set([...(adapter.publicSourceUrls || []), adapter.docsUrl].filter(Boolean))).slice(0, 8);
+}
+
+const PUBLIC_PROVIDER_ADAPTERS = {
+  hyperliquid: {
+    id: "hyperliquid",
+    auth: "none",
+    cadenceMs: 12000,
+    ttlMs: LIVE_API_TTL_MS,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "timeseries", "rankings", "entity_detail", "historical_state"],
+    docsUrl: providerById("hyperliquid")?.docsUrl,
+    publicSourceUrls: ["https://api.hyperliquid.xyz/info"],
+    fetchLive: getHyperliquidLiveData,
+  },
+  polymarket: {
+    id: "polymarket",
+    auth: "none",
+    cadenceMs: 30000,
+    ttlMs: 30000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("polymarket")?.docsUrl,
+    publicSourceUrls: ["https://gamma-api.polymarket.com/markets"],
+    fetchLive: getPolymarketLiveData,
+  },
+  dexscreener: {
+    id: "dexscreener",
+    auth: "none",
+    cadenceMs: 60000,
+    ttlMs: 60000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("dexscreener")?.docsUrl,
+    publicSourceUrls: ["https://api.dexscreener.com/token-profiles/latest/v1", "https://api.dexscreener.com/token-boosts/top/v1"],
+    fetchLive: getDexScreenerLiveData,
+  },
+  "coingecko-pumpfun": {
+    id: "coingecko-pumpfun",
+    auth: "none",
+    cadenceMs: 60000,
+    ttlMs: 60000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "rankings", "entity_detail"],
+    docsUrl: providerById("coingecko-pumpfun")?.docsUrl,
+    publicSourceUrls: ["https://api.coingecko.com/api/v3/coins/markets"],
+    fetchLive: getPumpfunLiveData,
+  },
+  pumpfun: null,
+  "eia-grid": {
+    id: "eia-grid",
+    auth: "free_key_required",
+    cadenceMs: 5 * 60 * 1000,
+    ttlMs: 5 * 60 * 1000,
+    staleTtlMs: 24 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "timeseries", "events", "rankings", "entity_detail", "historical_state"],
+    docsUrl: providerById("eia-grid")?.docsUrl,
+    publicSourceUrls: ["https://api.eia.gov/v2/electricity/rto/region-data/data/", "https://api.eia.gov/v2/electricity/rto/fuel-type-data/data/"],
+    fetchLive: getEIAGridLiveData,
+  },
+  rss: {
+    id: "rss",
+    auth: "none",
+    cadenceMs: 5 * 60 * 1000,
+    ttlMs: 5 * 60 * 1000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("rss")?.docsUrl,
+    publicSourceUrls: ["https://feeds.bbci.co.uk/news/world/rss.xml", "https://feeds.npr.org/1001/rss.xml", "https://hnrss.org/frontpage"],
+    fetchLive: getRssLiveData,
+  },
+  gdelt: {
+    id: "gdelt",
+    auth: "none",
+    cadenceMs: 5 * 60 * 1000,
+    ttlMs: 5 * 60 * 1000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "relationships", "search"],
+    docsUrl: providerById("gdelt")?.docsUrl,
+    publicSourceUrls: ["https://api.gdeltproject.org/api/v2/doc/doc"],
+    fetchLive: getGdeltLiveData,
+  },
+  clinicaltrials: {
+    id: "clinicaltrials",
+    auth: "none",
+    cadenceMs: 6 * 60 * 60 * 1000,
+    ttlMs: 6 * 60 * 60 * 1000,
+    staleTtlMs: 72 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("clinicaltrials")?.docsUrl,
+    publicSourceUrls: ["https://clinicaltrials.gov/api/v2/studies"],
+    fetchLive: getClinicalTrialsLiveData,
+  },
+  "nasa-exoplanet": {
+    id: "nasa-exoplanet",
+    auth: "none",
+    cadenceMs: 6 * 60 * 60 * 1000,
+    ttlMs: 6 * 60 * 60 * 1000,
+    staleTtlMs: 7 * 24 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "timeseries", "events", "rankings", "entity_detail", "search", "historical_state"],
+    docsUrl: providerById("nasa-exoplanet")?.docsUrl,
+    publicSourceUrls: ["https://exoplanetarchive.ipac.caltech.edu/TAP/sync"],
+    fetchLive: getNasaExoplanetLiveData,
+  },
+  arxiv: {
+    id: "arxiv",
+    auth: "none",
+    cadenceMs: 60 * 60 * 1000,
+    ttlMs: 60 * 60 * 1000,
+    staleTtlMs: 72 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("arxiv")?.docsUrl,
+    publicSourceUrls: ["https://export.arxiv.org/api/query"],
+    fetchLive: getArxivLiveData,
+  },
+  "noaa-ndbc": {
+    id: "noaa-ndbc",
+    auth: "none",
+    cadenceMs: 30 * 60 * 1000,
+    ttlMs: 30 * 60 * 1000,
+    staleTtlMs: 24 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "timeseries", "events", "rankings", "entity_detail", "historical_state"],
+    docsUrl: providerById("noaa-ndbc")?.docsUrl,
+    publicSourceUrls: ["https://www.ndbc.noaa.gov/data/realtime2/"],
+    fetchLive: getNoaaNdbcLiveData,
+  },
+  "cdc-socrata": {
+    id: "cdc-socrata",
+    auth: "none",
+    cadenceMs: 60 * 60 * 1000,
+    ttlMs: 60 * 60 * 1000,
+    staleTtlMs: 72 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("cdc-socrata")?.docsUrl,
+    publicSourceUrls: ["https://api.us.socrata.com/api/catalog/v1?domains=data.cdc.gov"],
+    fetchLive: getCdcSocrataLiveData,
+  },
+  "github-actions": {
+    id: "github-actions",
+    auth: "free_key_optional",
+    cadenceMs: 60 * 1000,
+    ttlMs: 60 * 1000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("github-actions")?.docsUrl,
+    publicSourceUrls: [],
+    fetchLive: getGithubActionsLiveData,
+  },
+  "local-deck-json": {
+    id: "local-deck-json",
+    auth: "none",
+    cadenceMs: 60 * 1000,
+    ttlMs: 60 * 1000,
+    staleTtlMs: 24 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    docsUrl: providerById("local-deck-json")?.docsUrl,
+    publicSourceUrls: ["/decks/dune/deck.json"],
+    fetchLive: getLocalDeckLiveData,
+  },
+};
+PUBLIC_PROVIDER_ADAPTERS.pumpfun = PUBLIC_PROVIDER_ADAPTERS["coingecko-pumpfun"];
+
+function classifyProviderError(err) {
+  const message = String(err?.message || "");
+  if (err?.status === 429 || /\b429\b|rate/i.test(message)) return "rate_limited";
+  if (/timeout|timed out|ETIMEDOUT|request-timeout/i.test(message) || err?.type === "request-timeout") return "timeout";
+  if (/no rows|no feed|no articles|no studies|no papers|no datasets|returned no/i.test(message)) return "empty";
+  if (/schema|parse|Unexpected token|Cannot read/i.test(message)) return "schema_changed";
+  return "timeout";
+}
+
+function publicFallbackReason(status) {
+  if (status === "rate_limited") return "provider rate limited; using cached public snapshot when available";
+  if (status === "empty") return "provider returned no public rows for this query";
+  if (status === "schema_changed") return "provider schema changed; refresh needs adapter attention";
+  return "provider refresh timed out; using cached public snapshot when available";
+}
+
+function unavailablePublicData(channel, providerId, status) {
+  const provider = providerById(providerId);
+  const label = provider?.label || providerId || "public provider";
+  return {
+    kind: channel.contract,
+    mode: "unavailable_public_source",
+    provider: providerId,
+    metrics: [
+      ["Data", "Unavailable", label],
+      ["Freshness", "unavailable", "no cache"],
+      ["Retry", "available", "server-side"],
+    ],
+    feed: [
+      ["now", `${label} did not return a usable public snapshot for this refresh.`, "retryable"],
+      ["cache", "No last-known-good public snapshot is available yet.", "data gap"],
+    ],
+    highlights: [
+      `${label} data is unavailable for this channel refresh.`,
+      "The channel is showing the data gap explicitly instead of synthetic live motion.",
+    ],
+    providerStatus: status,
+    updatedAt: Date.now(),
+  };
+}
+
+function countEnvelopeRows(data = {}) {
+  for (const field of ["candles", "markets", "tokens", "series", "fuelMix", "articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides"]) {
+    if (Array.isArray(data[field])) return data[field].length;
+  }
+  if (Array.isArray(data.feed)) return data.feed.length;
+  if (Array.isArray(data.metrics)) return data.metrics.length;
+  return data && typeof data === "object" ? Object.keys(data).length : 0;
+}
+
+function adapterForProvider(providerId) {
+  return PUBLIC_PROVIDER_ADAPTERS[providerId] || null;
+}
+
+async function refreshProviderCache(req, key, adapter, channel) {
+  const started = Date.now();
+  const data = await adapter.fetchLive(req, channel);
+  const health = { status: "ok", checkedAt: new Date().toISOString(), latencyMs: Date.now() - started };
+  const entry = {
+    time: Date.now(),
+    source: adapter.id,
+    data,
+    providerIds: [adapter.id],
+    publicSourceUrls: publicSourceUrlsForAdapter(adapter),
+    query: req.query || {},
+    health,
+    ttlMs: adapter.ttlMs || LIVE_API_TTL_MS,
+    staleTtlMs: adapter.staleTtlMs || LIVE_API_STALE_TTL_MS,
+  };
+  LIVE_API_CACHE.set(key, entry);
+  writeProviderCacheFile();
+  return entry;
+}
+
+function cachedEntryEnvelope(entry, adapter, channel, stale, fallbackReason = null) {
+  return {
+    ok: true,
+    source: entry.source || adapter.id,
+    providerIds: entry.providerIds || [adapter.id],
+    stale: Boolean(stale),
+    freshness: stale ? "cached" : "live",
+    data: entry.data,
+    fallbackReason,
+    publicSourceUrls: entry.publicSourceUrls || publicSourceUrlsForAdapter(adapter),
+    health: entry.health || { status: "ok", checkedAt: new Date(entry.time || Date.now()).toISOString() },
+    cache: {
+      status: stale ? "stale" : "fresh",
+      ageMs: Math.max(0, Date.now() - Number(entry.time || 0)),
+      ttlMs: entry.ttlMs || adapter.ttlMs || LIVE_API_TTL_MS,
+      staleTtlMs: entry.staleTtlMs || adapter.staleTtlMs || LIVE_API_STALE_TTL_MS,
+    },
+    query: entry.query || {},
+  };
+}
+
+function unavailableProviderEnvelope(req, adapter, channel, status, err) {
+  const error = redactLiveErrorMessage(err?.message || status);
+  return {
+    ok: true,
+    source: adapter.id,
+    providerIds: [adapter.id],
+    stale: false,
+    freshness: "unavailable",
+    data: unavailablePublicData(channel, adapter.id, status),
+    fallbackReason: publicFallbackReason(status),
+    publicSourceUrls: publicSourceUrlsForAdapter(adapter),
+    health: { status, checkedAt: new Date().toISOString(), error },
+    cache: {
+      status: "miss",
+      ageMs: null,
+      ttlMs: adapter.ttlMs || LIVE_API_TTL_MS,
+      staleTtlMs: adapter.staleTtlMs || LIVE_API_STALE_TTL_MS,
+    },
+    query: req.query || {},
+  };
+}
+
+function maybeRefreshProviderInBackground(req, key, adapter, channel) {
+  if (LIVE_API_REFRESHING.has(key)) return;
+  const job = refreshProviderCache(req, key, adapter, channel)
+    .catch((err) => {
+      const cached = LIVE_API_CACHE.get(key);
+      if (cached) {
+        cached.health = {
+          status: classifyProviderError(err),
+          checkedAt: new Date().toISOString(),
+          error: redactLiveErrorMessage(err.message),
+        };
+      }
+    })
+    .finally(() => LIVE_API_REFRESHING.delete(key));
+  LIVE_API_REFRESHING.set(key, job);
+}
+
+async function getCachedProviderLive(req, key, adapter, channel) {
   const cached = LIVE_API_CACHE.get(key);
-  if (cached && Date.now() - cached.time < LIVE_API_TTL_MS) {
-    return { ok: true, source: cached.source, stale: false, data: cached.data, fallbackReason: null };
+  const ttlMs = adapter.ttlMs || LIVE_API_TTL_MS;
+  const staleTtlMs = adapter.staleTtlMs || LIVE_API_STALE_TTL_MS;
+  const ageMs = cached ? Date.now() - Number(cached.time || 0) : Infinity;
+  if (cached && ageMs < ttlMs) return cachedEntryEnvelope(cached, adapter, channel, false, null);
+  if (cached && ageMs < staleTtlMs) {
+    maybeRefreshProviderInBackground(req, key, adapter, channel);
+    return cachedEntryEnvelope(cached, adapter, channel, true, "provider refresh is in progress; using cached public snapshot");
   }
 
   try {
-    const data = await loader(req);
-    LIVE_API_CACHE.set(key, { time: Date.now(), source, data });
-    return { ok: true, source, stale: false, data, fallbackReason: null };
+    const entry = await refreshProviderCache(req, key, adapter, channel);
+    return cachedEntryEnvelope(entry, adapter, channel, false, null);
   } catch (err) {
-    const fallbackReason = redactLiveErrorMessage(err.message);
-    if (cached) {
-      return { ok: true, source: cached.source, stale: true, data: cached.data, fallbackReason };
-    }
-    return { ok: true, source: `${source}-synthetic`, stale: true, data: fallback(req), fallbackReason };
+    const status = classifyProviderError(err);
+    if (cached) return cachedEntryEnvelope(cached, adapter, channel, true, publicFallbackReason(status));
+    return unavailableProviderEnvelope(req, adapter, channel, status, err);
   }
+}
+
+async function getCachedLive(req, key, loader, fallback) {
+  const providerId = key.split(":")[0];
+  const adapter = adapterForProvider(providerId) || {
+    id: providerId,
+    ttlMs: LIVE_API_TTL_MS,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    fetchLive: loader,
+    publicSourceUrls: [],
+  };
+  const channel = getChannel(req.query?.dashboard || providerId) || {
+    id: providerId,
+    label: titleFromId(providerId),
+    contract: "provider-live-v1",
+    providers: [providerId],
+    liveProvider: providerId,
+  };
+  const result = await getCachedProviderLive(req, key, adapter, channel);
+  if (result.freshness === "unavailable" && process.env.CHANNEL_SYNTHETIC_FALLBACK === "1" && typeof fallback === "function") {
+    return {
+      ...result,
+      source: `${providerId}-synthetic`,
+      freshness: "cached",
+      stale: true,
+      data: fallback(req),
+      fallbackReason: "local/dev synthetic fixture enabled",
+    };
+  }
+  return result;
 }
 
 async function sendCachedLive(req, res, key, loader, fallback) {
@@ -3509,56 +4500,77 @@ function channelLiveKey(channel, req) {
     return `${provider}:${channel.id}:${coin}:${interval}:${lookback}:${candles}:${start}:${end}`;
   }
   if (provider === "polymarket") return `${provider}:${channel.id}:markets`;
-  if (provider === "pumpfun") return `${provider}:${channel.id}:tokens`;
+  if (["pumpfun", "dexscreener", "coingecko-pumpfun"].includes(provider)) return `${provider}:${channel.id}:tokens`;
   if (provider === "eia-grid") {
     const respondent = cleanEiaRespondent(req.query.respondent || channel.defaultQuery?.respondent || "US48");
     return `${provider}:${channel.id}:${respondent}`;
   }
+  if (provider === "gdelt") {
+    const query = clampText(req.query.query || gdeltQueryForChannel(channel, req.query || {}), 140).replace(/\s+/g, "_");
+    return `${provider}:${channel.id}:${query}`;
+  }
+  if (provider === "rss") return `${provider}:${channel.id}:feeds`;
+  if (provider === "clinicaltrials") return `${provider}:${channel.id}:${clampText(req.query.query || req.query.term || "default", 80).replace(/\s+/g, "_")}`;
+  if (provider === "nasa-exoplanet") return `${provider}:${channel.id}:${channel.id === "dark-forest" ? "long-period" : "recent"}`;
+  if (provider === "arxiv") return `${provider}:${channel.id}:${clampText(req.query.query || "quantum-computing", 80).replace(/\s+/g, "_")}`;
+  if (provider === "noaa-ndbc") return `${provider}:${channel.id}:${clampText(req.query.stations || "46042,41009,51001", 80).replace(/\s+/g, "_")}`;
+  if (provider === "cdc-socrata") return `${provider}:${channel.id}:${clampText(req.query.query || "respiratory-virus-surveillance", 80).replace(/\s+/g, "_")}`;
+  if (provider === "github-actions") return `${provider}:${channel.id}:${clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || "unconfigured", 120).replace(/\s+/g, "_")}`;
+  if (provider === "local-deck-json") return `${provider}:${channel.id}:deck`;
   return `${provider}:${channel.id}`;
 }
 
 async function getChannelProviderPayload(req, channel) {
   const provider = channel.liveProvider;
   const providerReq = requestWithChannelDefaults(req, channel);
+  const adapter = adapterForProvider(provider);
 
-  if (provider === "hyperliquid") {
-    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getHyperliquidLiveData, () => syntheticHyperliquidData(providerReq));
-  }
-  if (provider === "polymarket") {
-    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPolymarketLiveData, syntheticPolymarketData);
-  }
-  if (provider === "pumpfun") {
-    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getPumpfunLiveData, syntheticPumpfunData);
-  }
-  if (provider === "eia-grid") {
-    return getCachedLive(providerReq, channelLiveKey(channel, providerReq), getEIAGridLiveData, syntheticPowerGridData);
+  if (adapter) {
+    return getCachedProviderLive(providerReq, channelLiveKey(channel, providerReq), adapter, channel);
   }
 
   return {
     ok: true,
-    source: "channel-synthetic",
+    source: provider || "unavailable",
+    providerIds: channel.providers || [],
     stale: false,
-    data: syntheticChannelData(channel),
-    fallbackReason: null,
+    freshness: "unavailable",
+    data: unavailablePublicData(channel, provider || "unavailable", "schema_changed"),
+    fallbackReason: "no public provider adapter is registered for this channel",
+    publicSourceUrls: [],
+    health: { status: "schema_changed", checkedAt: new Date().toISOString() },
   };
 }
 
 async function getChannelLiveEnvelope(req, channel) {
   const payload = await getChannelProviderPayload(req, channel);
-  return {
+  const query = sanitizeCapabilityParams({ ...(channel.defaultQuery || {}), ...(req.query || {}) });
+  const baseEnvelope = {
     ok: true,
     channel: channel.id,
     label: channel.label,
     category: channel.category,
     contract: channel.contract,
     providers: channel.providers,
+    providerIds: payload.providerIds || channel.providers,
     liveProvider: channel.liveProvider,
     source: payload.source,
+    freshness: payload.freshness || (payload.stale ? "cached" : "live"),
     stale: Boolean(payload.stale),
     updatedAt: payload.data?.updatedAt || Date.now(),
     data: payload.data,
     fallbackReason: payload.fallbackReason || null,
+    health: payload.health || { status: "ok", checkedAt: new Date().toISOString() },
+    cache: payload.cache || null,
+    publicSourceUrls: payload.publicSourceUrls || [],
+    query,
     docs: channel.docsPath,
+  };
+  const provenance = buildProvenanceRecord(channel, "snapshot", query, baseEnvelope, countEnvelopeRows(baseEnvelope.data));
+  return {
+    ...baseEnvelope,
+    provenance: [provenance],
+    dataBinding: provenance.dataBinding,
   };
 }
 
@@ -3566,40 +4578,69 @@ function getCachedChannelLiveEnvelope(req, channel) {
   const providerReq = requestWithChannelDefaults(req || { query: {} }, channel);
   const key = channelLiveKey(channel, providerReq);
   const cached = LIVE_API_CACHE.get(key);
+  const adapter = adapterForProvider(channel.liveProvider) || { id: channel.liveProvider, ttlMs: LIVE_API_TTL_MS, staleTtlMs: LIVE_API_STALE_TTL_MS, publicSourceUrls: [] };
   if (cached) {
-    return {
+    const ageMs = Date.now() - Number(cached.time || 0);
+    const freshness = ageMs >= (cached.ttlMs || adapter.ttlMs || LIVE_API_TTL_MS) ? "cached" : "live";
+    const envelope = {
       ok: true,
       channel: channel.id,
       label: channel.label,
       category: channel.category,
       contract: channel.contract,
       providers: channel.providers,
+      providerIds: cached.providerIds || channel.providers,
       liveProvider: channel.liveProvider,
       source: cached.source,
-      stale: Date.now() - cached.time >= LIVE_API_TTL_MS,
+      freshness,
+      stale: freshness === "cached",
       updatedAt: cached.data?.updatedAt || cached.time,
       data: cached.data,
       fallbackReason: null,
+      health: cached.health || { status: "ok", checkedAt: new Date(cached.time).toISOString() },
+      cache: {
+        status: freshness === "cached" ? "stale" : "fresh",
+        ageMs,
+        ttlMs: cached.ttlMs || adapter.ttlMs || LIVE_API_TTL_MS,
+        staleTtlMs: cached.staleTtlMs || adapter.staleTtlMs || LIVE_API_STALE_TTL_MS,
+      },
+      publicSourceUrls: cached.publicSourceUrls || publicSourceUrlsForAdapter(adapter),
+      query: sanitizeCapabilityParams(providerReq.query || {}),
       docs: channel.docsPath,
     };
+    const provenance = buildProvenanceRecord(channel, "snapshot", envelope.query, envelope, countEnvelopeRows(envelope.data));
+    return { ...envelope, provenance: [provenance], dataBinding: provenance.dataBinding };
   }
 
-  const data = syntheticChannelData(channel);
-  return {
+  const data = unavailablePublicData(channel, channel.liveProvider, "timeout");
+  const envelope = {
     ok: true,
     channel: channel.id,
     label: channel.label,
     category: channel.category,
     contract: channel.contract,
     providers: channel.providers,
+    providerIds: channel.providers,
     liveProvider: channel.liveProvider,
-    source: "channel-synthetic",
-    stale: true,
+    source: channel.liveProvider,
+    freshness: "unavailable",
+    stale: false,
     updatedAt: data.updatedAt,
     data,
-    fallbackReason: "live cache unavailable for fast context",
+    fallbackReason: "no cached public snapshot is available yet",
+    health: { status: "timeout", checkedAt: new Date().toISOString() },
+    cache: {
+      status: "miss",
+      ageMs: null,
+      ttlMs: adapter.ttlMs || LIVE_API_TTL_MS,
+      staleTtlMs: adapter.staleTtlMs || LIVE_API_STALE_TTL_MS,
+    },
+    publicSourceUrls: publicSourceUrlsForAdapter(adapter),
+    query: sanitizeCapabilityParams(providerReq.query || {}),
     docs: channel.docsPath,
   };
+  const provenance = buildProvenanceRecord(channel, "snapshot", envelope.query, envelope, 0);
+  return { ...envelope, provenance: [provenance], dataBinding: provenance.dataBinding };
 }
 
 function formatUsd(value) {
@@ -3635,16 +4676,27 @@ function formatSignedPercent(value, decimals = 1) {
 }
 
 function sourceIs(envelope, provider) {
-  return String(envelope.source || "").replace(/-synthetic$/, "") === provider;
+  const source = String(envelope.source || "").replace(/-synthetic$/, "");
+  const aliases = {
+    pumpfun: ["pumpfun", "dexscreener", "coingecko-pumpfun"],
+    dexscreener: ["dexscreener", "pumpfun", "coingecko-pumpfun"],
+    polymarket: ["polymarket", "polymarket-gamma"],
+    hyperliquid: ["hyperliquid"],
+    "eia-grid": ["eia-grid"],
+  };
+  return (aliases[provider] || [provider]).includes(source);
 }
 
 function summarizeChannelLive(channel, envelope) {
   const data = envelope.data || {};
   const summary = {
     source: envelope.source,
+    providerIds: envelope.providerIds || envelope.providers || [],
+    freshness: envelope.freshness || (envelope.stale ? "cached" : "live"),
     stale: Boolean(envelope.stale),
     updatedAt: envelope.updatedAt,
     fallbackReason: envelope.fallbackReason || null,
+    health: envelope.health || null,
     contract: envelope.contract,
     metrics: [],
     feed: [],
@@ -3829,6 +4881,12 @@ function providerQueryForCapability(channel, capability, params = {}) {
   if (channel.liveProvider === "eia-grid") {
     if (entity || params.respondent) query.respondent = cleanEiaRespondent(params.respondent || entity || channel.defaultQuery?.respondent || "");
   }
+  if (["gdelt", "rss", "clinicaltrials", "arxiv", "cdc-socrata"].includes(channel.liveProvider)) {
+    if (params.query || params.keyword || params.topic || entity) query.query = params.query || params.keyword || params.topic || entity;
+    if (params.limit) query.limit = params.limit;
+  }
+  if (channel.liveProvider === "noaa-ndbc" && (params.entity || params.query)) query.stations = params.entity || params.query;
+  if (channel.liveProvider === "github-actions" && (params.entity || params.query)) query.repo = params.entity || params.query;
   return query;
 }
 
@@ -3898,6 +4956,9 @@ function providerRowsForCapability(channel, capability, envelope, summary, param
   if (sourceIs(envelope, "eia-grid")) return eiaCapabilityRows(capability, data);
   if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) return rankPolymarketMarkets(data.markets, params).slice(0, Number(params.limit || 12));
   if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) return rankPumpfunTokens(data.tokens, params.metric || "velocity").slice(0, Number(params.limit || 12));
+  for (const field of ["articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides", "hn"]) {
+    if (Array.isArray(data[field]) && data[field].length) return data[field].slice(0, Number(params.limit || 24));
+  }
   if (capability === "events" || capability === "search") return tupleRowsToObjects(summary.feed || []);
   if (capability === "rankings" || capability === "snapshot") return summaryMetricObjects(summary);
   return tupleRowsToObjects(summary.feed || []);
@@ -3959,9 +5020,11 @@ function normalizeCapabilityResult(channel, capability, params, envelope, detail
     source: envelope.source,
     sourceType: provenance.sourceType,
     stale: envelope.stale,
+    freshness: provenance.freshness,
     updatedAt: envelope.updatedAt,
     fallbackReason: envelope.fallbackReason,
     provenance: [provenance],
+    dataBinding: provenance.dataBinding,
     liveSummary: summary,
     rows: rows.slice(0, Number(params.limit || 48)),
     bindingHints: bindingHintsForCapability(channel, capability, envelope),
@@ -4026,6 +5089,20 @@ async function queryCryptoComparisonCapability(channel, intent) {
   })));
   const comparisonRows = cryptoComparisonRows(results, entities);
   const provenances = results.flatMap((entry) => entry.result.provenance || []);
+  const comparisonFreshness = provenances.some((record) => record.freshness === "unavailable" || record.sourceType === "unavailable")
+    ? "unavailable"
+    : provenances.some((record) => record.freshness === "cached" || record.stale)
+      ? "cached"
+      : "live";
+  const dataBinding = {
+    channelId: channel.id,
+    providerIds: Array.from(new Set(provenances.flatMap((record) => record.providerIds || [record.provider]).filter(Boolean))),
+    capability: "timeseries",
+    query: sanitizeCapabilityParams(intent.params || {}),
+    freshness: comparisonFreshness,
+    provenanceIds: provenances.map((record) => record.id),
+    publicSourceUrls: Array.from(new Set(provenances.flatMap((record) => record.publicSourceUrls || []))).slice(0, 8),
+  };
   const metricRows = results.map(({ entity, result }) => {
     const rows = Array.isArray(result.data?.candles) ? result.data.candles : [];
     const first = closeFromCandle(rows[0]);
@@ -4046,9 +5123,11 @@ async function queryCryptoComparisonCapability(channel, intent) {
     source: provenances[0]?.provider || channel.liveProvider,
     sourceType: provenances[0]?.sourceType || "unavailable",
     stale: provenances.some((record) => record.stale),
+    freshness: comparisonFreshness,
     updatedAt: Date.now(),
     fallbackReason: provenances.find((record) => record.fallbackReason)?.fallbackReason || null,
     provenance: provenances,
+    dataBinding,
     liveSummary: {
       source: provenances[0]?.provider || channel.liveProvider,
       stale: provenances.some((record) => record.stale),
@@ -4254,7 +5333,7 @@ function parseCryptoChannelIntent(channel, userText, normalizedText, priorState 
     else if (entities[0] !== "BTC") entities.unshift("BTC");
     else entities.push("ETH");
   }
-  const wantsLiquidity = /\b(liquidity|depth|book|order\s*book|bid|ask|spread)\b/.test(normalizedText);
+  const wantsLiquidity = /\b(liquidity|depth|book|order\s*book|bid|ask|spread|trapped|boxed|stuck)\b/.test(normalizedText);
   const wantsRisk = /\b(risk|anomal|volatility|volatile|drawdown|stress|range|regime)\b/.test(normalizedText);
   const wantsHistory = /\b(price|prices|chart|graph|plot|candles?|history|historical|replay|trend|structure|months?|weeks?|days?|hours?)\b/.test(normalizedText);
   const capability = wantsLiquidity ? "entity_detail" : wantsHistory || wantsComparison || wantsRisk ? "timeseries" : "snapshot";
@@ -4481,21 +5560,26 @@ function tupleRowsFromAny(rows = [], max = 5) {
 }
 
 function sourceRows(provenance) {
+  const freshness = provenance.freshness || (provenance.stale ? "cached" : provenance.sourceType === "unavailable" ? "unavailable" : "live");
+  const urls = Array.isArray(provenance.publicSourceUrls) ? provenance.publicSourceUrls : [];
   return [
-    ["source", sourceLabelForType(provenance.sourceType), provenance.provider],
+    ["source", freshnessLabel(freshness), provenance.provider],
     ["rows", String(provenance.rowCount || 0), provenance.capability],
-    ["freshness", provenance.stale ? "stale/cache" : "fresh", provenance.queriedAt],
-    ...(provenance.fallbackReason ? [["fallback", provenance.fallbackReason, "visible"]] : []),
-  ].slice(0, 4);
+    ["freshness", freshness, provenance.queriedAt],
+    ...(urls[0] ? [["source url", urls[0], "details"]] : []),
+    ...(provenance.fallbackReason ? [["status", provenance.fallbackReason, "retryable"]] : []),
+  ].slice(0, 5);
 }
 
 function fallbackNotice(provenance) {
   if (provenance.sourceType === "synthetic_fallback") {
-    return `Source is ${provenance.provider}; this is explicitly labeled fallback data because ${provenance.fallbackReason || "the live adapter did not return data"}.`;
+    return provenance.fallbackReason
+      ? `Data cached. ${provenance.fallbackReason}`
+      : "Data cached. Live source did not return fresh rows.";
   }
-  if (provenance.sourceType === "unavailable") return "The requested provider data is unavailable, so the channel shows the data gap explicitly.";
-  if (provenance.sourceType === "cached_api") return "This view is using cached provider data and keeps freshness visible.";
-  return `Backed by ${sourceLabelForType(provenance.sourceType)} from ${provenance.provider}.`;
+  if (provenance.sourceType === "unavailable") return "No fresh rows. Showing the source gap instead of filling with unrelated data.";
+  if (provenance.sourceType === "cached_api") return "Data cached. Freshness details are available.";
+  return "Live data is available. Details are available.";
 }
 
 function nextActionsForIntent(channel, intent) {
@@ -4588,6 +5672,7 @@ function buildGeneratedPageState(channel, intent, options = {}) {
     .map((record) => sanitizeProvenanceRecord(record, channel))
     .filter(Boolean)
     .slice(0, 12);
+  const primaryBinding = sanitizeDataBinding(options.dataBinding, channel) || provenanceRecords.find((record) => record.dataBinding)?.dataBinding || null;
   return {
     mode: "generated_page",
     channelId: channel.id,
@@ -4613,12 +5698,13 @@ function buildGeneratedPageState(channel, intent, options = {}) {
     },
     stage: {
       type: generatedPageStageType(template),
-      components: stageComponents,
+      components: primaryBinding ? stageComponents.map((component) => attachDataBindingToComponent(component, primaryBinding)) : stageComponents,
     },
-    rail: railComponents,
+    rail: primaryBinding ? railComponents.map((component) => attachDataBindingToComponent(component, primaryBinding)) : railComponents,
     actions: sanitizeStringArray(options.actions || [], 6, 120) || [],
     provenance: provenanceRecords,
     sourceState: sanitizeSourceState(options.sourceState),
+    dataBinding: primaryBinding || undefined,
   };
 }
 
@@ -4724,10 +5810,10 @@ function polyrecBoardTitle(intent) {
   if (intent.intent === "close_volume") return "Close Odds, High Volume";
   if (intent.intent === "category_board") {
     const categories = polymarketCategoryList(intent.params);
-    return `${categories.length ? categories.map(titleFromId).join(" + ") : "Election + Macro"} Market Watch`;
+    return `${categories.length ? categories.map(titleFromId).join(" + ") : "Election + Macro"} Bets`;
   }
   if (intent.intent === "keyword_search") return "Keyword Prediction Board";
-  return "Weirdest Active Markets";
+  return "What bets are moving?";
 }
 
 function polyrecBoardRows(markets = []) {
@@ -4911,12 +5997,12 @@ function buildMemeTurnUpdate(channel, intent, result, provenance) {
     : (Array.isArray(result.data?.tokens) ? result.data.tokens : []);
   const tokens = rankPumpfunTokens(rawTokens, intent.params?.metric || "velocity").slice(0, 12);
   const title = intent.intent === "narrative_decay"
-    ? "Narrative Decay Watch"
+    ? "Is it fading?"
     : intent.intent === "viral_fragile"
-    ? "Viral But Fragile"
+    ? "Looks viral, might break"
     : intent.intent === "attention_liquidity_risk"
-      ? "Attention Vs Liquidity Risk"
-      : "Fastest Moving Meme Coins";
+      ? "Is the hype real?"
+      : "What's pumping?";
   const summaryRows = tupleRowsFromAny(result.liveSummary?.metrics, 3);
   const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
   const nextActions = generatedPromptItems(channel, intent);
@@ -5125,7 +6211,7 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
   const chartBinding = isDepth ? "liveData.book" : isComparison ? "none" : "liveData.candles";
   const chartType = isDepth ? "market-depth" : isRisk ? "area" : "line";
   const title = isDepth
-    ? `${entity} Liquidity And Depth`
+    ? `Is ${entity} trapped?`
     : isComparison
       ? `${(result.comparisonEntities || intent.entities).join(" vs ")} ${intent.timeframe.label} Divergence`
       : isRisk
@@ -5594,32 +6680,39 @@ async function runChannelTurn(channel, raw = {}, options = {}) {
       id: `prov_${Date.now().toString(36)}_failed`,
       sourceType: "unavailable",
       provider: channel.liveProvider || "unavailable",
+      providerIds: channel.providers || [channel.liveProvider || "unavailable"],
       capability: intent.capability,
       params: intent.params,
       queriedAt: new Date().toISOString(),
+      freshness: "unavailable",
+      publicSourceUrls: (channel.providers || [channel.liveProvider]).map((id) => providerById(id)?.docsUrl).filter(Boolean).slice(0, 8),
       cache: { status: "failed", ttlMs: LIVE_API_TTL_MS },
       rowCount: 0,
-      status: "failed",
+      status: "unavailable",
       stale: false,
-      fallbackReason: err.message,
+      fallbackReason: "provider-backed data is unavailable for this request",
     };
+    provenance.dataBinding = buildDataBinding(channel, intent.capability, intent.params, { source: provenance.provider, providerIds: provenance.providerIds, freshness: "unavailable", publicSourceUrls: provenance.publicSourceUrls }, [provenance.id]);
     result = {
       ok: false,
       source: "unavailable",
       sourceType: "unavailable",
       stale: false,
-      fallbackReason: err.message,
+      freshness: "unavailable",
+      fallbackReason: provenance.fallbackReason,
       liveSummary: {
         source: "unavailable",
         stale: false,
-        fallbackReason: err.message,
+        freshness: "unavailable",
+        fallbackReason: provenance.fallbackReason,
         metrics: [],
         feed: [],
-        highlights: [`${channel.label} data is unavailable: ${err.message}`],
+        highlights: [`${channel.label} provider-backed data is unavailable for this request.`],
       },
       rows: [],
       bindingHints: [],
       provenance: [provenance],
+      dataBinding: provenance.dataBinding,
     };
     emit({ type: "channel.data.query.failed", capability: intent.capability, error: err.message, provenanceId: provenance.id });
   }
@@ -5731,6 +6824,10 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
   return {
     channel: publicChannel(channel),
     liveSummary: summarizeChannelLive(channel, liveEnvelope),
+    freshness: liveEnvelope.freshness || (liveEnvelope.stale ? "cached" : "live"),
+    providerIds: liveEnvelope.providerIds || channel.providers,
+    provenance: Array.isArray(liveEnvelope.provenance) ? liveEnvelope.provenance.slice(0, 3) : [],
+    dataBinding: liveEnvelope.dataBinding,
     dashboard: {
       ...dashboard,
       editableFields: ["title", "subtitle", "kicker", "visualLabel", "visualCopy", "feedLabel", "lens", "caption", "tabs", "metrics", "feed", "customCss"],
@@ -5756,7 +6853,8 @@ function buildKatContextPacket(channel, liveEnvelope, options = {}) {
       "Use query_channel_capability when you need data beyond liveSummary.",
       "Use apply_channel_update for generated views, panels, charts, modals, and audience-specific layouts.",
       "Prefer channel update specs over provider-specific or dashboard-specific shortcuts.",
-      "Generated charts and insights must carry provenance records; synthetic fallback must stay visible.",
+      "Generated charts and insights must carry provenance records; unavailable provider states must stay visible instead of synthetic live claims.",
+      "Generated charts and insights must carry a DataBinding that names the channel, providers, capability, query, freshness, provenance ids, and public source URLs.",
       "Generated surfaces replace by default; append only when the user asks to keep multiple components.",
       "Use apply_dashboard_mutation for legacy compatibility only.",
       "Use apply_dashboard_edit only for narrow copy, metric, feed, or tab edits.",
@@ -6037,12 +7135,16 @@ function latestTurnText(state, role) {
 
 function sourceStateFromShareProvenance(provenanceRecords) {
   const record = Array.isArray(provenanceRecords) ? provenanceRecords.filter(Boolean).slice(-1)[0] : null;
-  if (!record) return { sourceType: "unavailable", provider: "unavailable", fallbackReason: "no provenance recorded" };
+  if (!record) return { sourceType: "unavailable", provider: "unavailable", label: freshnessLabel("unavailable"), freshness: "unavailable", fallbackReason: "no provenance recorded" };
+  const freshness = record.freshness || (record.stale ? "cached" : record.sourceType === "unavailable" ? "unavailable" : "live");
   return {
     sourceType: record.sourceType,
     provider: record.provider,
+    label: freshnessLabel(freshness),
+    freshness,
     fallbackReason: record.fallbackReason || null,
     stale: Boolean(record.stale),
+    publicSourceUrls: Array.isArray(record.publicSourceUrls) ? record.publicSourceUrls.slice(0, 8) : [],
   };
 }
 
@@ -6109,7 +7211,7 @@ function buildChannelShareObject(channel, sessionId, options = {}) {
     dataRequests: channelUpdate.dataRequests || [],
     provenanceRecords,
     sourceState,
-    sourceStateLabel: sourceLabelForType(sourceState.sourceType),
+    sourceStateLabel: freshnessLabel(sourceState.freshness || (sourceState.stale ? "cached" : sourceState.sourceType === "unavailable" ? "unavailable" : "live")),
     narration: {
       script: narrationScript,
       durationSeconds: 20,

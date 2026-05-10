@@ -1138,21 +1138,24 @@
       return `<div class="generated-list">${items.map(item => `<div class="generated-item">${escapeHtml(item)}</div>`).join("")}</div>`;
     }
 
+    function freshnessLabel(value) {
+      if (value === "live") return "Live data";
+      if (value === "cached") return "Data cached";
+      return "Data unavailable";
+    }
+
     function generatedSourceHtml(component) {
       const source = component.sourceState && typeof component.sourceState === "object" ? component.sourceState : null;
       const provenanceIds = Array.isArray(component.provenanceIds) ? component.provenanceIds : [];
       if (!source && !provenanceIds.length) return "";
       const sourceType = String(source?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
-      const label = source?.label || sourceType.replace(/_/g, " ");
-      const provider = source?.provider || provenanceIds[0] || "provenance attached";
-      const stale = source?.stale ? "stale" : "";
-      const fallback = source?.fallbackReason ? `<span>${escapeHtml(source.fallbackReason)}</span>` : "";
+      const label = source?.label || freshnessLabel(source?.freshness || (source?.stale || sourceType === "cached_api" ? "cached" : sourceType === "unavailable" ? "unavailable" : "live"));
+      const provider = source?.provider || component.dataBinding?.providerIds?.[0] || (provenanceIds.length ? "details available" : "source attached");
       return `
         <div class="generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
           <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(provider)}</span>
-          ${stale ? `<span>${stale}</span>` : ""}
-          ${fallback}
+          ${source?.fallbackReason ? `<span>${escapeHtml(source.fallbackReason)}</span>` : ""}
         </div>
       `;
     }
@@ -1186,14 +1189,13 @@
       const source = page?.sourceState && typeof page.sourceState === "object" ? page.sourceState : null;
       const latestProvenance = Array.isArray(page?.provenance) ? page.provenance[page.provenance.length - 1] : null;
       const sourceType = String(source?.sourceType || latestProvenance?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
-      const label = source?.label || sourceType.replace(/_/g, " ");
-      const provider = source?.provider || latestProvenance?.provider || "provenance attached";
+      const label = source?.label || freshnessLabel(source?.freshness || latestProvenance?.freshness || (source?.stale || latestProvenance?.stale || sourceType === "cached_api" ? "cached" : sourceType === "unavailable" ? "unavailable" : "live"));
+      const provider = source?.provider || latestProvenance?.provider || page?.dataBinding?.providerIds?.[0] || "details available";
       const rowCount = latestProvenance?.rowCount !== undefined ? `<span>${escapeHtml(latestProvenance.rowCount)} rows</span>` : "";
       return `
         <div class="generated-page-source generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
           <strong>${escapeHtml(label)}</strong>
           <span>${escapeHtml(provider)}</span>
-          ${source?.stale || latestProvenance?.stale ? "<span>stale/cache</span>" : ""}
           ${rowCount}
         </div>
       `;
@@ -1806,17 +1808,14 @@
     async function loadLiveData() {
       if (state.liveLoading) return;
       state.liveLoading = true;
-      const sourceLabel = config.api || "channel";
-      $("source-chip").textContent = `loading ${sourceLabel}`;
+      $("source-chip").textContent = "Loading live data";
       try {
         const payload = await fetchLivePayload();
         state.livePayload = payload;
         applyLivePayload(payload);
-        $("source-chip").textContent = payload.fallbackReason
-          ? `${payload.source} fallback`
-          : `${payload.source}${payload.stale ? " stale" : " live"}`;
+        $("source-chip").textContent = freshnessLabel(payload.freshness || payload.dataBinding?.freshness || (payload.stale ? "cached" : "live"));
       } catch (err) {
-        $("source-chip").textContent = config.api ? "provider fallback failed" : "channel fallback failed";
+        $("source-chip").textContent = "Data unavailable";
       } finally {
         state.liveLoading = false;
       }
@@ -1842,7 +1841,7 @@
       const provider = String(payload.liveProvider || payload.provider || config.api || payload.source || "").replace(/-synthetic$/, "");
       if (provider === "hyperliquid") applyHyperliquidData(data);
       else if (provider === "polymarket") applyPolymarketData(data);
-      else if (provider === "pumpfun") applyPumpfunData(data);
+      else if (provider === "pumpfun" || provider === "dexscreener" || provider === "coingecko-pumpfun") applyPumpfunData(data);
       else if (provider === "eia-grid") applyPowerGridData(data);
       else applyChannelStateData(data);
       renderMetrics();

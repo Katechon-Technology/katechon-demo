@@ -155,6 +155,7 @@ async function startManagedServer() {
     DASHBOARD_OVERRIDES_FILE: path.join(dataDir, "dashboard-overrides.json"),
     CHANNEL_SESSIONS_FILE: path.join(dataDir, "channel-sessions.json"),
     CHANNEL_SHARES_FILE: path.join(dataDir, "channel-shares.json"),
+    PROVIDER_CACHE_FILE: path.join(dataDir, "provider-cache.json"),
     USER_DB_FILE: path.join(dataDir, "users.json"),
     LIVE_API_TIMEOUT_MS: process.env.LIVE_API_TIMEOUT_MS || "1",
     EIA_API_TIMEOUT_MS: process.env.EIA_API_TIMEOUT_MS || "1",
@@ -416,6 +417,48 @@ function validateGeneratedContract(item, payload, report) {
   }
 }
 
+function validateDataBinding(binding, context) {
+  assertQa(binding && typeof binding === "object", "dataBinding is missing", { context, binding });
+  assertQa(typeof binding.channelId === "string" && binding.channelId.length > 0, "dataBinding.channelId is missing", { context, binding });
+  assertQa(Array.isArray(binding.providerIds) && binding.providerIds.length > 0, "dataBinding.providerIds is empty", { context, binding });
+  assertQa(typeof binding.capability === "string" && binding.capability.length > 0, "dataBinding.capability is missing", { context, binding });
+  assertQa(binding.query && typeof binding.query === "object" && !Array.isArray(binding.query), "dataBinding.query must be an object", { context, binding });
+  assertQa(["live", "cached", "unavailable"].includes(binding.freshness), "dataBinding.freshness is invalid", { context, binding });
+  assertQa(Array.isArray(binding.provenanceIds), "dataBinding.provenanceIds must be an array", { context, binding });
+  assertQa(Array.isArray(binding.publicSourceUrls), "dataBinding.publicSourceUrls must be an array", { context, binding });
+}
+
+async function runPublicApiSpineLayer(baseUrl, report) {
+  console.log("launch:smoke public API spine checks");
+  const channels = await jsonFetch(baseUrl, "/api/channels");
+  assertQa(Array.isArray(channels.channels) && channels.channels.length > 0, "channel list is empty", { channels });
+  for (const channel of channels.channels) {
+    const context = channel.id;
+    const live = await jsonFetch(baseUrl, `/api/channels/${channel.id}/live`);
+    assertQa(live.ok === true, "live envelope is not ok", { context, live });
+    assertQa(live.data && typeof live.data === "object", "live envelope missing data object", { context, live });
+    assertQa(["live", "cached", "unavailable"].includes(live.freshness), "live envelope has invalid freshness", { context, freshness: live.freshness });
+    assertQa(Array.isArray(live.providerIds) && live.providerIds.length > 0, "live envelope missing providerIds", { context, live });
+    assertQa(Array.isArray(live.provenance) && live.provenance.length > 0, "live envelope missing provenance", { context, live });
+    validateDataBinding(live.dataBinding, `${context}:live`);
+
+    const contextPayload = await jsonFetch(baseUrl, `/api/channels/${channel.id}/context`);
+    assertQa(contextPayload.context?.liveSummary, "context missing liveSummary", { context, contextPayload });
+    validateDataBinding(contextPayload.context?.dataBinding, `${context}:context`);
+
+    const query = await jsonFetch(baseUrl, `/api/channels/${channel.id}/query`, {
+      method: "POST",
+      body: JSON.stringify({ capability: "snapshot", detail: "summary", params: { limit: 5 } }),
+    });
+    assertQa(query.ok === true, "snapshot query is not ok", { context, query });
+    assertQa(Array.isArray(query.provenance) && query.provenance.length > 0, "query missing provenance", { context, query });
+    validateDataBinding(query.dataBinding, `${context}:query`);
+  }
+  report.publicApiSpine = {
+    checkedChannels: channels.channels.map((channel) => channel.id),
+  };
+}
+
 function stateSummaryFromShare(share) {
   return {
     channelId: share.channelId,
@@ -496,6 +539,7 @@ function validateShareEquivalence(item, originalPayload, share, forkPayload) {
 
 async function runContractLayer(baseUrl, report) {
   console.log("launch:smoke contract checks");
+  await runPublicApiSpineLayer(baseUrl, report);
   for (const item of FOCUSED_PROMPTS) {
     const sessionId = `qa-contract-${item.channelId}-${item.slug}`;
     const payload = await jsonFetch(baseUrl, `/api/channels/${item.channelId}/turn`, {

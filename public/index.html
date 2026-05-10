@@ -5182,7 +5182,7 @@
         'For meaningful channel-specific user requests, call route_channel_turn so the channel agent updates state, queries data, replaces surfaces, and returns provenance.',
         'If the user asks for current data only, call query_channel_capability before answering.',
         'When manually composing a view, call apply_channel_update. Use legacy dashboard tools only for narrow compatibility edits.',
-        'Every generated chart or insight must include provenance; synthetic fallback must be named as fallback.',
+        'Every generated chart or insight must include provenance and a DataBinding. If public data is not available, label it Data unavailable instead of inventing live facts.',
         'Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.',
         'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
         `Active channel context:\n${JSON.stringify(context, null, 2)}`,

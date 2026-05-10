@@ -42,11 +42,24 @@ Every channel live route returns the same envelope:
   "category": "markets",
   "contract": "market-depth-v1",
   "providers": ["hyperliquid"],
+  "providerIds": ["hyperliquid"],
   "liveProvider": "hyperliquid",
   "source": "hyperliquid",
+  "freshness": "live",
   "stale": false,
   "updatedAt": 1778240000000,
   "data": {},
+  "health": {"status": "ok"},
+  "provenance": [],
+  "dataBinding": {
+    "channelId": "crypto-trading",
+    "providerIds": ["hyperliquid"],
+    "capability": "snapshot",
+    "query": {},
+    "freshness": "live",
+    "provenanceIds": [],
+    "publicSourceUrls": ["https://api.hyperliquid.xyz/info"]
+  },
   "fallbackReason": null,
   "docs": "/api/channels/crypto-trading/docs"
 }
@@ -55,10 +68,12 @@ Every channel live route returns the same envelope:
 Rules:
 
 - `source` tells the UI and Kat what produced the current data.
-- `stale=true` means cached data is being used after a live provider failure.
-- `fallbackReason` is visible debugging/context for generated components.
+- `freshness` is one of `live`, `cached`, or `unavailable`.
+- `stale=true` means cached public data is being used after a provider refresh failed or is still revalidating.
+- `fallbackReason` is public retry/cache context for generated components; raw provider errors stay out of public UI copy.
+- `dataBinding` names the channel, providers, capability, query, freshness, provenance ids, and public source URLs that generated cards must carry forward.
 - `data` is contract-specific, but always wrapped by the same envelope.
-- Channels without a real provider use `channel-synthetic` so they still have active, timestamped state.
+- If a provider fails and no cache exists, the envelope returns `freshness: "unavailable"` with an explicit data gap instead of synthetic live motion.
 
 ## Kat Context Packet
 
@@ -181,7 +196,7 @@ Required event types emitted by the runtime:
 - `channel.next_actions.updated`
 - `channel.turn.completed`
 
-Generated charts and insight components include `provenanceIds` and `sourceState`. If the provider returns synthetic fallback or no data, `sourceState.sourceType` is `synthetic_fallback` or `unavailable`; it is displayed in the dashboard source chip and included in Kat's narration.
+Generated charts and insight components include `provenanceIds`, `sourceState`, and `dataBinding`. If the provider cannot refresh and no cached public snapshot exists, `sourceState.sourceType` is `unavailable`; it is displayed as `Data unavailable` in the dashboard source chip and included in Kat's narration.
 
 Generic layouts:
 
@@ -315,9 +330,17 @@ Rules:
 | `crypto-trading` | `hyperliquid` | `market-depth-v1` | Read-only price, depth, and candle data |
 | `dashboard123` | `hyperliquid` | `market-depth-v1` | Market Pulse starts from the same open market-data spine |
 | `polyrec` | `polymarket` | `prediction-markets-v1` | Public prediction-market discovery data |
-| `meme-coin` | `pumpfun` | `token-velocity-v1` | Open indexed token data; no wallet or trading flow |
-| `power-grid` | `eia-grid` | `power-grid-operational-v1` | EIA hourly electric grid monitor with visible fallback if `EIA_API_KEY` is absent |
-| all other channels | `channel-synthetic` | channel-specific fallback | Active fallback until real open adapters are attached |
+| `meme-coin` | `dexscreener` | `token-velocity-v1` | Public DEX pair, boost, liquidity, and price-change data; no wallet or trading flow |
+| `power-grid` | `eia-grid` | `power-grid-operational-v1` | EIA hourly electric grid monitor with cached/unavailable states if `EIA_API_KEY` is absent |
+| `news`, `glance` | `rss` | `source-feed-v1` | Public feed queues, with GDELT/HN/weather adapters where declared |
+| `spectre`, `world-monitor`, `iran` | `gdelt` | `osint-events-v1` / `risk-feed-v1` | Public GDELT document/event signals |
+| `biotech` | `clinicaltrials` | `research-feed-v1` | ClinicalTrials.gov API v2 |
+| `space`, `dark-forest` | `nasa-exoplanet` | `observatory-feed-v1` | NASA Exoplanet Archive TAP |
+| `quantum` | `arxiv` | `science-feed-v1` | arXiv public Atom API |
+| `deep-sea` | `noaa-ndbc` | `sensor-feed-v1` | NOAA NDBC realtime files |
+| `viral` | `cdc-socrata` | `model-feed-v1` | CDC Open Data/Socrata catalog/data |
+| `arena` | `github-actions` | `agent-match-v1` | Public GitHub Actions when configured; otherwise unavailable |
+| `dune-deck` | `local-deck-json` | `deck-state-v1` | Checked-in deck JSON |
 
 ## Provider Notes
 
@@ -335,10 +358,12 @@ Polymarket:
 - Trading/order-management endpoints are out of scope for v1.
 - Public docs: https://docs.polymarket.com/api-reference
 
-Pump.fun-style data:
+Meme coin public data:
 
-- V1 uses open indexed token/pool data rather than wallet or trading APIs.
-- Current compatibility route uses CoinGecko category/indexed market data and synthetic fallback.
+- Primary source is DEX Screener token profiles, boosts, token-pair liquidity, volume, and price-change data.
+- The `/api/live/pumpfun` compatibility route still exists, but public channel state no longer claims a synthetic fallback as live.
+- Cached DEX/CoinGecko snapshots are the default fallback; no cache means `Data unavailable`.
+- DEX Screener docs: https://docs.dexscreener.com/api/reference
 - CoinGecko Pump.fun API overview: https://www.coingecko.com/en/api/launchpads/pump-fun
 
 EIA Power Grid:
