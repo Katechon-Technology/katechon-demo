@@ -2292,6 +2292,10 @@ body.narrating .sound {
   align-self: start;
 }
 
+.slide.layout-stage .copy.statement {
+  width: min(1180px, 100%);
+}
+
 .slide.layout-stage h1 {
   margin: 0.5rem auto 0;
   font-size: clamp(2.2rem, 4.4vw, 4.4rem);
@@ -2300,9 +2304,21 @@ body.narrating .sound {
   text-wrap: balance;
 }
 
+.slide.layout-stage .copy.statement h1 {
+  max-width: 1120px;
+  margin-top: 0;
+  font-size: clamp(2.65rem, 5.3vw, 5.8rem);
+  line-height: 0.98;
+}
+
 .slide.layout-stage .line {
   margin-left: auto;
   margin-right: auto;
+}
+
+.copy.statement .line,
+.copy.statement .eyebrow:empty {
+  display: none;
 }
 
 .slide.layout-stage .eyebrow {

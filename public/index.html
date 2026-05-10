@@ -6857,6 +6857,23 @@
       showToast(command.speech || command.reply || 'command not recognized', '#6b6b78');
     }
 
+    function isDuneDeckSlideCommand(text) {
+      if (currentDashboardId !== 'dune-deck') return false;
+      const command = String(text || '');
+      if (!/\b(?:generate|create|make|build|show)\b/i.test(command) || !/\b(?:slide|frame)\b/i.test(command)) return false;
+      return /\b(?:founder|builder|simon|inflection|why now|camera moment|screenshots?|state not pixels|broken container|live software channels?|channel object|what is a channel|specialist agents?|agent routing|kat|discovery graph|software feed|moat)\b/i.test(command);
+    }
+
+    function sendDuneDeckSlideCommand(text) {
+      const frame = activeDashboardFrame();
+      frame?.contentWindow?.postMessage({
+        type: 'dune-generate-slide',
+        dashboard: 'dune-deck',
+        prompt: text,
+        source: 'kat-voice',
+      }, window.location.origin);
+    }
+
     async function handleCommand(text) {
       showToast(`"${text}"`, '#e8e8ec');
       if (dashboardTargetVoice?.frame && dashboardTargetVoice?.dashboard) {
@@ -6876,6 +6893,11 @@
           source: 'target-voice',
         }, window.location.origin);
         showToast('Kat is mutating the selected region', '#00e87b');
+        return;
+      }
+      if (isDuneDeckSlideCommand(text)) {
+        sendDuneDeckSlideCommand(text);
+        showToast('Kat is generating a slide', '#00e87b');
         return;
       }
       const r = await fetch(appUrl('/api/agent'), {

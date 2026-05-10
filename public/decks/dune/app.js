@@ -936,6 +936,12 @@ function mountGeneratedSlide(payload, targetIndex) {
   if (payload.slide && payload.slide.openSlide && payload.slide.openSlide.source && generationCodeMode !== 'open-slide') {
     appendOpenSlideCode(payload.slide.openSlide.source, payload.slide.openSlide.path);
   }
+  if (payload.pregenerated && generationConsole) {
+    window.setTimeout(() => {
+      generationConsole.hidden = true;
+      generationConsole.classList.remove('is-active');
+    }, 1400);
+  }
   if (!localDevPauseAutoNarration) window.setTimeout(() => playNarration(current), 140);
 }
 
@@ -1036,21 +1042,29 @@ async function generateSlideFromPrompt(prompt) {
   if (generateController) generateController.abort();
   const controller = new AbortController();
   generateController = controller;
-  const targetIndex = slides.length ? current : 0;
+  const pregeneratedEntry = findPregeneratedSlide(prompt);
+  const existingPregeneratedIndex = pregeneratedEntry ? mountedPregeneratedSlideIndex(pregeneratedEntry) : -1;
+  const targetIndex = pregeneratedEntry
+    ? (existingPregeneratedIndex >= 0 ? existingPregeneratedIndex : (Array.isArray(deckConfig.slides) ? deckConfig.slides.length : 0))
+    : (slides.length ? current : 0);
 
   setPromptBusy(true);
-  setPromptStatus('Opening generation stream...', 'loading');
+  setPromptStatus(pregeneratedEntry ? 'Opening curated generation stream...' : 'Opening generation stream...', 'loading');
   resetGenerationConsole(prompt);
   stopNarration();
 
   try {
     let payload;
-    try {
-      payload = await generateSlideWithStream(prompt, targetIndex, controller);
-    } catch (streamError) {
-      if (controller.signal.aborted) throw streamError;
-      appendGenerationStep('stream unavailable; falling back');
-      payload = await generateSlideWithoutStream(prompt, targetIndex, controller);
+    if (pregeneratedEntry) {
+      payload = await generatePregeneratedSlideFromPrompt(prompt, pregeneratedEntry, targetIndex, controller);
+    } else {
+      try {
+        payload = await generateSlideWithStream(prompt, targetIndex, controller);
+      } catch (streamError) {
+        if (controller.signal.aborted) throw streamError;
+        appendGenerationStep('stream unavailable; falling back');
+        payload = await generateSlideWithoutStream(prompt, targetIndex, controller);
+      }
     }
     mountGeneratedSlide(payload, targetIndex);
   } catch (error) {
@@ -1654,10 +1668,23 @@ narrator.addEventListener('error', () => speakFallback(narration[current] && nar
 
 window.addEventListener('message', (event) => {
   if (event.origin !== window.location.origin || !event.data) return;
-  if (event.data.type !== 'deck-narration-ended') return;
-  if (event.data.id && event.data.id !== parentNarrationId) return;
-  document.body.classList.remove('narrating');
-  stopNarrationMotion();
+  const type = event.data.type;
+  if (type === 'deck-narration-ended') {
+    if (event.data.id && event.data.id !== parentNarrationId) return;
+    document.body.classList.remove('narrating');
+    stopNarrationMotion();
+    return;
+  }
+  const prompt = String(event.data.prompt || event.data.text || '').trim();
+  const isDeckPrompt =
+    type === 'dune-generate-slide' ||
+    type === 'deck-generate-slide' ||
+    type === 'kat-deck-prompt' ||
+    (type === 'watch-run-prompt' && event.data.dashboard === 'dune-deck');
+  if (isDeckPrompt && prompt) {
+    if (promptInput) promptInput.value = '';
+    generateSlideFromPrompt(prompt);
+  }
 });
 
 function goTo(index) {
