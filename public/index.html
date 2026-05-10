@@ -338,7 +338,7 @@
       bottom: -8svh !important;
       width: clamp(260px, 20vw, 430px) !important;
       height: 58svh !important;
-      opacity: 0.82;
+      opacity: 1;
     }
     body.dashboard-fullscreen #kat-narrator {
       right: auto !important;
@@ -346,6 +346,266 @@
       top: auto !important;
       bottom: 18px !important;
       width: min(360px, calc(100vw - 36px)) !important;
+    }
+    body.watch-mode #status,
+    body.watch-mode #main-overlay,
+    body.watch-mode #email-overlay,
+    body.watch-mode #kat-control-panel,
+    body.watch-mode #startup-audio,
+    body.watch-mode #dashboard-overlay .frame-bar {
+      display: none !important;
+    }
+    body.watch-mode #dashboard-overlay {
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 17;
+      border: 0;
+      border-radius: 0;
+      background: #020304;
+    }
+    body.watch-mode #dashboard-frame-stage {
+      background:
+        radial-gradient(ellipse at 20% 18%, rgba(255, 79, 216, 0.08), transparent 36%),
+        radial-gradient(ellipse at 74% 32%, rgba(0,232,123,0.07), transparent 34%),
+        #030405;
+    }
+    body.watch-mode .dashboard-frame.active {
+      filter: brightness(0.58) saturate(0.78) contrast(1.05);
+      transition: filter 260ms ease, opacity 180ms ease;
+    }
+    body.watch-mode.watch-playing .dashboard-frame.active {
+      filter: brightness(1.04) saturate(1.05) contrast(1.02);
+    }
+    body.watch-mode #browser-avatar-wrap {
+      z-index: 42;
+      right: -1vw !important;
+      bottom: -9svh !important;
+      width: clamp(340px, 24vw, 520px) !important;
+      height: 66svh !important;
+      opacity: 1;
+    }
+    body.watch-mode #kat-narrator {
+      display: none !important;
+    }
+
+    #watch-input-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 29;
+      display: none;
+      pointer-events: none;
+      background: transparent;
+    }
+    body.watch-mode #watch-input-layer {
+      display: block;
+      pointer-events: all;
+    }
+    #watch-shell {
+      position: fixed;
+      inset: 0;
+      z-index: 44;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 22vw);
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 18px;
+      padding: 28px 30px 24px;
+    }
+    #watch-shell[hidden] {
+      display: none;
+    }
+    .watch-kat-panel {
+      pointer-events: all;
+      grid-column: 2;
+      align-self: end;
+      display: grid;
+      gap: 10px;
+      max-width: 360px;
+      justify-self: end;
+      padding: 12px;
+      border: 1px solid rgba(0,232,123,0.22);
+      border-radius: 8px;
+      background:
+        radial-gradient(ellipse at 16% 0%, rgba(125,232,255,0.13), transparent 42%),
+        radial-gradient(ellipse at 92% 98%, rgba(0,232,123,0.11), transparent 44%),
+        rgba(3, 6, 7, 0.72);
+      box-shadow: 0 20px 70px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px) saturate(1.2);
+    }
+    .watch-kat-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+    }
+    .watch-kat-controls {
+      display: grid;
+      gap: 7px;
+      justify-items: stretch;
+      width: 124px;
+    }
+    .watch-kicker {
+      color: var(--green);
+      font: 700 10px/1 monospace;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+    .watch-title {
+      margin-top: 5px;
+      color: rgba(242,244,247,0.94);
+      font-size: 18px;
+      font-weight: 760;
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+    .watch-read {
+      min-height: 38px;
+      color: rgba(242,244,247,0.68);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+    .watch-play {
+      min-height: 44px;
+      border: 1px solid rgba(0,232,123,0.58);
+      border-radius: 999px;
+      background: rgba(0,232,123,0.92);
+      color: #031009;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 0 18px;
+      font: 800 12px/1 monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      box-shadow: 0 0 28px rgba(0,232,123,0.22);
+      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+    }
+    .watch-play:hover,
+    .watch-play:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 0 36px rgba(0,232,123,0.34);
+      outline: none;
+    }
+    .watch-play-icon {
+      width: 0;
+      height: 0;
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 11px solid currentColor;
+    }
+    body.watch-playing .watch-play {
+      opacity: 0.72;
+      background: rgba(0,232,123,0.12);
+      color: rgba(242,244,247,0.86);
+    }
+    body.watch-mode:not(.watch-playing) #watch-music-toggle {
+      display: none;
+    }
+    .watch-music {
+      min-height: 30px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.055);
+      color: rgba(242,244,247,0.72);
+      cursor: pointer;
+      padding: 0 10px;
+      font: 800 10px/1 monospace;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+    }
+    .watch-music:hover,
+    .watch-music:focus-visible {
+      border-color: rgba(0,232,123,0.48);
+      background: rgba(0,232,123,0.08);
+      color: rgba(242,244,247,0.92);
+      outline: none;
+    }
+    .watch-music.is-off {
+      color: rgba(242,244,247,0.42);
+      background: rgba(255,255,255,0.035);
+    }
+    .watch-music.is-blocked {
+      border-color: rgba(255,191,95,0.38);
+      color: rgba(255,220,139,0.84);
+    }
+    .watch-actions,
+    .watch-stack {
+      display: none;
+    }
+    body.watch-playing .watch-actions {
+      display: grid;
+      gap: 8px;
+    }
+    .watch-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .watch-chip {
+      min-height: 34px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.055);
+      color: rgba(242,244,247,0.78);
+      cursor: pointer;
+      padding: 0 12px;
+      font: 700 10px/1.1 monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+    }
+    .watch-chip:hover,
+    .watch-chip:focus-visible {
+      border-color: rgba(125,232,255,0.52);
+      background: rgba(125,232,255,0.10);
+      color: rgba(242,244,247,0.94);
+      outline: none;
+    }
+    .watch-chip.primary {
+      border-color: rgba(0,232,123,0.45);
+      color: rgba(0,232,123,0.92);
+    }
+    .watch-chip.thesis {
+      border-color: rgba(255,191,95,0.45);
+      color: rgba(255,220,139,0.94);
+    }
+    body.watch-has-stack .watch-stack {
+      pointer-events: all;
+      grid-column: 1;
+      grid-row: 2;
+      align-self: end;
+      display: flex;
+      gap: 10px;
+      max-width: 58vw;
+      overflow: hidden;
+    }
+    .watch-stack-card {
+      min-width: 250px;
+      max-width: 310px;
+      padding: 11px 12px;
+      border: 1px solid rgba(255,191,95,0.30);
+      border-radius: 8px;
+      background: rgba(5, 6, 8, 0.74);
+      box-shadow: 0 12px 44px rgba(0,0,0,0.30);
+      backdrop-filter: blur(14px);
+    }
+    .watch-stack-card strong {
+      display: block;
+      color: rgba(255,220,139,0.94);
+      font-size: 13px;
+      line-height: 1.2;
+      margin-bottom: 5px;
+    }
+    .watch-stack-card span {
+      display: block;
+      color: rgba(242,244,247,0.62);
+      font-size: 12px;
+      line-height: 1.34;
     }
     .frame-bar {
       height: 32px;
@@ -400,6 +660,16 @@
       width: auto;
       min-width: 44px;
       padding: 0 9px;
+    }
+    #dashboard-music-toggle {
+      min-width: 72px;
+    }
+    #dashboard-music-toggle.is-off {
+      color: rgba(242,244,247,0.42);
+    }
+    #dashboard-music-toggle.is-blocked {
+      border-color: rgba(255,191,95,0.38);
+      color: rgba(255,220,139,0.82);
     }
     .frame-action:hover,
     .frame-action:focus-visible {
@@ -1249,6 +1519,9 @@
       display: grid;
       gap: 9px;
     }
+    #kat-control-panel.is-dragging {
+      user-select: none;
+    }
     #kat-control-panel::before {
       content: "";
       position: absolute;
@@ -1271,6 +1544,12 @@
       justify-content: space-between;
       gap: 12px;
       padding: 1px 2px 0;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
+    }
+    #kat-control-panel.is-dragging .kat-control-head {
+      cursor: grabbing;
     }
     .kat-control-title {
       display: grid;
@@ -2547,6 +2826,9 @@
       <span id="dashboard-title">// KATECHON — INTELLIGENCE PLATFORM</span>
       <span id="dashboard-position">01 / 18</span>
       <button id="dashboard-back" class="frame-action frame-action-text" type="button" title="Back to channels" aria-label="Back to channels">Back</button>
+      <button id="dashboard-music-toggle" class="frame-action frame-action-text" type="button" title="Music on/off" aria-label="Music on/off" aria-pressed="true">
+        <span data-music-label>Music On</span>
+      </button>
       <button id="dashboard-share" class="frame-action" type="button" title="Share dashboard" aria-label="Share dashboard">
         <span class="share-icon" aria-hidden="true"><span></span><span></span><span></span></span>
       </button>
@@ -2622,6 +2904,37 @@
       </div>
     </div>
   </div>
+  <div id="watch-input-layer" aria-hidden="true"></div>
+  <section id="watch-shell" data-testid="watch-feed-shell" hidden>
+    <div class="watch-stack" id="watch-stack" data-testid="watch-stack"></div>
+    <aside class="watch-kat-panel" aria-live="polite">
+      <div class="watch-kat-head">
+        <div>
+          <div class="watch-kicker">Kat live host</div>
+          <div class="watch-title" id="watch-title">Meme Coin</div>
+        </div>
+        <div class="watch-kat-controls">
+          <button id="watch-play" class="watch-play" type="button" data-testid="play-kat">
+            <span class="watch-play-icon" aria-hidden="true"></span>
+            <span>Play Kat</span>
+          </button>
+          <button id="watch-music-toggle" class="watch-music" type="button" title="Music on/off" aria-label="Music on/off" aria-pressed="true">
+            <span data-music-label>Music On</span>
+          </button>
+        </div>
+      </div>
+      <div class="watch-read" id="watch-read">The surface is already moving. Start Kat when you want the read.</div>
+      <div class="watch-actions" id="watch-actions">
+        <div class="watch-action-row">
+          <button class="watch-chip primary" type="button" data-watch-action="in-card">Why?</button>
+          <button class="watch-chip thesis" type="button" data-watch-action="thesis">Make board</button>
+          <button class="watch-chip" type="button" id="watch-share">Share</button>
+          <button class="watch-chip" type="button" id="watch-fork">Fork</button>
+        </div>
+        <button class="watch-chip" type="button" id="watch-ask">Hold to ask Kat</button>
+      </div>
+    </aside>
+  </section>
 
   <div id="transcript"></div>
   <button id="startup-audio" type="button" aria-label="Play dashboard audio">
@@ -3317,6 +3630,8 @@
     const fullscreenButton = document.getElementById('dashboard-fullscreen');
     const startupAudioButton = document.getElementById('startup-audio');
     const mainNarrationButton = document.getElementById('main-narration');
+    const katControlPanel = document.getElementById('kat-control-panel');
+    const katControlPanelHandle = katControlPanel?.querySelector('.kat-control-head');
     const browserAvatar = document.getElementById('browser-avatar');
     const katNarrator = document.getElementById('kat-narrator');
     const katChannel = document.getElementById('kat-channel');
@@ -3343,6 +3658,8 @@
       "This is Katechon Technology. On the left, you can see each of our channels. " +
       "These channels are generated in real time based on user input, data feeds, and real world events. " +
       "Channels cover geopolitical events, information flows, market structure, research signals, and agent workflows.";
+    const KAT_CONTROL_PANEL_STORAGE_KEY = 'katechon.katControlPanelPlacement.v1';
+    const KAT_CONTROL_PANEL_MARGIN = 10;
 
     function loadDeferredFrame(frame) {
       const frameSrc = frame?.dataset?.src;
@@ -3411,6 +3728,34 @@
           url: (options = {}) => channelUrl(id, channel, options),
         }];
       }));
+    const WATCH_START_CHANNEL_IDS = ['meme-coin', 'polyrec', 'crypto-trading'];
+    const WATCH_LABELS = {
+      'meme-coin': { short: 'Meme', title: "What's pumping?", read: "Kat is watching meme coins for attention that is outrunning liquidity." },
+      polyrec: { short: 'Bets', title: 'What bets are moving?', read: 'Kat is watching weird prediction markets that moved enough to matter.' },
+      'crypto-trading': { short: 'BTC', title: 'Is BTC trapped?', read: 'Kat is watching BTC depth, range, and whether the book is breaking or boxed in.' },
+    };
+    const WATCH_PROMPTS = {
+      'meme-coin': {
+        initial: 'Find the fastest moving meme coins',
+        inCard: 'Show attention vs liquidity risk',
+        thesis: 'Build a board for tokens that look viral but fragile',
+      },
+      polyrec: {
+        initial: 'Show the weirdest active markets',
+        inCard: 'Find markets with high volume and close odds',
+        thesis: 'Build a live board for election and macro markets',
+      },
+      'crypto-trading': {
+        initial: 'Show liquidity and depth around BTC right now',
+        inCard: 'Is BTC trapped right now?',
+        thesis: 'Turn this into a BTC vs ETH battle',
+      },
+    };
+    const watchMode = {
+      active: false,
+      played: false,
+      stack: [],
+    };
 
     function escapePickerHtml(value) {
       return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -3551,6 +3896,26 @@
       return truthyPageParam(name);
     }
 
+    function catalogChannelIds() {
+      return CHANNEL_ORDER.filter(id => DASHBOARDS[id]);
+    }
+
+    function watchChannelIds() {
+      const ids = catalogChannelIds();
+      const startingIds = WATCH_START_CHANNEL_IDS.filter(id => ids.includes(id));
+      return [...startingIds, ...ids.filter(id => !startingIds.includes(id))];
+    }
+
+    function shouldStartWatchMode() {
+      if (truthyPageParam('grid') || truthyPageParam('library')) return false;
+      if (requestedDashboardId()) return false;
+      if (pageParams.get('channelShare') || pageParams.get('shareId') || pageParams.get('share')) return false;
+      return true;
+    }
+
+    watchMode.active = shouldStartWatchMode() && !isMobileGated();
+    if (watchMode.active) document.body.classList.add('watch-mode');
+
     function dashboardShareUrl(dashboardId) {
       const id = String(dashboardId || '').toLowerCase().replace(/[^\w-]/g, '');
       const path = `${APP_BASE_PATH}/share/${encodeURIComponent(id)}`;
@@ -3592,15 +3957,15 @@
           return;
         }
         await copyText(payload.url);
-        showToast('share link copied', '#00e87b');
+        showToast('Link copied', '#00e87b');
       } catch (err) {
         if (err?.name === 'AbortError') return;
         console.warn('dashboard share failed:', err);
         try {
           await copyText(payload.url);
-          showToast('share link copied', '#00e87b');
+          showToast('Link copied', '#00e87b');
         } catch (_) {
-          showToast(payload.url, '#e8e8ec');
+          showToast('Share ready', '#e8e8ec');
         }
       }
     }
@@ -3631,6 +3996,9 @@
         console.warn('startup audio unlock failed:', err);
       }
       if (!dashboardId || currentDashboardId !== dashboardId) return;
+      startChannelMusic(dashboardId, { userGesture: true }).catch(err => {
+        console.warn('startup music failed:', err);
+      });
       try {
         if (payload) await playAvatarSpeech(payload, { preferParentAudio: true });
         else startDashboardNarration(dashboardId, { preferParentAudio: true });
@@ -3696,6 +4064,15 @@
     let dashboardPrefetchTimer = null;
     let startupAudioDashboardId = null;
     let startupAudioPayload = null;
+    const CHANNEL_MUSIC_STORAGE_KEY = 'katechon.channelMusic.enabled.v1';
+    const CHANNEL_MUSIC_VOLUME = 0.24;
+    const CHANNEL_MUSIC_DUCKED_VOLUME = 0.08;
+    const channelMusicAudio = new Audio();
+    let channelMusicEnabled = loadChannelMusicPreference();
+    let channelMusicDucked = false;
+    let channelMusicVolumeRaf = 0;
+    channelMusicAudio.loop = true;
+    channelMusicAudio.preload = 'auto';
     const prefetchedDashboardUrls = new Set();
     const DASHBOARD_MATERIALIZE_DURATION = 240;
     const DASHBOARD_MATERIALIZE_LOAD_TIMEOUT = 60;
@@ -3870,9 +4247,9 @@
       avatarValues['model-y'].textContent = formatToolValue('model-y', avatarPlacement.modelY);
     }
 
-    function applyAvatarPlacement() {
-      const wrap = browserAvatar.parentElement;
-      if (AVATAR_DESKTOP_MEDIA.matches) {
+	    function applyAvatarPlacement() {
+	      const wrap = browserAvatar.parentElement;
+	      if (AVATAR_DESKTOP_MEDIA.matches) {
         wrap.style.left = 'auto';
         wrap.style.top = 'auto';
         wrap.style.right = `${avatarPlacement.x}vw`;
@@ -3940,6 +4317,89 @@
     else AVATAR_DESKTOP_MEDIA.addListener?.(applyAvatarPlacement);
     applyAvatarPlacement();
 
+    function clampKatControlPanelPosition(position) {
+      if (!katControlPanel) return null;
+      const rect = katControlPanel.getBoundingClientRect();
+      const width = rect.width || katControlPanel.offsetWidth || 252;
+      const height = rect.height || katControlPanel.offsetHeight || 112;
+      const maxX = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerWidth - width - KAT_CONTROL_PANEL_MARGIN);
+      const maxY = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerHeight - height - KAT_CONTROL_PANEL_MARGIN);
+      const rawX = Number(position?.x);
+      const rawY = Number(position?.y);
+      return {
+        x: Math.min(Math.max(Number.isFinite(rawX) ? rawX : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxX),
+        y: Math.min(Math.max(Number.isFinite(rawY) ? rawY : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxY),
+      };
+    }
+
+    function loadKatControlPanelPosition() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(KAT_CONTROL_PANEL_STORAGE_KEY) || 'null');
+        if (!saved || typeof saved !== 'object') return null;
+        const x = Number(saved.x);
+        const y = Number(saved.y);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+        return { x, y };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    let katControlPanelPosition = loadKatControlPanelPosition();
+    let katControlPanelDrag = null;
+
+    function applyKatControlPanelPosition(position, options = {}) {
+      if (!katControlPanel) return;
+      const clamped = clampKatControlPanelPosition(position);
+      if (!clamped) return;
+      katControlPanelPosition = clamped;
+      katControlPanel.style.left = `${clamped.x}px`;
+      katControlPanel.style.top = `${clamped.y}px`;
+      katControlPanel.style.right = 'auto';
+      katControlPanel.style.bottom = 'auto';
+      if (options.persist) {
+        try { localStorage.setItem(KAT_CONTROL_PANEL_STORAGE_KEY, JSON.stringify(clamped)); } catch (_) {}
+      }
+    }
+
+    function finishKatControlPanelDrag(event) {
+      if (!katControlPanelDrag || event.pointerId !== katControlPanelDrag.pointerId) return;
+      try { katControlPanelHandle?.releasePointerCapture(event.pointerId); } catch (_) {}
+      katControlPanel?.classList.remove('is-dragging');
+      katControlPanelDrag = null;
+      if (katControlPanelPosition) applyKatControlPanelPosition(katControlPanelPosition, { persist: true });
+    }
+
+    if (katControlPanelPosition) requestAnimationFrame(() => applyKatControlPanelPosition(katControlPanelPosition));
+    katControlPanelHandle?.addEventListener('pointerdown', (event) => {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      const rect = katControlPanel.getBoundingClientRect();
+      katControlPanelDrag = {
+        pointerId: event.pointerId,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      katControlPanel.classList.add('is-dragging');
+      try { katControlPanelHandle.setPointerCapture(event.pointerId); } catch (_) {}
+      applyKatControlPanelPosition({ x: rect.left, y: rect.top });
+    });
+    katControlPanelHandle?.addEventListener('pointermove', (event) => {
+      if (!katControlPanelDrag || event.pointerId !== katControlPanelDrag.pointerId) return;
+      event.preventDefault();
+      applyKatControlPanelPosition({
+        x: event.clientX - katControlPanelDrag.offsetX,
+        y: event.clientY - katControlPanelDrag.offsetY,
+      });
+    });
+    katControlPanelHandle?.addEventListener('pointerup', finishKatControlPanelDrag);
+    katControlPanelHandle?.addEventListener('pointercancel', finishKatControlPanelDrag);
+    katControlPanelHandle?.addEventListener('lostpointercapture', finishKatControlPanelDrag);
+    window.addEventListener('resize', () => {
+      if (!katControlPanelPosition) return;
+      requestAnimationFrame(() => applyKatControlPanelPosition(katControlPanelPosition, { persist: true }));
+    });
+
     window.addEventListener('message', (event) => {
       if (!event.data) return;
       if (event.data.type === 'avatar-ready') {
@@ -3966,6 +4426,20 @@
       if (event.data.type === 'deck-narration') {
         if (event.origin !== window.location.origin) return;
         handleDeckNarration(event.data);
+        return;
+      }
+      if (event.data.type === 'channel-share-created') {
+        if (event.origin !== window.location.origin) return;
+        showToast('Link copied', '#00e87b');
+        const read = document.getElementById('watch-read');
+        if (read && watchMode.active) read.textContent = 'Link copied. This Kat state can open, replay, and fork.';
+        if (event.data.dashboard && event.data.shareId) {
+          trackLaunchEvent('share_created', {
+            channelId: event.data.dashboard,
+            shareId: event.data.shareId,
+            source: 'watch-feed',
+          });
+        }
       }
     });
 
@@ -3991,6 +4465,7 @@
     function setKatNarrationLine(line, speaking = false) {
       if (line) katLine.textContent = line;
       katNarrator.classList.toggle('speaking', speaking);
+      setChannelMusicDucked(speaking);
     }
 
     function hideKatNarrator() {
@@ -4210,6 +4685,129 @@
       narration.timer = null;
       hideStartupAudioPrompt();
       stopBrowserAvatarAudio();
+    }
+
+    function loadChannelMusicPreference() {
+      if (/^(0|false|no|off)$/i.test(String(pageParams.get('music') || ''))) return false;
+      if (/^(1|true|yes|on)$/i.test(String(pageParams.get('music') || ''))) return true;
+      try {
+        return localStorage.getItem(CHANNEL_MUSIC_STORAGE_KEY) !== '0';
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function persistChannelMusicPreference() {
+      try {
+        localStorage.setItem(CHANNEL_MUSIC_STORAGE_KEY, channelMusicEnabled ? '1' : '0');
+      } catch (_) {}
+    }
+
+    function channelMusicForDashboard(dashboardId) {
+      return DASHBOARDS[dashboardId]?.music || null;
+    }
+
+    function channelMusicUrl(dashboardId) {
+      const src = channelMusicForDashboard(dashboardId)?.src;
+      if (!src) return '';
+      return appUrl(src.startsWith('/') ? src : `/${src}`);
+    }
+
+    function syncChannelMusicControls(blocked = false) {
+      const label = channelMusicEnabled ? 'Music On' : 'Music Off';
+      document.querySelectorAll('#dashboard-music-toggle, #watch-music-toggle').forEach(button => {
+        button.classList.toggle('is-off', !channelMusicEnabled);
+        button.classList.toggle('is-blocked', channelMusicEnabled && blocked);
+        button.setAttribute('aria-pressed', String(channelMusicEnabled));
+        button.title = channelMusicEnabled
+          ? 'Music is on. Click to silence channel music.'
+          : 'Music is off. Click to play channel music.';
+        const text = button.querySelector('[data-music-label]');
+        if (text) text.textContent = label;
+      });
+    }
+
+    function setChannelMusicVolume(target, immediate = false) {
+      if (channelMusicVolumeRaf) cancelAnimationFrame(channelMusicVolumeRaf);
+      channelMusicVolumeRaf = 0;
+      const nextVolume = Math.max(0, Math.min(1, target));
+      if (immediate || !window.performance) {
+        channelMusicAudio.volume = nextVolume;
+        return;
+      }
+      const startVolume = channelMusicAudio.volume;
+      const startedAt = performance.now();
+      const duration = 220;
+      const step = (now) => {
+        const pct = Math.min(1, (now - startedAt) / duration);
+        channelMusicAudio.volume = startVolume + (nextVolume - startVolume) * pct;
+        if (pct < 1) channelMusicVolumeRaf = requestAnimationFrame(step);
+      };
+      channelMusicVolumeRaf = requestAnimationFrame(step);
+    }
+
+    function targetChannelMusicVolume() {
+      if (!channelMusicEnabled) return 0;
+      return channelMusicDucked ? CHANNEL_MUSIC_DUCKED_VOLUME : CHANNEL_MUSIC_VOLUME;
+    }
+
+    function setChannelMusicDucked(ducked) {
+      channelMusicDucked = Boolean(ducked);
+      setChannelMusicVolume(targetChannelMusicVolume());
+    }
+
+    function stopChannelMusic(reset = false) {
+      setChannelMusicVolume(0, reset);
+      channelMusicAudio.pause();
+      if (reset) {
+        try { channelMusicAudio.currentTime = 0; } catch (_) {}
+      }
+      syncChannelMusicControls();
+    }
+
+    async function startChannelMusic(dashboardId = currentDashboardId, options = {}) {
+      const url = channelMusicUrl(dashboardId);
+      if (!channelMusicEnabled || !url) {
+        if (!url) stopChannelMusic(true);
+        syncChannelMusicControls();
+        return false;
+      }
+
+      const absoluteUrl = new URL(url, window.location.href).href;
+      if (channelMusicAudio.src !== absoluteUrl) {
+        channelMusicAudio.src = url;
+        channelMusicAudio.dataset.dashboard = dashboardId || '';
+        channelMusicAudio.currentTime = 0;
+        channelMusicAudio.load();
+      }
+      setChannelMusicVolume(targetChannelMusicVolume(), true);
+
+      try {
+        await channelMusicAudio.play();
+        syncChannelMusicControls(false);
+        return true;
+      } catch (err) {
+        if (options.userGesture) showToast('music needs browser audio permission', '#ffbf5f');
+        syncChannelMusicControls(true);
+        return false;
+      }
+    }
+
+    function setChannelMusicEnabled(enabled, options = {}) {
+      channelMusicEnabled = Boolean(enabled);
+      persistChannelMusicPreference();
+      syncChannelMusicControls();
+      if (!channelMusicEnabled) {
+        stopChannelMusic();
+        return;
+      }
+      startChannelMusic(currentDashboardId, options).catch(err => {
+        console.warn('channel music playback failed:', err);
+      });
+    }
+
+    function toggleChannelMusic() {
+      setChannelMusicEnabled(!channelMusicEnabled, { userGesture: true });
     }
 
     function clearHomeTransitionMask() {
@@ -4613,6 +5211,9 @@
       const token = ++dashboardFrameLoadToken;
       const previousFrame = activeDashboardFrame();
       let revealed = false;
+      if ((nextFrame.getAttribute('src') || '') !== url) {
+        nextFrame.setAttribute('src', url);
+      }
 
       if (dashboardFrameRevealTimer) clearTimeout(dashboardFrameRevealTimer);
       dashboardFrameRevealTimer = null;
@@ -4651,7 +5252,8 @@
     }
 
     function channelIds() {
-      return CHANNEL_ORDER.filter(id => DASHBOARDS[id]);
+      if (watchMode.active) return watchChannelIds();
+      return catalogChannelIds();
     }
 
     function updateDashboardPosition() {
@@ -4705,6 +5307,168 @@
           });
         }
       }, DASHBOARD_PREFETCH_DELAY);
+    }
+
+    function watchCopyForChannel(dashboardId) {
+      const dashboard = DASHBOARDS[dashboardId] || {};
+      return WATCH_LABELS[dashboardId] || {
+        short: dashboard.label || dashboardId,
+        title: dashboard.label || 'Live channel',
+        read: `Kat is watching ${dashboard.label || 'this channel'} live.`,
+      };
+    }
+
+    function watchPromptsForChannel(dashboardId) {
+      const configured = WATCH_PROMPTS[dashboardId] || {};
+      const dashboard = DASHBOARDS[dashboardId] || {};
+      const hero = Array.isArray(dashboard.heroPrompts) ? dashboard.heroPrompts : [];
+      return {
+        initial: configured.initial || dashboard.primaryPrompt || hero[0] || `Watch ${dashboard.label || dashboardId}`,
+        inCard: configured.inCard || hero[1] || dashboard.primaryPrompt || `Why does this matter?`,
+        thesis: configured.thesis || hero[2] || hero[0] || `Make this a shareable board`,
+      };
+    }
+
+    function syncWatchChrome(dashboardId = currentDashboardId) {
+      if (!watchMode.active) return;
+      const shell = document.getElementById('watch-shell');
+      if (shell) shell.hidden = false;
+      document.body.classList.add('watch-mode');
+      document.body.classList.toggle('watch-playing', watchMode.played);
+      const copy = watchCopyForChannel(dashboardId);
+      const prompts = watchPromptsForChannel(dashboardId);
+      const title = document.getElementById('watch-title');
+      const read = document.getElementById('watch-read');
+      if (title) title.textContent = copy.title;
+      if (read) {
+        read.textContent = watchMode.played
+          ? `${copy.read} Next: ${prompts.inCard}`
+          : `${copy.read} Start Kat when you want the read.`;
+      }
+      const inCard = document.querySelector('[data-watch-action="in-card"]');
+      const thesis = document.querySelector('[data-watch-action="thesis"]');
+      if (inCard) inCard.textContent = dashboardId === 'crypto-trading' ? 'Is BTC trapped?' : dashboardId === 'polyrec' ? 'Close odds' : 'Hype risk';
+      if (thesis) thesis.textContent = dashboardId === 'crypto-trading' ? 'BTC vs ETH' : dashboardId === 'polyrec' ? 'Election board' : 'Fragile board';
+      const playLabel = document.querySelector('#watch-play span:last-child');
+      if (playLabel) playLabel.textContent = watchMode.played ? 'Kat live' : 'Play Kat';
+    }
+
+    function renderWatchStack() {
+      const stack = document.getElementById('watch-stack');
+      if (!stack) return;
+      document.body.classList.toggle('watch-has-stack', watchMode.stack.length > 0);
+      stack.innerHTML = watchMode.stack.slice(-3).map((card) => `
+        <article class="watch-stack-card" data-testid="watch-stack-card">
+          <strong>${escapePickerHtml(card.title)}</strong>
+          <span>${escapePickerHtml(card.reason)}</span>
+        </article>
+      `).join('');
+    }
+
+    function addWatchStackCard(dashboardId, prompt) {
+      const copy = watchCopyForChannel(dashboardId);
+      watchMode.stack.push({
+        title: prompt || copy.title,
+        reason: `${copy.short} became a shareable Kat state.`,
+      });
+      renderWatchStack();
+    }
+
+    function postWatchFrameMessage(message) {
+      const frame = activeDashboardFrame();
+      if (!frame?.contentWindow) return false;
+      frame.contentWindow.postMessage(message, window.location.origin);
+      return true;
+    }
+
+    function runWatchPrompt(kind = 'inCard') {
+      if (!currentDashboardId) return;
+      const prompts = watchPromptsForChannel(currentDashboardId);
+      const prompt = kind === 'thesis' ? prompts.thesis : prompts.inCard;
+      const source = kind === 'thesis' ? 'watch-thesis' : 'watch-in-card';
+      trackLaunchEvent('prompt_clicked', { channelId: currentDashboardId, prompt, source });
+      const sent = postWatchFrameMessage({
+        type: 'watch-run-prompt',
+        dashboard: currentDashboardId,
+        prompt,
+        mode: kind === 'thesis' ? 'spawn_public_card' : 'in_card_mutation',
+      });
+      showToast(kind === 'thesis' ? 'Kat is making a shareable state' : 'Kat is mutating this card', '#00e87b');
+      const read = document.getElementById('watch-read');
+      if (read) read.textContent = sent ? `Kat is changing this surface: ${prompt}` : `Open channel action: ${prompt}`;
+      if (kind === 'thesis') addWatchStackCard(currentDashboardId, prompt);
+    }
+
+    async function shareWatchState() {
+      if (!currentDashboardId) return;
+      const sent = postWatchFrameMessage({ type: 'watch-share-state', dashboard: currentDashboardId });
+      if (sent) {
+        showToast('Saving share state', '#00e87b');
+        return;
+      }
+      await shareCurrentDashboard();
+    }
+
+    function forkWatchState() {
+      if (!currentDashboardId) return;
+      const prompts = watchPromptsForChannel(currentDashboardId);
+      const prompt = `Fork this state: ${prompts.thesis}`;
+      postWatchFrameMessage({
+        type: 'watch-run-prompt',
+        dashboard: currentDashboardId,
+        prompt,
+        mode: 'spawn_public_card',
+      });
+      addWatchStackCard(currentDashboardId, prompt);
+      showToast('Forking from this state', '#00e87b');
+    }
+
+    async function playWatchKat() {
+      if (!watchMode.active || !currentDashboardId) return;
+      try {
+        await unlockAgentAudio();
+      } catch (err) {
+        console.warn('watch audio unlock failed:', err);
+      }
+      startChannelMusic(currentDashboardId, { userGesture: true }).catch(err => {
+        console.warn('watch music failed:', err);
+      });
+      watchMode.played = true;
+      syncWatchChrome(currentDashboardId);
+      startDashboardNarration(currentDashboardId, { preferParentAudio: true, force: true });
+      trackLaunchEvent('play_kat', { channelId: currentDashboardId, source: 'watch-feed' });
+    }
+
+    function startWatchMode() {
+      if (isMobileGated()) return;
+      const first = watchChannelIds()[0] || 'meme-coin';
+      watchMode.active = true;
+      document.body.classList.add('watch-mode');
+      document.body.classList.toggle('watch-playing', watchMode.played);
+      document.getElementById('email-overlay')?.classList.add('hidden');
+      hideMainOverlay(true);
+      syncWatchChrome(first);
+      renderWatchStack();
+      openDashboard(first, {
+        fullscreen: true,
+        skipNarration: true,
+        prompt: watchPromptsForChannel(first).initial,
+        source: 'watch-feed',
+      });
+    }
+
+    function handleWatchWheel(event) {
+      if (!watchMode.active || !currentDashboardId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const horizontal = Math.abs(event.deltaX) > Math.abs(event.deltaY) && Math.abs(event.deltaX) > 24;
+      if (horizontal) {
+        runWatchPrompt('inCard');
+        return;
+      }
+      const delta = event.deltaY || 0;
+      if (!delta) return;
+      enqueueDashboardSteps(delta > 0 ? 1 : -1, 1);
     }
 
     function syncFullscreenButton() {
@@ -4816,7 +5580,7 @@
     function startDashboardNarration(dashboardId, options = {}) {
       const dashboard = DASHBOARDS[dashboardId];
       stopDashboardNarration();
-      if (localDevPauseAutoNarration) {
+      if (localDevPauseAutoNarration && !options.force) {
         hideStartupAudioPrompt();
         return;
       }
@@ -4829,7 +5593,7 @@
 
     function scheduleDashboardNarrationStart(dashboardId, delay = 0, options = {}) {
       stopDashboardNarration();
-      if (localDevPauseAutoNarration) {
+      if (localDevPauseAutoNarration && !options.force) {
         hideStartupAudioPrompt();
         return;
       }
@@ -4881,6 +5645,7 @@
       const dashboard = DASHBOARDS[workspace];
       if (!dashboard) {
         stopDashboardNarration();
+        stopChannelMusic(true);
         unloadDashboardFrame();
         setDashboardFullscreen(false);
         dashboardOverlay.classList.add('hidden');
@@ -4888,6 +5653,11 @@
         updateDashboardPosition();
         hideMainOverlay();
         return fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(() => {});
+      }
+      const watchActive = watchMode.active && watchChannelIds().includes(workspace);
+      if (watchActive) {
+        options = { ...options, fullscreen: true };
+        if (!watchMode.played && options.autoplayAudio !== true) options.skipNarration = true;
       }
       if (options.sharedLaunch) hideEntryGateForDashboardLaunch();
       landingSwitchRunId++;
@@ -4900,7 +5670,7 @@
       trackLaunchEvent('channel_opened', {
         channelId: workspace,
         prompt: options.prompt || '',
-        source: options.prompt ? 'launch-prompt' : options.sharedLaunch ? 'share' : 'launch',
+        source: options.source || (options.prompt ? 'launch-prompt' : options.sharedLaunch ? 'share' : 'launch'),
       });
       scheduleRemoteWorkspaceSwitch(workspace, rapidNavigation);
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
@@ -4908,6 +5678,10 @@
       dashboardOverlay.classList.remove('hidden');
       if (options.fullscreen) setDashboardFullscreen(true, false);
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
+      if (watchActive) syncWatchChrome(workspace);
+      startChannelMusic(workspace).catch(err => {
+        console.warn('channel music failed:', err);
+      });
       hideMainOverlay(true);
       if (dashboard.deckNarration) preloadDeckNarration(workspace);
       loadDashboardFrame(workspace, url, options.direction ?? 1, { rapid: rapidNavigation });
@@ -4918,6 +5692,7 @@
         scheduleDashboardNarrationStart(workspace, rapidNavigation ? DASHBOARD_NARRATION_DEBOUNCE : 0, {
           preferParentAudio: autoplayAudio,
           showAudioPrompt: autoplayAudio,
+          force: watchActive && watchMode.played,
         });
       }
       if (options.sharedLaunch && !localDevPauseAutoNarration) showStartupAudioPrompt(workspace);
@@ -5013,7 +5788,22 @@
     fullscreenButton.addEventListener('click', () => {
       setDashboardFullscreen(!document.body.classList.contains('dashboard-fullscreen'));
     });
+    document.getElementById('dashboard-music-toggle')?.addEventListener('click', toggleChannelMusic);
+    document.getElementById('watch-music-toggle')?.addEventListener('click', toggleChannelMusic);
+    syncChannelMusicControls();
     startupAudioButton.addEventListener('click', playStartupAudioPrompt);
+    document.getElementById('watch-play')?.addEventListener('click', playWatchKat);
+    document.querySelectorAll('[data-watch-action]').forEach(button => {
+      button.addEventListener('click', () => runWatchPrompt(button.dataset.watchAction === 'thesis' ? 'thesis' : 'inCard'));
+    });
+    document.getElementById('watch-share')?.addEventListener('click', () => {
+      shareWatchState().catch(err => {
+        console.warn('watch share failed:', err);
+        showToast('share failed', '#ff4444');
+      });
+    });
+    document.getElementById('watch-fork')?.addEventListener('click', forkWatchState);
+    document.getElementById('watch-input-layer')?.addEventListener('wheel', handleWatchWheel, { passive: false });
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && document.body.classList.contains('dashboard-fullscreen')) {
         setDashboardFullscreen(false, false);
@@ -5749,8 +6539,14 @@
     }
 
     function goHome() {
+      if (watchMode.active) {
+        const first = watchChannelIds()[0] || 'meme-coin';
+        openDashboard(first, { fullscreen: true, skipNarration: !watchMode.played, source: 'watch-home' });
+        return Promise.resolve();
+      }
       const runId = ++landingSwitchRunId;
       stopDashboardNarration();
+      stopChannelMusic(true);
       unloadDashboardFrame();
       setDashboardFullscreen(false);
       dashboardOverlay.classList.add('hidden');
@@ -6010,6 +6806,18 @@
     };
     micBtn.addEventListener('pointerup', releasePointer);
     micBtn.addEventListener('pointercancel', releasePointer);
+    const watchAskButton = document.getElementById('watch-ask');
+    watchAskButton?.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      try { watchAskButton.setPointerCapture(e.pointerId); } catch (_) {}
+      startPushToTalk().catch(() => {});
+    });
+    const releaseWatchAskPointer = (e) => {
+      try { watchAskButton?.releasePointerCapture(e.pointerId); } catch (_) {}
+      stopPushToTalk();
+    };
+    watchAskButton?.addEventListener('pointerup', releaseWatchAskPointer);
+    watchAskButton?.addEventListener('pointercancel', releaseWatchAskPointer);
     window.addEventListener('blur', () => stopPushToTalk());
 
     // Space-bar PTT. Skip when the user is typing somewhere editable.
@@ -6031,7 +6839,10 @@
     });
     console.log(`Kat voice mode: ${realtimeVoiceEnabled ? 'OpenAI Realtime' : 'legacy'}`);
     preloadDashboardFrames();
-    afterNextPaint(launchRequestedDashboard, 80);
+    afterNextPaint(() => {
+      if (watchMode.active) startWatchMode();
+      else launchRequestedDashboard();
+    }, 80);
   </script>
 </body>
 </html>

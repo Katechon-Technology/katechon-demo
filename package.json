@@ -10,6 +10,8 @@
     "launch:e2e": "node scripts/launch-e2e.js",
     "launch:visual": "node scripts/launch-visual.js",
     "launch:qa": "node scripts/launch-qa.js",
+    "watch-feed:qa": "node scripts/watch-feed-qa.js",
+    "channel:music": "node scripts/generate-channel-music.js",
     "start": "node server.js",
     "dev": "node server.js",
     "dune:audio": "public/decks/dune/scripts/generate-elevenlabs-narration.sh",

@@ -67,6 +67,32 @@ const requiredFiles = [
   "dist/share-thumbnails/spectre.jpg",
 ];
 
+const channelMusicIds = [
+  "crypto-trading",
+  "polyrec",
+  "meme-coin",
+  "spectre",
+  "news",
+  "dashboard123",
+  "world-monitor",
+  "arena",
+  "glance",
+  "biotech",
+  "space",
+  "iran",
+  "quantum",
+  "deep-sea",
+  "power-grid",
+  "viral",
+  "dark-forest",
+  "dune-deck",
+];
+
+for (const id of channelMusicIds) {
+  requiredFiles.push(`dist/music/channels/${id}.mp3`);
+  requiredFiles.push(`dist/app/music/channels/${id}.mp3`);
+}
+
 if (!fs.existsSync(dist)) {
   throw new Error("Missing dist directory. Run node scripts/build-vercel.js first.");
 }
@@ -77,6 +103,8 @@ for (const file of requiredFiles) {
 
 requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
 requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
+requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
+requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
 requireContains("dist/data/index.html", "https://katechon.technology/data/", "canonical data-room URL");
 requireContains("dist/data/index.html", "/app/dashboards/dune-deck/", "data-room deck link");
 requireContains("dist/pdf/index.html", "/katechon.pdf", "one-pager PDF link");

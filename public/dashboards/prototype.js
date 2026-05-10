@@ -270,6 +270,15 @@
       state.commandStatus = message || "";
       const status = $("command-status");
       if (status) status.textContent = state.commandStatus;
+      const tickerLine = $("narration-line");
+      const ticker = $("narration-ticker");
+      if (tickerLine && ticker) {
+        if (state.commandStatus) {
+          ticker.hidden = false;
+          tickerLine.textContent = state.commandStatus;
+          ticker.classList.toggle("has-update", state.commandRunning || /(generated|building|replaying|restoring|share)/i.test(state.commandStatus));
+        }
+      }
     }
 
     async function copyText(value) {
@@ -310,7 +319,7 @@
     }
 
     async function runChannelCommand(prompt) {
-      const userText = String(prompt || $("command-input")?.value || "").trim();
+      const userText = String(prompt || "").trim();
       if (!userText || state.commandRunning) return;
       state.commandRunning = true;
       state.lastPrompt = userText;
@@ -382,7 +391,16 @@
         const url = new URL(payload.url || `/share/channel/${state.currentShareId}`, window.location.origin).href;
         const copied = await copyText(url).catch(() => false);
         trackLaunchEvent("share_created", { shareId: state.currentShareId, prompt: state.lastPrompt || "", source: "share-button" });
-        setCommandStatus(copied ? "share link copied" : url);
+        setCommandStatus(copied ? "Link copied" : "Share ready");
+        if (state.currentShareId && window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: "channel-share-created",
+            dashboard: dashboardId,
+            shareId: state.currentShareId,
+            url,
+            copied,
+          }, window.location.origin);
+        }
       } catch (err) {
         console.warn("channel share failed:", err);
         trackLaunchEvent("error_seen", { source: "share-button", message: err.message || String(err) });
@@ -396,32 +414,30 @@
     function renderCommandPanel() {
       const panel = $("command-panel");
       if (!panel) return;
-      const prompts = commandPrompts();
-      const hasCommandSurface = prompts.length || config.promptPlaceholder || config.primaryPrompt;
-      panel.hidden = !hasCommandSurface;
-      document.body.classList.toggle("has-command-panel", Boolean(hasCommandSurface));
-      if (!hasCommandSurface) return;
-      $("prompt-strip").innerHTML = prompts.map((prompt) =>
-        `<button class="prompt-chip" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(prompt)}" title="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`
-      ).join("");
-      const input = $("command-input");
-      input.placeholder = config.promptPlaceholder || config.primaryPrompt || "Ask this market to become an app";
-      if (!input.value && state.lastPrompt && !document.activeElement?.isSameNode(input)) input.value = state.lastPrompt;
-      $("command-build").disabled = state.commandRunning;
-      $("command-share").disabled = state.commandRunning;
-      $("command-status").textContent = state.commandStatus || (state.currentShareId ? "share object loaded" : "");
-      panel.onsubmit = (event) => {
-        event.preventDefault();
-        runChannelCommand(input.value);
-      };
-      $("command-share").onclick = () => shareChannelState();
-      panel.querySelectorAll("[data-prompt]").forEach((button) => {
-        button.addEventListener("click", () => {
-          input.value = button.dataset.prompt || "";
-          trackLaunchEvent("prompt_clicked", { prompt: input.value, source: "dashboard-pill" });
-          runChannelCommand(input.value);
+      const status = $("command-status");
+      const statusText = state.commandStatus || (state.currentShareId ? "share object loaded" : "");
+      const hasStatus = Boolean(statusText);
+      panel.hidden = !hasStatus;
+      document.body.classList.toggle("has-command-panel", hasStatus);
+      if (status) status.textContent = statusText;
+      const promptStrip = $("prompt-strip");
+      if (promptStrip) {
+        promptStrip.innerHTML = commandPrompts().map((prompt) =>
+          `<button class="prompt-chip" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(prompt)}" title="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`
+        ).join("");
+        promptStrip.querySelectorAll("[data-prompt]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const promptText = button.dataset.prompt || button.textContent || "";
+            trackLaunchEvent("prompt_clicked", { prompt: promptText, source: "dashboard-pill" });
+            runChannelCommand(promptText);
+          });
         });
-      });
+      }
+      const shareButton = $("command-share");
+      if (shareButton) {
+        shareButton.disabled = state.commandRunning;
+        shareButton.onclick = () => shareChannelState();
+      }
     }
 
     function startShareReplay() {
@@ -446,8 +462,6 @@
     function maybeRunInitialPrompt() {
       if (!initialPrompt || initialPromptRan || state.currentShareId) return;
       initialPromptRan = true;
-      const input = $("command-input");
-      if (input) input.value = initialPrompt;
       runChannelCommand(initialPrompt);
     }
 
@@ -455,6 +469,440 @@
       const seed = Math.sin((index + 1) * 9301 + dashboardId.length * 49297 + state.tick * 233) * 10000;
       const n = seed - Math.floor(seed);
       return min + n * (max - min);
+    }
+
+    /* ============================================================
+       COCKPIT COMPONENT LIBRARY
+       Pure functions: data in, HTML/SVG out. Information-density
+       primitives shared by every channel.
+       ============================================================ */
+
+    function pulseSourceData() {
+      const data = state.livePayload?.data || {};
+      if (Array.isArray(data.candles) && data.candles.length) {
+        const candles = data.candles.slice(-60);
+        return {
+          values: candles.map((c) => numericValue(c.c ?? c.close ?? c.mark)),
+          label: `${(data.coin || config.title || "price").toString().toUpperCase().slice(0, 18)} close`,
+          kind: "price", unit: "$", live: true,
+        };
+      }
+      if (Array.isArray(data.series) && data.series.length) {
+        const series = data.series.slice(-60);
+        return {
+          values: series.map((row) => numericValue(row.loadMw ?? row.value ?? row.frequencyHz ?? row.stressPct)),
+          label: data.respondentName || data.respondent || "grid load",
+          kind: "load", unit: "MW", live: true,
+        };
+      }
+      if (Array.isArray(data.markets) && data.markets.length) {
+        return {
+          values: data.markets.slice(0, 60).map((m) => numericValue(m.yes) * 100),
+          label: "market YES%", kind: "yes", unit: "%", live: true,
+        };
+      }
+      if (Array.isArray(data.tokens) && data.tokens.length) {
+        return {
+          values: data.tokens.slice(0, 60).map((t) => numericValue(t.attentionScore ?? t.change1h ?? t.fragilityScore)),
+          label: "token velocity", kind: "velocity", unit: "", live: true,
+        };
+      }
+      if (Array.isArray(data.fuelMix) && data.fuelMix.length) {
+        return {
+          values: data.fuelMix.map((f) => numericValue(f.sharePct ?? f.mw)),
+          label: "fuel mix share", kind: "share", unit: "%", live: true,
+        };
+      }
+      const palette = sceneFlavor();
+      const values = Array.from({ length: 60 }, (_, i) => seededValue(i, palette.lo, palette.hi));
+      return { values, label: palette.label, kind: "synthetic", unit: palette.unit || "", live: false };
+    }
+
+    function sceneFlavor() {
+      const map = {
+        "command-map": { label: "event flux", lo: 8, hi: 92, unit: "events" },
+        "newsroom": { label: "story flux", lo: 12, hi: 88, unit: "stories" },
+        "source-wall": { label: "source flux", lo: 14, hi: 96, unit: "sources" },
+        "market-mesh": { label: "breadth", lo: 18, hi: 92, unit: "%" },
+        "orderbook": { label: "spread bps", lo: 1, hi: 14, unit: "bps" },
+        "prediction": { label: "implied yes", lo: 22, hi: 86, unit: "%" },
+        "geo-signal": { label: "regional pressure", lo: 18, hi: 84, unit: "" },
+        "arena": { label: "score delta", lo: 0, hi: 24, unit: "pts" },
+        "bio-lab": { label: "evidence weight", lo: 18, hi: 88, unit: "" },
+        "observatory": { label: "transit depth", lo: 0, hi: 8, unit: "%" },
+        "meme": { label: "attention", lo: 12, hi: 96, unit: "" },
+        "quantum": { label: "coherence", lo: 28, hi: 92, unit: "" },
+        "abyss": { label: "thermal Δ", lo: 0, hi: 12, unit: "" },
+        "gridops": { label: "load %", lo: 32, hi: 92, unit: "%" },
+        "viralnet": { label: "active R0", lo: 60, hi: 180, unit: "" },
+        "darkwatch": { label: "σ deviation", lo: 0, hi: 4, unit: "σ" },
+      };
+      return map[config.scene] || { label: "channel signal", lo: 14, hi: 86, unit: "" };
+    }
+
+    function formatPulseValue(value, unit, kind) {
+      if (!Number.isFinite(value)) return "—";
+      if (kind === "price" || unit === "$") {
+        if (Math.abs(value) >= 1000) return `$${Math.round(value).toLocaleString()}`;
+        return `$${value.toFixed(2)}`;
+      }
+      if (unit === "%") return `${value.toFixed(1)}%`;
+      if (unit === "MW") return formatGridMw(value);
+      if (unit === "bps") return `${value.toFixed(2)}bp`;
+      if (unit === "σ") return `${value.toFixed(2)}σ`;
+      if (Math.abs(value) >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+      if (Math.abs(value) >= 100) return value.toFixed(0);
+      return value.toFixed(2);
+    }
+
+    function pulseStripCells(payload) {
+      const values = payload.values || [];
+      if (!values.length) return { html: "", now: "—", delta: { text: "—", dir: "flat" }, range: "—" };
+      const last = values[values.length - 1];
+      const first = values[0];
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+      const cells = values.map((v, i) => {
+        const norm = (v - min) / range;
+        const h = Math.max(6, Math.round(norm * 100));
+        const dir = i === 0 ? "" : (v > values[i - 1] ? "" : v < values[i - 1] ? "down" : "flat");
+        const pinned = i === values.length - 1 ? " pinned" : "";
+        return `<span class="pulse-cell ${dir}${pinned}" style="height:${h}%"></span>`;
+      }).join("");
+      const deltaPct = first ? ((last - first) / Math.abs(first)) * 100 : 0;
+      const deltaDir = deltaPct > 0.001 ? "up" : deltaPct < -0.001 ? "down" : "flat";
+      const sign = deltaPct > 0 ? "+" : "";
+      return {
+        html: cells,
+        now: formatPulseValue(last, payload.unit, payload.kind),
+        delta: {
+          text: payload.kind === "price" ? `${sign}${deltaPct.toFixed(2)}%` : `${sign}${(last - first).toFixed(2)}`,
+          dir: deltaDir,
+        },
+        range: `${formatPulseValue(min, payload.unit, payload.kind)} – ${formatPulseValue(max, payload.unit, payload.kind)}`,
+      };
+    }
+
+    function sparklinePath(values, w, h) {
+      if (!values.length) return { line: "", area: "" };
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+      const step = values.length > 1 ? w / (values.length - 1) : w;
+      const pts = values.map((v, i) => {
+        const x = i * step;
+        const y = h - ((v - min) / range) * (h - 4) - 2;
+        return [x, y];
+      });
+      const line = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
+      const area = `${line}L${w.toFixed(1)},${h}L0,${h}Z`;
+      return { line, area };
+    }
+
+    function sparklineSvg(values, opts) {
+      const w = (opts && opts.width) || 100;
+      const h = (opts && opts.height) || 22;
+      if (!values || !values.length) {
+        return `<svg class="spark ${(opts && opts.color) || ""}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><line class="baseline" x1="0" y1="${h / 2}" x2="${w}" y2="${h / 2}"/></svg>`;
+      }
+      const path = sparklinePath(values, w, h);
+      const dir = values[values.length - 1] >= values[0] ? "" : " down";
+      return `<svg class="spark ${(opts && opts.color) || ""}${dir}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+        ${(!opts || opts.area !== false) ? `<path class="area" d="${path.area}"/>` : ""}
+        <path class="line" d="${path.line}"/>
+      </svg>`;
+    }
+
+    function metricSparkValues(metricIndex) {
+      const data = state.livePayload?.data || {};
+      if (Array.isArray(data.candles) && data.candles.length) {
+        return data.candles.slice(-24).map((c) => numericValue(c.c ?? c.close ?? c.mark));
+      }
+      if (Array.isArray(data.series) && data.series.length) {
+        const fields = ["loadMw", "frequencyHz", "operatingMarginPct"];
+        const field = fields[metricIndex] || "loadMw";
+        return data.series.slice(-24).map((r) => numericValue(r[field]));
+      }
+      if (Array.isArray(data.markets) && data.markets.length) {
+        return data.markets.slice(0, 24).map((m) => numericValue(m.yes) * 100);
+      }
+      if (Array.isArray(data.tokens) && data.tokens.length) {
+        const fields = ["change1h", "fragilityScore", "attentionScore"];
+        const field = fields[metricIndex] || "fragilityScore";
+        return data.tokens.slice(0, 24).map((t) => numericValue(t[field]));
+      }
+      const m = visibleMetrics()[metricIndex] || ["", "0", ""];
+      const base = numericValue(m[1]) || (50 + metricIndex * 12);
+      return Array.from({ length: 24 }, (_, i) => base + seededValue(i + metricIndex * 31, -base * 0.08, base * 0.08));
+    }
+
+    function metricDelta(values) {
+      if (!values || values.length < 2) return { text: "—", dir: "flat" };
+      const a = values[0];
+      const b = values[values.length - 1];
+      if (!Number.isFinite(a) || !a) return { text: "—", dir: "flat" };
+      const pct = ((b - a) / Math.abs(a)) * 100;
+      if (Math.abs(pct) < 0.05) return { text: "flat", dir: "flat" };
+      const sign = pct > 0 ? "+" : "";
+      return { text: `${sign}${pct.toFixed(1)}%`, dir: pct > 0 ? "up" : "down" };
+    }
+
+    function smallMultiplesPlan() {
+      const data = state.livePayload?.data || {};
+      const items = [];
+      if (Array.isArray(data.candles) && data.candles.length) {
+        const candles = data.candles.slice(-30);
+        const closes = candles.map((c) => numericValue(c.c ?? c.close));
+        const vols = candles.map((c) => numericValue(c.v ?? c.volume));
+        const ranges = candles.map((c) => numericValue(c.h ?? c.high) - numericValue(c.l ?? c.low));
+        items.push({ label: "close", spark: closes, value: formatPulseValue(closes[closes.length - 1], "$", "price"), note: `${candles.length}p`, kind: "spark" });
+        items.push({ label: "volume", spark: vols, value: vols.length ? compactMoney(vols[vols.length - 1]) : "—", note: "per bar", kind: "bars" });
+        items.push({ label: "range", spark: ranges, value: ranges.length ? `${ranges[ranges.length - 1].toFixed(1)}` : "—", note: "h-l", kind: "bars" });
+        return items;
+      }
+      if (Array.isArray(data.series) && data.series.length) {
+        const series = data.series.slice(-30);
+        const load = series.map((r) => numericValue(r.loadMw));
+        const freq = series.map((r) => numericValue(r.frequencyHz));
+        const stress = series.map((r) => numericValue(r.stressPct));
+        items.push({ label: "load MW", spark: load, value: formatGridMw(load[load.length - 1] || 0), note: "live", kind: "spark" });
+        items.push({ label: "frequency Hz", spark: freq, value: (freq[freq.length - 1] || 60).toFixed(3), note: "stability", kind: "spark", color: "cyan" });
+        items.push({ label: "corridor stress", spark: stress, value: `${(stress[stress.length - 1] || 0).toFixed(0)}%`, note: "operator", kind: "bars", color: "amber" });
+        return items;
+      }
+      if (Array.isArray(data.markets) && data.markets.length) {
+        const m = data.markets.slice(0, 30);
+        const yes = m.map((x) => numericValue(x.yes) * 100);
+        const vol = m.map((x) => numericValue(x.volume));
+        const close = m.map((x) => Math.abs(numericValue(x.yes) * 100 - 50));
+        items.push({ label: "YES distribution", spark: yes, value: yes.length ? `${yes[0].toFixed(0)}%` : "—", note: "top", kind: "bars" });
+        items.push({ label: "volume rank", spark: vol, value: vol.length ? compactMoney(vol[0]) : "—", note: "lead", kind: "bars", color: "cyan" });
+        items.push({ label: "near 50/50", spark: close, value: `${close.length}`, note: "tracked", kind: "bars", color: "amber" });
+        return items;
+      }
+      if (Array.isArray(data.tokens) && data.tokens.length) {
+        const t = data.tokens.slice(0, 24);
+        const att = t.map((x) => numericValue(x.attentionScore));
+        const liq = t.map((x) => numericValue(x.liquidityRisk));
+        const frag = t.map((x) => numericValue(x.fragilityScore));
+        items.push({ label: "attention", spark: att, value: att.length ? att[0].toFixed(0) : "—", note: "lead", kind: "bars" });
+        items.push({ label: "liquidity risk", spark: liq, value: liq.length ? liq[0].toFixed(0) : "—", note: "thin = risk", kind: "bars", color: "amber" });
+        items.push({ label: "fragility", spark: frag, value: frag.length ? frag[0].toFixed(0) : "—", note: "leader", kind: "bars", color: "down" });
+        return items;
+      }
+
+      const v = visibleMetrics();
+      [0, 1, 2].forEach((i) => {
+        if (items.length >= 3) return;
+        const m = v[i] || [`signal ${i + 1}`, "—", ""];
+        const spark = metricSparkValues(i);
+        const delta = metricDelta(spark);
+        items.push({
+          label: m[0] || `signal ${i + 1}`,
+          spark,
+          value: m[1] || "—",
+          note: m[2] || delta.text,
+          kind: i === 1 ? "bars" : "spark",
+          color: i === 0 ? "" : i === 1 ? "cyan" : "amber",
+        });
+      });
+      return items.slice(0, 3);
+    }
+
+    function smallMultiplesHtml(items) {
+      if (!items || !items.length) return "";
+      return items.map((item) => {
+        const vis = item.kind === "bars"
+          ? `<div class="sm-bars">${(item.spark || []).slice(-30).map((v, i, arr) => {
+              const min = Math.min(...arr);
+              const max = Math.max(...arr);
+              const rng = (max - min) || 1;
+              const h = Math.max(6, Math.round(((v - min) / rng) * 100));
+              const cls = i === arr.length - 1 ? " pinned" : (v < (arr[i - 1] || v) ? " down" : "");
+              return `<span class="${cls.trim()}" style="height:${h}%"></span>`;
+            }).join("")}</div>`
+          : sparklineSvg(item.spark || [], { color: item.color || "", area: true });
+        return `<article class="small-multi">
+          <div class="sm-label">${escapeHtml(item.label)}</div>
+          <div class="sm-vis">${vis}</div>
+          <div class="sm-foot"><span class="sm-value">${escapeHtml(item.value || "—")}</span><span class="sm-note">${escapeHtml(item.note || "")}</span></div>
+        </article>`;
+      }).join("");
+    }
+
+    function evidenceFieldsForChannel() {
+      const data = state.livePayload?.data || {};
+      const cards = [];
+
+      if (Array.isArray(data.markets) && data.markets.length) {
+        data.markets.slice(0, 4).forEach((m, i) => {
+          const yes = Math.round(numericValue(m.yes) * 100);
+          const tone = i === 0 ? "" : Math.abs(yes - 50) < 8 ? "is-warn" : "";
+          cards.push({
+            label: i === 0 ? "lead market" : `market ${i + 1}`,
+            value: `${yes}%`,
+            sub: m.question || m.title || "polymarket",
+            spark: [50, yes, yes + (i % 2 === 0 ? 4 : -4), yes],
+            meta: m.category || "polymarket",
+            barPct: yes,
+            tone,
+          });
+        });
+      } else if (Array.isArray(data.tokens) && data.tokens.length) {
+        data.tokens.slice(0, 4).forEach((t, i) => {
+          const change = numericValue(t.change1h ?? t.change24h);
+          const tone = numericValue(t.fragilityScore) > 60 ? "is-alert" : numericValue(t.liquidityRisk) > 60 ? "is-warn" : "";
+          cards.push({
+            label: i === 0 ? "leader" : `mover ${i + 1}`,
+            value: t.symbol || t.name || "token",
+            sub: `${change >= 0 ? "+" : ""}${change.toFixed(1)}% / liq ${compactMoney(t.liquidityUsd)}`,
+            spark: metricSparkValues(i),
+            meta: `frag ${Math.round(numericValue(t.fragilityScore))}`,
+            barPct: Math.min(100, Math.max(4, numericValue(t.attentionScore))),
+            tone,
+          });
+        });
+      } else if (Array.isArray(data.candles) && data.candles.length) {
+        const last = data.candles[data.candles.length - 1] || {};
+        const closes = data.candles.slice(-24).map((c) => numericValue(c.c ?? c.close));
+        const vols = data.candles.slice(-24).map((c) => numericValue(c.v ?? c.volume));
+        const high = Math.max(...closes);
+        const low = Math.min(...closes);
+        const close = numericValue(last.c ?? last.close);
+        cards.push({ label: "last close", value: formatPulseValue(close, "$", "price"), sub: data.coin || "market", spark: closes, meta: "live", barPct: ((close - low) / ((high - low) || 1)) * 100, tone: "" });
+        cards.push({ label: "volume", value: compactMoney(vols[vols.length - 1] || 0), sub: "last bar", spark: vols, meta: "ticks", barPct: 60, tone: "" });
+        cards.push({ label: "range hi/lo", value: `${formatPulseValue(high, "$", "price")} / ${formatPulseValue(low, "$", "price")}`, sub: "24-bar window", spark: closes, meta: "envelope", barPct: 80, tone: "" });
+        cards.push({ label: "spread", value: data.spreadBps ? `${Number(data.spreadBps).toFixed(2)}bp` : "—", sub: "book depth", spark: [], meta: "live", barPct: 36, tone: "" });
+      } else if (Array.isArray(data.series) && data.series.length) {
+        const last = data.series[data.series.length - 1] || {};
+        cards.push({ label: "load now", value: formatGridMw(numericValue(last.loadMw)), sub: data.respondent || "grid", spark: data.series.map(r => numericValue(r.loadMw)), meta: "EIA", barPct: numericValue(last.stressPct) || 50, tone: numericValue(last.stressPct) > 75 ? "is-warn" : "" });
+        cards.push({ label: "frequency", value: `${numericValue(last.frequencyHz).toFixed(3)} Hz`, sub: "stability", spark: data.series.map(r => numericValue(r.frequencyHz)), meta: "proxy", barPct: 70, tone: "" });
+        cards.push({ label: "reserve margin", value: `${numericValue(last.operatingMarginPct).toFixed(1)}%`, sub: "operator", spark: data.series.map(r => numericValue(r.operatingMarginPct)), meta: "proxy", barPct: numericValue(last.operatingMarginPct), tone: numericValue(last.operatingMarginPct) < 12 ? "is-alert" : "" });
+        if (Array.isArray(data.corridors) && data.corridors.length) {
+          const c = data.corridors[0];
+          cards.push({ label: "corridor stress", value: `${numericValue(c.stressPct).toFixed(0)}%`, sub: `${c.from}-${c.to}`, spark: data.corridors.map(x => numericValue(x.stressPct)), meta: "topology", barPct: numericValue(c.stressPct), tone: numericValue(c.stressPct) > 80 ? "is-alert" : "is-warn" });
+        }
+      }
+
+      const needed = Math.max(0, 4 - cards.length);
+      for (let i = 0; i < needed && i < state.feed.length; i += 1) {
+        const [time, title, meta] = state.feed[i] || [];
+        cards.push({
+          label: state.feed[i] ? (i === 0 ? "now" : `feed ${i + 1}`) : `signal ${i + 1}`,
+          value: meta || (title || "").split(" ").slice(0, 4).join(" ") || "—",
+          sub: title || "channel state",
+          spark: metricSparkValues(i % 3),
+          meta: time || "—",
+          barPct: 30 + i * 18,
+          tone: "",
+        });
+      }
+
+      return cards.slice(0, 5);
+    }
+
+    function evidenceCardHtml(card) {
+      return `<article class="evidence-card ${card.tone || ""}" data-testid="evidence-card">
+        <div class="ev-head">
+          <span class="ev-label">${escapeHtml(card.label || "signal")}</span>
+          <span class="ev-meta">${escapeHtml(card.meta || "")}</span>
+        </div>
+        <div class="ev-row">
+          <span class="ev-value">${escapeHtml(card.value || "—")}</span>
+          <span class="ev-vis">${sparklineSvg(card.spark || [], { width: 100, height: 18 })}</span>
+        </div>
+        <div class="ev-foot">
+          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${escapeHtml(card.sub || "")}</span>
+          <span class="ev-bar" style="--rk-w:${Math.max(4, Math.min(100, Math.round(card.barPct || 50)))}%;width:${Math.max(40, Math.min(120, Math.round((card.barPct || 50) * 0.6) + 32))}px;"></span>
+        </div>
+      </article>`;
+    }
+
+    function rankedRowHtml(row) {
+      const tone = row.tone || (row.delta && String(row.delta).startsWith("-") ? "is-down" : row.warn ? "is-warn" : row.delta === "—" ? "is-flat" : "");
+      const pct = Math.max(2, Math.min(100, Math.round(row.barPct || 50)));
+      return `<article class="rank-row ${tone}">
+        <div class="rk-name">${escapeHtml(row.name || "—")}${row.source ? `<span class="rk-source">${escapeHtml(row.source)}</span>` : ""}</div>
+        <div class="rk-bar" style="--rk-w:${pct}%"></div>
+        <div class="rk-delta">${escapeHtml(row.delta || "—")}</div>
+        <div class="rk-spark">${sparklineSvg(row.spark || [], { width: 56, height: 18 })}</div>
+      </article>`;
+    }
+
+    function heatStripRowHtml(name, cells) {
+      const max = Math.max(...cells, 1);
+      const inner = cells.map((v, i) => {
+        const norm = v / max;
+        const lvl = norm > 0.92 ? "l5" : norm > 0.78 ? "l4" : norm > 0.56 ? "l3" : norm > 0.32 ? "l2" : norm > 0.08 ? "l1" : "";
+        const pinned = i === cells.length - 1 ? " pinned" : "";
+        return `<span class="hs-cell ${lvl}${pinned}"></span>`;
+      }).join("");
+      return `<div class="heat-strip-row">
+        <span class="hs-name">${escapeHtml(name)}</span>
+        <div class="hs-cells">${inner}</div>
+      </div>`;
+    }
+
+    function actionPromptsForCockpit() {
+      const heroPrompts = Array.isArray(config.heroPrompts) ? config.heroPrompts : [];
+      const page = activeGeneratedPage();
+      const pagePrompts = Array.isArray(page?.actions) ? page.actions : [];
+      const primary = config.primaryPrompt ? [config.primaryPrompt] : [];
+      const seeded = [...heroPrompts, ...pagePrompts, ...primary].filter(Boolean);
+      if (seeded.length) return Array.from(new Set(seeded)).slice(0, 6);
+      return [
+        `Inspect the strongest signal in ${config.title || "this channel"}`,
+        `Show what changed in the last hour`,
+        `Build a focused board for ${config.kicker || "this lens"}`,
+      ];
+    }
+
+    function thesisLine() {
+      const data = state.livePayload?.data || {};
+      const lead = state.feed[0] || ["", "", ""];
+      const m = visibleMetrics();
+      const headline = lead[1] || `${config.title || "Channel"} state holding.`;
+      const trail = [];
+      if (data.coin) trail.push(`${data.coin}`);
+      if (data.respondent) trail.push(`${data.respondent}`);
+      if (m[0]) trail.push(`${m[0][0] || ""} ${m[0][1] || ""}`.trim());
+      if (config.lens) trail.push(config.lens);
+      const liveTime = state.livePayload?.timestamp ? new Date(Number(state.livePayload.timestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+      if (liveTime) trail.push(`updated ${liveTime}`);
+      return { headline, trail: trail.slice(0, 4) };
+    }
+
+    function thesisFigure() {
+      const data = state.livePayload?.data || {};
+      const m = visibleMetrics();
+      if (Array.isArray(data.candles) && data.candles.length > 1) {
+        const closes = data.candles.slice(-24).map((c) => numericValue(c.c ?? c.close));
+        const last = closes[closes.length - 1];
+        const first = closes[0];
+        const pct = first ? ((last - first) / Math.abs(first)) * 100 : 0;
+        return { big: formatPulseValue(last, "$", "price"), small: `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}% / 24p`, dir: pct > 0 ? "up" : pct < 0 ? "down" : "flat" };
+      }
+      if (m[0]) return { big: m[0][1] || "—", small: m[0][0] || "", dir: "flat" };
+      return { big: "—", small: "", dir: "flat" };
+    }
+
+    function provenanceState() {
+      const payload = state.livePayload || {};
+      const freshness = payload.freshness || payload.dataBinding?.freshness || (payload.stale ? "cached" : payload.fallbackReason ? "unavailable" : "live");
+      let kind = freshness === "cached" ? "cached" : freshness === "unavailable" ? "unavailable" : "live";
+      if (/synthetic/i.test(String(payload.source || ""))) kind = "synthetic";
+      const label = freshnessLabel(freshness);
+      const ts = payload.updatedAt || payload.timestamp ? new Date(Number(payload.updatedAt || payload.timestamp)) : null;
+      const age = ts ? Math.max(0, Math.floor((Date.now() - ts.getTime()) / 1000)) : null;
+      const ageText = age == null ? "—" : age < 60 ? `${age}s` : age < 3600 ? `${Math.floor(age / 60)}m` : `${Math.floor(age / 3600)}h`;
+      return { label, kind, age: ageText };
+    }
+
+    function freshnessLabel(value) {
+      if (value === "live") return "Live data";
+      if (value === "cached") return "Data cached";
+      return "Data unavailable";
     }
 
     function render() {
@@ -480,6 +928,14 @@
       renderFeed();
       renderStage();
       renderMiniVisual();
+      renderPulseStrip();
+      renderStageThesis();
+      renderSmallMultiples();
+      renderEvidenceStack();
+      renderProvenanceChip();
+      renderLensChip();
+      renderNarrationTicker();
+      renderActionRail();
       renderGeneratedRail();
       renderGeneratedPage();
       renderGeneratedModal();
@@ -495,15 +951,141 @@
     }
 
     function renderMetrics() {
-      $("metrics").innerHTML = visibleMetrics().map(([label, value, note]) => `
-        <article class="metric">
-          <div class="metric-label">${escapeHtml(label)}</div>
-          <div class="metric-value">${escapeHtml(value)}</div>
-          <div class="metric-note">${escapeHtml(note)}</div>
-        </article>
-      `).join("");
+      $("metrics").innerHTML = visibleMetrics().map(([label, value, note], index) => {
+        const spark = metricSparkValues(index);
+        const delta = metricDelta(spark);
+        const toneCls = delta.dir === "down" ? "is-down" : "";
+        return `<article class="metric spark-tile ${toneCls}" data-testid="metric-tile">
+          <div class="metric-label">${escapeHtml(label || `signal ${index + 1}`)}</div>
+          <div class="metric-row">
+            <div class="metric-value">${escapeHtml(value || "—")}</div>
+            <div class="metric-delta ${delta.dir}">${escapeHtml(delta.text)}</div>
+          </div>
+          ${sparklineSvg(spark, { width: 220, height: 22 }).replace("<svg ", "<svg class=\"metric-spark spark\" ")}
+          ${note ? `<div class="metric-note">${escapeHtml(note)}</div>` : ""}
+        </article>`;
+      }).join("");
       updateMiniFocus();
     }
+
+    /* Cockpit-zone renderers (additive) */
+    function renderPulseStrip() {
+      const node = $("pulse-strip");
+      if (!node) return;
+      const payload = pulseSourceData();
+      const cells = pulseStripCells(payload);
+      $("pulse-kicker").textContent = `${payload.label}${payload.live ? "" : " · simulated backup"}`;
+      $("pulse-now").textContent = cells.now;
+      $("pulse-cells").innerHTML = cells.html;
+      const deltaEl = $("pulse-delta");
+      deltaEl.textContent = cells.delta.text;
+      deltaEl.className = `delta ${cells.delta.dir}`;
+      $("pulse-range").textContent = cells.range;
+    }
+
+    function renderStageThesis() {
+      const node = $("stage-thesis");
+      if (!node) return;
+      const t = thesisLine();
+      const f = thesisFigure();
+      const headline = t.headline.length > 220 ? `${t.headline.slice(0, 217)}…` : t.headline;
+      $("thesis-headline").innerHTML = `<strong>${escapeHtml((headline.split(/[.;:—–-]/)[0] || "").trim().slice(0, 80))}</strong>${headline.length > 80 ? `&nbsp;${escapeHtml(headline.slice((headline.split(/[.;:—–-]/)[0] || "").length).trim().slice(0, 200))}` : ""}`;
+      $("thesis-trail").innerHTML = t.trail.map((segment, i) => `${i > 0 ? '<span class="pip"></span>' : ""}<span>${escapeHtml(segment)}</span>`).join("");
+      const big = $("thesis-big");
+      big.textContent = f.big;
+      big.className = `big ${f.dir}`;
+      $("thesis-small").textContent = f.small;
+    }
+
+    function renderSmallMultiples() {
+      const node = $("small-multiples");
+      if (!node) return;
+      const items = smallMultiplesPlan();
+      node.innerHTML = smallMultiplesHtml(items);
+    }
+
+    function renderEvidenceStack() {
+      const cardsNode = $("evidence-cards");
+      if (!cardsNode) return;
+      const cards = evidenceFieldsForChannel();
+      cardsNode.innerHTML = cards.map(evidenceCardHtml).join("");
+      const chip = $("evidence-chip");
+      if (chip) {
+        const label = freshnessLabel(state.livePayload?.freshness || state.livePayload?.dataBinding?.freshness || (state.livePayload?.stale ? "cached" : "unavailable"));
+        chip.textContent = `${cards.length} cards · ${label}`;
+      }
+      const label = $("evidence-label");
+      if (label) label.textContent = `${config.lens || "evidence rail"}`;
+    }
+
+    function renderProvenanceChip() {
+      const chip = $("provenance-chip");
+      if (!chip) return;
+      const p = provenanceState();
+      chip.hidden = false;
+      chip.className = `provenance-chip is-${p.kind}`;
+      $("provenance-source").textContent = p.label;
+      $("provenance-meta").textContent = `${p.age}`;
+    }
+
+    function renderLensChip() {
+      const chip = $("lens-chip");
+      if (!chip) return;
+      const lens = config.lens || (config.scene || "").replace(/-/g, " ");
+      if (!lens) { chip.hidden = true; return; }
+      chip.hidden = false;
+      $("lens-text").textContent = lens;
+    }
+
+    function renderNarrationTicker() {
+      const ticker = $("narration-ticker");
+      if (!ticker) return;
+      const message = state.commandStatus || (state.lastPrompt ? `last prompt: ${state.lastPrompt}` : "");
+      if (!message) { ticker.hidden = true; return; }
+      ticker.hidden = false;
+      $("narration-line").textContent = message;
+      ticker.classList.toggle("has-update", state.commandRunning || /(generated|share|building|replaying|restoring)/i.test(message));
+    }
+
+    function renderActionRail() {
+      const rail = $("action-rail");
+      if (!rail) return;
+      const prompts = actionPromptsForCockpit();
+      const list = $("action-rail-prompts");
+      if (!list) return;
+      if (!prompts.length) {
+        rail.classList.add("is-empty");
+        list.innerHTML = "";
+        return;
+      }
+      rail.classList.remove("is-empty");
+      list.innerHTML = prompts.map((p) =>
+        `<button class="action-chip-btn prompt-chip" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(p)}" title="${escapeHtml(p)}">${escapeHtml(p.length > 80 ? p.slice(0, 78) + "…" : p)}</button>`
+      ).join("");
+      list.querySelectorAll("[data-prompt]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const value = btn.getAttribute("data-prompt") || "";
+          const input = $("command-input");
+          if (input) input.value = value;
+          trackLaunchEvent("prompt_clicked", { prompt: value, source: "cockpit-action" });
+          runChannelCommand(value);
+        });
+      });
+      const shareBtn = $("action-rail-share");
+      if (shareBtn) shareBtn.onclick = () => shareChannelState();
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      const message = event.data || {};
+      if (message.dashboard && message.dashboard !== dashboardId) return;
+      if (message.type === "watch-run-prompt") {
+        runChannelCommand(message.prompt || "");
+      }
+      if (message.type === "watch-share-state") {
+        shareChannelState();
+      }
+    });
 
     function renderFeed() {
       $("feed").innerHTML = state.feed.map(([time, title, meta], index) => `
@@ -1138,24 +1720,17 @@
       return `<div class="generated-list">${items.map(item => `<div class="generated-item">${escapeHtml(item)}</div>`).join("")}</div>`;
     }
 
-    function freshnessLabel(value) {
-      if (value === "live") return "Live data";
-      if (value === "cached") return "Data cached";
-      return "Data unavailable";
-    }
-
     function generatedSourceHtml(component) {
       const source = component.sourceState && typeof component.sourceState === "object" ? component.sourceState : null;
       const provenanceIds = Array.isArray(component.provenanceIds) ? component.provenanceIds : [];
       if (!source && !provenanceIds.length) return "";
       const sourceType = String(source?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
       const label = source?.label || freshnessLabel(source?.freshness || (source?.stale || sourceType === "cached_api" ? "cached" : sourceType === "unavailable" ? "unavailable" : "live"));
-      const provider = source?.provider || component.dataBinding?.providerIds?.[0] || (provenanceIds.length ? "details available" : "source attached");
+      const meta = source?.provider || component.dataBinding?.providerIds?.[0] || (provenanceIds.length ? "details available" : "source attached");
       return `
         <div class="generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
           <strong>${escapeHtml(label)}</strong>
-          <span>${escapeHtml(provider)}</span>
-          ${source?.fallbackReason ? `<span>${escapeHtml(source.fallbackReason)}</span>` : ""}
+          <span>${escapeHtml(meta)}</span>
         </div>
       `;
     }
@@ -1190,8 +1765,8 @@
       const latestProvenance = Array.isArray(page?.provenance) ? page.provenance[page.provenance.length - 1] : null;
       const sourceType = String(source?.sourceType || latestProvenance?.sourceType || "derived_from_api").replace(/[^\w-]/g, "");
       const label = source?.label || freshnessLabel(source?.freshness || latestProvenance?.freshness || (source?.stale || latestProvenance?.stale || sourceType === "cached_api" ? "cached" : sourceType === "unavailable" ? "unavailable" : "live"));
-      const provider = source?.provider || latestProvenance?.provider || page?.dataBinding?.providerIds?.[0] || "details available";
       const rowCount = latestProvenance?.rowCount !== undefined ? `<span>${escapeHtml(latestProvenance.rowCount)} rows</span>` : "";
+      const provider = source?.provider || latestProvenance?.provider || page?.dataBinding?.providerIds?.[0] || "details available";
       return `
         <div class="generated-page-source generated-source generated-source-${escapeHtml(sourceType)}" data-testid="generated-source">
           <strong>${escapeHtml(label)}</strong>
@@ -1574,81 +2149,281 @@
     }
 
     function renderNewsroom() {
-      return `<div class="scene newsroom">
-        <section class="scene-card lead-visual">
-          <div class="lead-frame"></div>
-          <div class="evidence-pins">
-            <span></span><span></span><span></span>
+      // Lead-story dossier with ranked sources, confidence bars, evidence timeline.
+      const lead = state.feed[0] || ["", "Lead story holding.", "editorial"];
+      const sources = state.feed.slice(0, 6).map((item, i) => {
+        const conf = Math.round(seededValue(i + 11, 56, 96));
+        const spark = Array.from({ length: 12 }, (_, j) => seededValue(i * 13 + j, 30, 100));
+        return {
+          name: item[1] || `source ${i + 1}`,
+          source: item[2] || "newsroom",
+          delta: `${conf}%`,
+          barPct: conf,
+          spark,
+          tone: conf < 64 ? "is-warn" : "",
+        };
+      });
+      return `<div class="dense-scene with-aside">
+        <section class="dossier dense-panel">
+          <div class="doss-eyebrow">lead story · ${escapeHtml(lead[0] || "now")}</div>
+          <div class="doss-headline">${escapeHtml(lead[1])}</div>
+          <div class="doss-list">
+            ${state.feed.slice(0, 4).map((item, i) => `
+              <div class="rank-row" style="grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) auto;">
+                <div class="rk-name">${escapeHtml(item[1] || "")}<span class="rk-source">${escapeHtml(item[0] || "")}</span></div>
+                <div class="rk-bar" style="--rk-w:${Math.round(seededValue(i + 22, 38, 92))}%"></div>
+                <div class="rk-delta">${Math.round(seededValue(i + 30, 64, 92))}%</div>
+              </div>
+            `).join("")}
           </div>
-          <div>${metricText(1)}<div class="bar" style="margin-top:8px;width:82%"></div></div>
-          <span class="timeline-sweep"></span>
         </section>
-        <section class="source-stack">
-          ${state.feed.slice(0, 4).map((item, index) => `
-            <article class="scene-card source-row">
-              <span class="source-label">${escapeHtml(item[0])}</span>
-              <div><strong>${escapeHtml(item[2])}</strong><div class="bar" style="margin-top:7px;width:${58 + index * 8}%"></div></div>
-              <span class="mono">${72 + index * 5}%</span>
-            </article>
-          `).join("")}
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">source stack</span>
+            <span class="dense-panel-meta">${sources.length} sources · agreement</span>
+          </div>
+          <div class="dense-panel-body rank-list">
+            ${sources.map(rankedRowHtml).join("")}
+          </div>
         </section>
       </div>`;
     }
 
     function renderMarketMesh() {
-      return `<div class="scene market-mesh">
-        <section class="scene-card chart-zone">
-          <div class="market-ridge"><span></span><span></span><span></span></div>
-          <span class="liquidity-river"></span>
-          <div class="candles">${bars(24, "candle").replace(/class="candle"/g, (_, offset) => offset % 3 ? 'class="candle"' : 'class="candle down"')}</div>
-          <div class="signal-bars" style="grid-template-columns:repeat(14,1fr)">${bars(14)}</div>
+      // Breadth × volatility quadrant + sector heat strip + ranked drivers.
+      const data = state.livePayload?.data || {};
+      const breadth = numericValue((visibleMetrics()[1] || ["", "60", ""])[1]) || 60;
+      const volatility = numericValue((visibleMetrics()[2] || ["", "55", ""])[1]) || 55;
+      const sectors = ["energy", "tech", "fin", "health", "ind", "stap", "disc", "util"];
+      const drivers = (Array.isArray(data.candles) && data.candles.length ? data.candles.slice(-8) : Array.from({ length: 8 })).map((c, i) => {
+        const ret = c ? numericValue(c.c ?? c.close) - numericValue(c.o ?? c.open) : seededValue(i, -2, 2);
+        return {
+          name: sectors[i] || `s${i + 1}`,
+          source: "sector",
+          delta: `${ret >= 0 ? "+" : ""}${ret.toFixed(2)}`,
+          barPct: 30 + Math.abs(ret) * 14,
+          spark: Array.from({ length: 16 }, (_, j) => seededValue(i * 7 + j, -2, 2)),
+          tone: ret < 0 ? "is-down" : "",
+        };
+      });
+      return `<div class="dense-scene with-aside">
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">breadth × volatility</span>
+            <span class="dense-panel-meta">b ${breadth.toFixed(0)} · v ${volatility.toFixed(0)}</span>
+          </div>
+          <div class="dense-panel-body" style="grid-template-rows:minmax(0,1fr) auto;gap:8px;">
+            <div class="scatter-board" data-testid="market-scatter">
+              <span class="sc-axis-x">breadth →</span>
+              <span class="sc-axis-y">↑ vol</span>
+              <span class="sc-frontier"></span>
+              ${sectors.map((s, i) => {
+                const x = Math.min(94, Math.max(6, seededValue(i + 7, 12, 92)));
+                const y = Math.min(94, Math.max(6, 100 - seededValue(i + 12, 12, 92)));
+                const cls = i === 0 ? "" : i === 1 ? "warn" : i === 2 ? "alert" : "";
+                return `<span class="scatter-dot ${cls}" style="left:${x}%;top:${y}%"><span class="sc-label">${escapeHtml(s)}</span></span>`;
+              }).join("")}
+            </div>
+            <div class="heat-strip">
+              ${heatStripRowHtml("breadth", Array.from({ length: 24 }, (_, i) => seededValue(i + 50, 10, 100)))}
+              ${heatStripRowHtml("vol pressure", Array.from({ length: 24 }, (_, i) => seededValue(i + 80, 8, 100)))}
+            </div>
+          </div>
         </section>
-        <section class="ribbon-stack">
-          ${visibleMetrics().map((metric, index) => `
-            <article class="scene-card ribbon">${metricText(index)}<div class="bar" style="width:${54 + index * 11}%"></div></article>
-          `).join("")}
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">sector drivers</span>
+            <span class="dense-panel-meta">8 / 24h</span>
+          </div>
+          <div class="dense-panel-body rank-list">
+            ${drivers.map(rankedRowHtml).join("")}
+          </div>
         </section>
       </div>`;
     }
 
     function renderCommandMap() {
-      return `<div class="scene command-map">
-        <div class="map-panel"><span class="map-halo"></span><span class="route-arc arc-a"></span><span class="route-arc arc-b"></span>${nodes(14)}${lines(9)}</div>
-        <div class="side-stack">${visibleMetrics().map((_, index) => `<article class="scene-card">${metricText(index)}<div class="bar"></div></article>`).join("")}</div>
+      // SPECTRE event-cluster matrix: 8 clusters × 30-min cells, color = source confidence.
+      const clusters = state.feed.slice(0, 8).concat(Array.from({ length: Math.max(0, 8 - state.feed.length) }));
+      const cellsPerRow = 30;
+      const matrix = clusters.map((item, i) => {
+        const name = (item && item[1]) || `cluster ${i + 1}`;
+        const meta = (item && item[2]) || "watchlist";
+        const cells = Array.from({ length: cellsPerRow }, (_, c) => {
+          const v = seededValue(i * 41 + c, 0, 1);
+          const norm = v ** 0.6;
+          const lvl = norm > 0.92 ? "l5" : norm > 0.78 ? "l4" : norm > 0.56 ? "l3" : norm > 0.32 ? "l2" : norm > 0.10 ? "l1" : "";
+          const pinned = c === cellsPerRow - 1 ? " pinned" : "";
+          return `<span class="cl-cell ${lvl}${pinned}"></span>`;
+        }).join("");
+        const conf = Math.round(seededValue(i + 7, 60, 96));
+        return `<div class="cluster-row">
+          <div class="cl-name">${escapeHtml(String(name).slice(0, 28))}<span class="cl-meta">${escapeHtml(String(meta).slice(0, 22))}</span></div>
+          <div class="cl-cells">${cells}</div>
+          <div class="cl-conf">${conf}%</div>
+        </div>`;
+      }).join("");
+      const sources = Array.from({ length: 6 }, (_, i) => ({
+        name: `source ${String.fromCharCode(65 + i)}`,
+        source: i < 2 ? "OSINT" : i < 4 ? "social" : "field",
+        delta: `${Math.round(seededValue(i + 90, 64, 96))}%`,
+        barPct: seededValue(i + 90, 50, 96),
+        spark: Array.from({ length: 14 }, (_, j) => seededValue(i * 11 + j, 30, 100)),
+      }));
+      return `<div class="dense-scene with-aside">
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">event cluster matrix</span>
+            <span class="dense-panel-meta">${cellsPerRow} × 1m · ${clusters.length} clusters</span>
+          </div>
+          <div class="dense-panel-body cluster-matrix">${matrix}</div>
+        </section>
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">source confidence</span>
+            <span class="dense-panel-meta">${sources.length} weighted</span>
+          </div>
+          <div class="dense-panel-body rank-list">
+            ${sources.map(rankedRowHtml).join("")}
+          </div>
+        </section>
       </div>`;
     }
 
     function renderArena() {
-      const code = Array.from({ length: 12 }, (_, index) => `<span class="code-line" style="width:${seededValue(index, 42, 100)}%"></span>`).join("");
-      return `<div class="scene arena-scene">
-        <section class="scene-card agent-lane"><div class="source-label">agent alpha</div><div class="code-stream">${code}</div><div class="bar"></div></section>
-        <section class="judge-core"><span class="score-beam beam-a"></span><span class="score-beam beam-b"></span><div class="judge-ring"><div><div class="source-label">judge</div><strong>${escapeHtml(state.metrics[0][1])}</strong><div class="arena-vs">VS</div><div class="mono">live</div></div></div></section>
-        <section class="scene-card agent-lane"><div class="source-label">agent beta</div><div class="code-stream">${code}</div><div class="bar"></div></section>
+      // Two-lane match: agent A vs agent B with token-rate streams + judge ribbon ticks.
+      const a = numericValue((visibleMetrics()[0] || ["", "86", ""])[1]) || 86;
+      const b = numericValue((visibleMetrics()[1] || ["", "82", ""])[1]) || 82;
+      const judgeTicks = Array.from({ length: 8 }, (_, i) => `<span class="mj-tick" style="opacity:${(0.4 + (i / 8) * 0.6).toFixed(2)};box-shadow:0 0 ${6 + i * 2}px var(--accent);"></span>`).join("");
+      const lane = (label, score, win, accent) => {
+        const stream = Array.from({ length: 9 }, (_, i) => `<span style="width:${Math.max(34, Math.round(seededValue(i + (win ? 1 : 7), 36, 98)))}%"></span>`).join("");
+        return `<section class="match-lane ${win ? "win" : ""}" style="--accent: ${accent}">
+          <div class="ml-name">${escapeHtml(label)}</div>
+          <div class="ml-score">${score}</div>
+          <div class="ml-stream">${stream}</div>
+          <div class="ml-foot">
+            <span>tok ${Math.round(seededValue(score, 92, 240))}/s</span>
+            <span>lat ${Math.round(seededValue(score + 1, 80, 320))}ms</span>
+            <span>flags ${Math.round(seededValue(score + 2, 0, 3))}</span>
+            <span>cite ${Math.round(seededValue(score + 3, 1, 5))}</span>
+          </div>
+        </section>`;
+      };
+      return `<div class="dense-scene full">
+        <section class="dense-panel" style="grid-template-rows:auto minmax(0,1fr);">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">round 142 / live judge</span>
+            <span class="dense-panel-meta">latency Δ ${Math.abs(a - b)}pt · ${state.feed[0]?.[2] || "round"}</span>
+          </div>
+          <div class="dense-panel-body" style="overflow:hidden;">
+            <div class="match-lanes">
+              ${lane("agent alpha", a, a >= b, "var(--accent)")}
+              <div class="match-judge">
+                <span class="mj-label">judge</span>
+                ${judgeTicks}
+                <span class="mj-label" style="color:var(--accent2)">live</span>
+              </div>
+              ${lane("agent beta", b, b > a, "var(--accent2)")}
+            </div>
+          </div>
+        </section>
       </div>`;
     }
 
     function renderSourceWall() {
-      return `<div class="scene source-wall">
-        ${Array.from({ length: 9 }, (_, index) => {
-          const item = state.feed[index % state.feed.length];
-          const featured = index === 0 || index === 4 ? " featured" : "";
-          const visual = featured ? `<div class="wall-visual">${bars(8)}</div>` : "";
-          return `<article class="scene-card wall-card${featured}">
-            <span class="source-label">${escapeHtml(item[2])}</span>
-            <strong>${escapeHtml(item[1])}</strong>
-            ${visual}
-            <div class="bar" style="width:${seededValue(index, 44, 96)}%"></div>
-          </article>`;
-        }).join("")}
+      // Glance: 4×3 source-card grid each with mini-vis + delta + freshness.
+      const cells = Array.from({ length: 12 }, (_, index) => {
+        const item = state.feed[index % state.feed.length] || ["", `source ${index + 1}`, "feed"];
+        const change = seededValue(index + 5, -8, 12);
+        const tone = change < -2 ? "is-down" : change > 6 ? "is-warn" : "";
+        const spark = Array.from({ length: 14 }, (_, j) => seededValue(index * 17 + j, 20, 100));
+        return `<article class="rank-row ${tone}" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto auto; padding:8px 9px;">
+          <div class="rk-name">${escapeHtml(item[1] || "—")}<span class="rk-source">${escapeHtml(item[0] || "")} · ${escapeHtml(item[2] || "")}</span></div>
+          <div class="rk-bar" style="--rk-w:${Math.round(seededValue(index + 100, 28, 96))}%"></div>
+          <div class="rk-delta">${change >= 0 ? "+" : ""}${change.toFixed(1)}</div>
+          <div class="rk-spark">${sparklineSvg(spark, { width: 56, height: 18 })}</div>
+        </article>`;
+      }).join("");
+      return `<div class="dense-scene full">
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">source mosaic</span>
+            <span class="dense-panel-meta">12 sources · ranked by velocity</span>
+          </div>
+          <div class="dense-panel-body" style="grid-template-columns:1fr 1fr 1fr;display:grid;gap:6px;">
+            ${cells}
+          </div>
+        </section>
       </div>`;
     }
 
     function renderOrderbook() {
-      const row = (side, index) => `<div class="book-row"><span>${side === "asks" ? "ASK" : "BID"} ${index + 1}</span><span class="book-fill" style="width:${seededValue(index, 22, 100)}%"></span><span>${seededValue(index, 0.4, 9.8).toFixed(2)}</span></div>`;
-      return `<div class="scene orderbook">
-        <section class="scene-card book-side bids">${Array.from({ length: 10 }, (_, i) => row("bids", i)).join("")}</section>
-        <section class="scene-card chart-zone"><div class="spread-core"><strong>${escapeHtml(visibleMetrics()[0]?.[1] || "live")}</strong><span>${escapeHtml(visibleMetrics()[1]?.[1] || "spread")}</span></div><div class="candles">${bars(22, "candle")}</div><div class="signal-bars" style="grid-template-columns:repeat(10,1fr)">${bars(10)}</div></section>
-        <section class="scene-card heat-column">${Array.from({ length: 10 }, (_, i) => `<span class="heat-cell" style="height:${seededValue(i, 14, 42)}px"></span>`).join("")}</section>
+      // Crypto Trading: depth ladder bound to livePayload.book + price + tape.
+      const data = state.livePayload?.data || {};
+      const bids = (data.book?.levels?.[0] || []).slice(0, 10);
+      const asks = (data.book?.levels?.[1] || []).slice(0, 10);
+      const mid = numericValue(data.mid || data.mark || 0);
+      const useFake = !bids.length || !asks.length;
+      const fakeBid = (i) => ({ px: mid ? mid * (1 - (i + 1) * 0.0008) : 65000 - (i + 1) * 30, sz: seededValue(i, 0.3, 4.2) });
+      const fakeAsk = (i) => ({ px: mid ? mid * (1 + (i + 1) * 0.0008) : 65000 + (i + 1) * 30, sz: seededValue(i + 30, 0.3, 4.2) });
+      const sizes = [
+        ...(useFake ? Array.from({ length: 10 }, (_, i) => fakeBid(i).sz) : bids.map(b => numericValue(b.sz))),
+        ...(useFake ? Array.from({ length: 10 }, (_, i) => fakeAsk(i).sz) : asks.map(a => numericValue(a.sz))),
+      ];
+      const maxSz = Math.max(...sizes, 1);
+      const bidRow = (lvl) => `<div class="depth-ladder-row bid">
+        <span class="dl-px">${formatPulseValue(numericValue(lvl.px), "$", "price")}</span>
+        <div class="dl-bar" style="--dl-w:${Math.round((numericValue(lvl.sz) / maxSz) * 100)}%"></div>
+        <span class="dl-sz">${numericValue(lvl.sz).toFixed(3)}</span>
+      </div>`;
+      const askRow = (lvl) => `<div class="depth-ladder-row ask">
+        <span class="dl-px">${formatPulseValue(numericValue(lvl.px), "$", "price")}</span>
+        <div class="dl-bar" style="--dl-w:${Math.round((numericValue(lvl.sz) / maxSz) * 100)}%"></div>
+        <span class="dl-sz">${numericValue(lvl.sz).toFixed(3)}</span>
+      </div>`;
+      const bidsHtml = (useFake ? Array.from({ length: 10 }, (_, i) => fakeBid(i)) : bids).map(bidRow).join("");
+      const asksHtml = (useFake ? Array.from({ length: 10 }, (_, i) => fakeAsk(i)) : asks.slice().reverse()).map(askRow).join("");
+      const tape = Array.from({ length: 24 }, (_, i) => seededValue(i + 200, -3, 3));
+      const candles = (data.candles || []).slice(-24);
+      const closes = candles.length ? candles.map(c => numericValue(c.c ?? c.close)) : Array.from({ length: 24 }, (_, i) => seededValue(i + 11, 64500, 65500));
+      return `<div class="dense-scene with-aside">
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">order book depth</span>
+            <span class="dense-panel-meta">${useFake ? "Data unavailable" : "Live data"} · top 10</span>
+          </div>
+          <div class="dense-panel-body" style="grid-template-rows:minmax(0,1fr) auto minmax(0,1fr);">
+            <div class="depth-ladder">${asksHtml}</div>
+            <div class="depth-spread">SPREAD ${data.spreadBps ? `${Number(data.spreadBps).toFixed(2)}bp` : "—"} · MID ${formatPulseValue(mid, "$", "price")}</div>
+            <div class="depth-ladder">${bidsHtml}</div>
+          </div>
+        </section>
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">price · band · tape</span>
+            <span class="dense-panel-meta">${candles.length || 24}p</span>
+          </div>
+          <div class="dense-panel-body" style="grid-template-rows:minmax(0,1fr) auto minmax(0,1fr);gap:8px;">
+            <div style="min-height:0;padding:6px;border:1px solid rgba(255,255,255,0.08);border-radius:5px;background:rgba(0,0,0,0.20);">
+              ${sparklineSvg(closes, { width: 280, height: 80 }).replace("<svg ", "<svg style=\"width:100%;height:100%;\" ")}
+            </div>
+            <div class="dist-band" style="margin-bottom:14px;">
+              <div class="db-track"></div>
+              <div class="db-band" style="left:18%;right:24%;"></div>
+              <div class="db-now" style="left:62%;"></div>
+              <span class="db-label" style="left:18%;">p10</span>
+              <span class="db-label" style="left:50%;">p50</span>
+              <span class="db-label" style="left:76%;">p90</span>
+            </div>
+            <div class="sm-bars" style="height:auto;min-height:48px;">${tape.map((v, i, arr) => {
+              const min = Math.min(...arr);
+              const max = Math.max(...arr);
+              const rng = (max - min) || 1;
+              const h = Math.max(8, Math.round(((v - min) / rng) * 100));
+              return `<span class="${v < 0 ? "down" : ""}" style="height:${h}%"></span>`;
+            }).join("")}</div>
+          </div>
+        </section>
       </div>`;
     }
 
@@ -1867,9 +2642,9 @@
       const mid = Number(data.mid || data.mark || 0);
       const spread = Number(data.spreadBps || 4.2);
       const depth = Number(data.depthUsd || 72000);
-      if (mid > 0) state.metrics[0] = [data.coin || "BTC", `$${Math.round(mid).toLocaleString()}`, "hyperliquid"];
-      state.metrics[1] = state.metrics[1][0] === "Spread" ? ["Spread", `${spread.toFixed(2)}bp`, "book"] : state.metrics[1];
-      state.metrics[2] = state.metrics[2][0] === "Depth" ? ["Depth", `$${Math.round(depth / 1000)}K`, "two-sided"] : state.metrics[2];
+      if (mid > 0) state.metrics[0] = [data.coin || "BTC", `$${Math.round(mid).toLocaleString()}`, "live"];
+      state.metrics[1] = state.metrics[1][0] === "Spread" ? ["Spread", `${spread.toFixed(2)}bp`, "tight"] : state.metrics[1];
+      state.metrics[2] = state.metrics[2][0] === "Depth" ? ["Depth", `$${Math.round(depth / 1000)}K`, "nearby"] : state.metrics[2];
       if (Array.isArray(data.candles) && data.candles.length) {
         state.feed = data.candles.slice(-5).reverse().map((candle, index) => [
           `${index * 3}m`,
@@ -1882,7 +2657,7 @@
     function applyPolymarketData(data) {
       const markets = Array.isArray(data.markets) ? data.markets.slice(0, 5) : [];
       if (!markets.length) return;
-      state.metrics[0] = ["Markets", String(markets.length), "polymarket"];
+      state.metrics[0] = ["Markets", String(markets.length), "ranked"];
       state.metrics[1] = ["Top YES", `${Math.round((markets[0].yes || 0.5) * 100)}%`, "implied"];
       state.feed = markets.map((market, index) => [
         `${index * 4}m`,
@@ -1894,7 +2669,7 @@
     function applyPumpfunData(data) {
       const tokens = Array.isArray(data.tokens) ? data.tokens.slice(0, 5) : [];
       if (!tokens.length) return;
-      state.metrics[0] = ["Tokens", String(tokens.length), "pump style"];
+      state.metrics[0] = ["Tokens", String(tokens.length), "ranked"];
       state.metrics[1] = ["Leader", String(tokens[0].symbol || tokens[0].name || "MEME").slice(0, 8).toUpperCase(), "velocity"];
       state.metrics[2] = ["Fragility", `${Number(tokens[0].fragilityScore || 0).toFixed(0)}/100`, tokens[0].riskLabel || "risk"];
       state.feed = tokens.map((token, index) => [

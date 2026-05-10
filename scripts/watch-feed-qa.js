@@ -1,0 +1,221 @@
+#!/usr/bin/env node
+
+const fs = require("fs");
+const net = require("net");
+const os = require("os");
+const path = require("path");
+const { execFileSync, spawn } = require("child_process");
+const { chromium } = require("playwright");
+
+const ROOT = path.resolve(__dirname, "..");
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function assertQa(condition, message, evidence = {}) {
+  if (!condition) {
+    const err = new Error(message);
+    err.evidence = evidence;
+    throw err;
+  }
+}
+
+async function findOpenPort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function waitForJson(url, timeoutMs = 20000) {
+  const started = Date.now();
+  let lastError = null;
+  while (Date.now() - started < timeoutMs) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (response.ok) return response.json();
+      lastError = new Error(`${response.status} ${response.statusText}`);
+    } catch (err) {
+      lastError = err;
+    }
+    await sleep(180);
+  }
+  throw new Error(`Timed out waiting for ${url}: ${lastError?.message || "no response"}`);
+}
+
+async function startServer() {
+  if (process.env.QA_BASE_URL) {
+    return { baseUrl: process.env.QA_BASE_URL.replace(/\/+$/, "/"), cleanup: async () => {} };
+  }
+  const port = await findOpenPort();
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "katechon-watch-feed-qa-"));
+  const child = spawn(process.execPath, ["server.js"], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DASHBOARD_OVERRIDES_FILE: path.join(dataDir, "dashboard-overrides.json"),
+      CHANNEL_SESSIONS_FILE: path.join(dataDir, "channel-sessions.json"),
+      CHANNEL_SHARES_FILE: path.join(dataDir, "channel-shares.json"),
+      USER_DB_FILE: path.join(dataDir, "users.json"),
+      LIVE_API_TIMEOUT_MS: "1",
+      EIA_API_TIMEOUT_MS: "1",
+      EXTERNAL_DASHBOARD_UPSTREAMS: "0",
+      STREAM_AUDIO_ENABLED: "0",
+      DASHBOARD_NARRATION_TTS: "0",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  child.stdout.on("data", (chunk) => { output += chunk.toString(); });
+  child.stderr.on("data", (chunk) => { output += chunk.toString(); });
+  const baseUrl = `http://127.0.0.1:${port}/`;
+  try {
+    await waitForJson(new URL("/api/channels", baseUrl));
+  } catch (err) {
+    child.kill("SIGTERM");
+    throw new Error(`Could not start server: ${err.message}\n${output.slice(-2000)}`);
+  }
+  return {
+    baseUrl,
+    cleanup: async () => {
+      if (!child.killed) child.kill("SIGTERM");
+      await sleep(250);
+    },
+  };
+}
+
+function chromeExecutable() {
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE) return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+  for (const bin of ["google-chrome", "chromium", "chromium-browser"]) {
+    try {
+      return execFileSync("which", [bin], { encoding: "utf8" }).trim();
+    } catch (_) {}
+  }
+  return undefined;
+}
+
+async function activeDashboardId(page) {
+  return page.evaluate(() => document.querySelector(".dashboard-frame.active")?.dataset.dashboardId || "");
+}
+
+async function activeFrameText(page) {
+  const frameHandle = await page.$(".dashboard-frame.active");
+  if (!frameHandle) return "";
+  const frame = await frameHandle.contentFrame();
+  if (!frame) return "";
+  return frame.evaluate(() => document.body.innerText);
+}
+
+async function waitForFrameText(page, pattern, timeoutMs = 12000) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const text = await activeFrameText(page);
+    if (pattern.test(text)) return text;
+    await sleep(250);
+  }
+  throw new Error(`Timed out waiting for active frame text ${pattern}`);
+}
+
+async function main() {
+  const server = await startServer();
+  const browser = await chromium.launch({
+    executablePath: chromeExecutable(),
+    headless: true,
+    args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
+  });
+
+  try {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(server.baseUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("body.watch-mode", { timeout: 12000 });
+    await page.waitForSelector("#watch-shell:not([hidden])", { timeout: 12000 });
+    await page.waitForSelector(".dashboard-frame.active[data-dashboard-id='meme-coin']", { timeout: 12000 });
+
+    const firstState = await page.evaluate(() => ({
+      watchMode: document.body.classList.contains("watch-mode"),
+      playing: document.body.classList.contains("watch-playing"),
+      shellVisible: getComputedStyle(document.getElementById("watch-shell")).display !== "none",
+      gridVisible: getComputedStyle(document.getElementById("main-overlay")).display !== "none",
+      statusVisible: getComputedStyle(document.getElementById("status")).display !== "none",
+      playText: document.getElementById("watch-play")?.innerText || "",
+      channelRailPresent: Boolean(document.querySelector(".watch-channel-rail")),
+      channelButtonCount: document.querySelectorAll("[data-watch-channel]").length,
+      frameCount: document.querySelectorAll(".dashboard-frame").length,
+      catalogCount: Object.keys(window.KATECHON_DASHBOARD_CATALOG?.channels || {}).length,
+      visibleText: document.body.innerText,
+    }));
+    assertQa(firstState.watchMode, "root did not enter watch mode", firstState);
+    assertQa(!firstState.playing, "watch mode should start faded before play", firstState);
+    assertQa(firstState.shellVisible, "Kat watch shell is not visible", firstState);
+    assertQa(!firstState.gridVisible, "broad grid is visible by default", firstState);
+    assertQa(!firstState.statusVisible, "status chrome is visible by default", firstState);
+    assertQa(/Play Kat/i.test(firstState.playText), "Play Kat affordance missing", firstState);
+    assertQa(!firstState.channelRailPresent && firstState.channelButtonCount === 0, "channel name boxes are visible", firstState);
+    assertQa(firstState.frameCount >= firstState.catalogCount, "not all catalog channels are available in watch mode", firstState);
+    assertQa(!/\bconnecting\.\.\.|Legacy|Kat control|View Grid\b/i.test(firstState.visibleText), "legacy/status copy visible", {
+      visibleText: firstState.visibleText.slice(0, 1000),
+    });
+
+    await page.click("#watch-play");
+    await page.waitForSelector("body.watch-playing", { timeout: 8000 });
+    const postPlay = await page.evaluate(() => ({
+      playing: document.body.classList.contains("watch-playing"),
+      filter: getComputedStyle(document.querySelector(".dashboard-frame.active")).filter,
+      read: document.getElementById("watch-read")?.innerText || "",
+    }));
+    assertQa(postPlay.playing, "Play Kat did not brighten/start watch mode", postPlay);
+    assertQa(!/brightness\(0\.58\)/.test(postPlay.filter), "active surface stayed faded after play", postPlay);
+    assertQa(/Next:/i.test(postPlay.read), "Kat did not offer a next action", postPlay);
+
+    await page.locator("#watch-input-layer").dispatchEvent("wheel", { deltaY: 150, bubbles: true, cancelable: true });
+    await page.waitForFunction(() => document.querySelector(".dashboard-frame.active")?.dataset.dashboardId === "polyrec", null, { timeout: 8000 });
+    assertQa(await activeDashboardId(page) === "polyrec", "vertical scroll did not move to Bets");
+
+    await page.click("[data-watch-action='in-card']");
+    await waitForFrameText(page, /generated state ready|building channel state/i);
+
+    await page.click("[data-watch-action='thesis']");
+    await page.waitForSelector("[data-testid='watch-stack-card']", { timeout: 8000 });
+    await waitForFrameText(page, /generated state ready|building channel state/i);
+
+    await page.click("#watch-share");
+    await page.waitForFunction(() => /Link copied|Saving share state|Share ready/i.test(document.body.innerText), null, { timeout: 10000 });
+
+    const visibleText = `${await page.evaluate(() => document.body.innerText)}\n${await activeFrameText(page)}`;
+    assertQa(!/api\.coingecko\.com|429|No Faculty Data Available|provider fallback failed|channel fallback failed/i.test(visibleText), "raw provider or mismatched empty-state copy is visible", {
+      visibleText: visibleText.slice(0, 1600),
+    });
+
+    console.log(JSON.stringify({
+      ok: true,
+      baseUrl: server.baseUrl,
+      checks: [
+        "desktop root opens watch mode",
+        "all catalog channels are available at start",
+        "channel name boxes are removed",
+        "grid/status/legacy chrome hidden",
+        "Play Kat brightens surface and exposes next action",
+        "vertical scroll changes focused channel",
+        "in-card mutation path runs",
+        "thesis mutation creates curated stack card",
+        "share path reports Link copied/ready",
+        "raw provider errors absent from visible copy",
+      ],
+    }, null, 2));
+  } finally {
+    await browser.close().catch(() => {});
+    await server.cleanup();
+  }
+}
+
+main().catch((err) => {
+  console.error(JSON.stringify({ ok: false, error: err.message, evidence: err.evidence || null }, null, 2));
+  process.exit(1);
+});
