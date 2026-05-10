@@ -39,61 +39,31 @@
     return `${Math.round(n)} MW`;
   }
 
-  function syntheticSeries(ctx) {
-    return Array.from({ length: 28 }, (_, index) => {
-      const base = 420000;
-      const loadMw = base + Math.sin(index / 27 * Math.PI * 2) * 36000 + ctx.helpers.seededValue(index, -9000, 9000);
-      const forecastMw = loadMw * (1 + ctx.helpers.seededValue(index + 40, -0.014, 0.018));
-      const stressPct = ctx.helpers.seededValue(index + 80, 28, 76);
-      return {
-        period: `T-${27 - index}`,
-        label: `${27 - index}h`,
-        loadMw,
-        forecastMw,
-        stressPct,
-        operatingMarginPct: ctx.helpers.seededValue(index + 120, 5, 20),
-        frequencyHz: 60 + ctx.helpers.seededValue(index + 160, -0.018, 0.018),
-      };
-    });
-  }
-
-  function normalizeSeries(data, ctx) {
-    const raw = Array.isArray(data.series) && data.series.length ? data.series : syntheticSeries(ctx);
+  function normalizeSeries(data) {
+    const raw = Array.isArray(data.series) ? data.series : [];
     return raw.slice(-32).map((row, index) => ({
       index,
       label: row.label || row.period || `${index}`,
-      loadGw: number(row.loadMw) / 1000,
-      forecastGw: number(row.forecastMw || row.loadMw) / 1000,
-      stressPct: number(row.stressPct, 42),
-      marginPct: number(row.operatingMarginPct, 12),
-    }));
+      loadGw: number(row.loadMw, NaN) / 1000,
+      forecastGw: number(row.forecastMw ?? row.loadMw, NaN) / 1000,
+      stressPct: number(row.stressPct, NaN),
+      marginPct: number(row.operatingMarginPct, NaN),
+    })).filter((row) => Number.isFinite(row.loadGw));
   }
 
   function normalizeFuel(data) {
-    const fallback = [
-      { label: "Natural Gas", sharePct: 36 },
-      { label: "Nuclear", sharePct: 19 },
-      { label: "Coal", sharePct: 16 },
-      { label: "Wind", sharePct: 12 },
-      { label: "Solar", sharePct: 9 },
-    ];
-    const fuel = Array.isArray(data.fuelMix) && data.fuelMix.length ? data.fuelMix : fallback;
+    const fuel = Array.isArray(data.fuelMix) ? data.fuelMix : [];
     return fuel.slice(0, 5).map((row) => ({
       label: String(row.label || row.fueltype || "Other"),
       sharePct: Math.max(0, Math.min(100, number(row.sharePct, 0))),
     }));
   }
 
-  function normalizeCorridors(data, latest) {
-    const fallback = [
-      { from: "PJM", to: "MISO", stressPct: 54 },
-      { from: "SPP", to: "ERCOT", stressPct: 61 },
-      { from: "CAISO", to: "BANC", stressPct: 47 },
-    ];
-    const corridors = Array.isArray(data.corridors) && data.corridors.length ? data.corridors : fallback;
+  function normalizeCorridors(data) {
+    const corridors = Array.isArray(data.corridors) ? data.corridors : [];
     return corridors.slice(0, 3).map((row, index) => ({
       name: `${row.from || "BA"}-${row.to || index + 1}`,
-      stressPct: Math.max(0, Math.min(100, number(row.stressPct, latest.stressPct || 45))),
+      stressPct: Math.max(0, Math.min(100, number(row.stressPct, 0))),
     }));
   }
 
@@ -325,39 +295,49 @@
     `).join("");
   }
 
+  function awaitingHtml(label) {
+    return `<div class="grid-panel-meta" style="padding:12px;opacity:0.62">awaiting ${escapeHtml(label)} from /api/channels/power-grid/live</div>`;
+  }
+
   window.KATECHON_DASHBOARD_RENDERERS = window.KATECHON_DASHBOARD_RENDERERS || {};
   window.KATECHON_DASHBOARD_RENDERERS["power-grid"] = function renderPowerGrid(ctx) {
     const data = ctx.state.livePayload?.data || {};
-    const series = normalizeSeries(data, ctx);
+    const series = normalizeSeries(data);
     const latestRaw = data.latest || {};
     const latest = {
-      loadMw: number(latestRaw.loadMw, series[series.length - 1].loadGw * 1000),
-      frequencyHz: number(latestRaw.frequencyHz, 60),
-      stressPct: number(latestRaw.stressPct, series[series.length - 1].stressPct),
+      loadMw: number(latestRaw.loadMw, NaN),
+      frequencyHz: number(latestRaw.frequencyHz, NaN),
+      stressPct: number(latestRaw.stressPct, NaN),
     };
     const fuel = normalizeFuel(data);
-    const corridors = normalizeCorridors(data, latest);
+    const corridors = normalizeCorridors(data);
     const id = `power-grid-vega-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-    setTimeout(() => hydrateVega(id, series), 0);
+    if (series.length) setTimeout(() => hydrateVega(id, series), 0);
     setTimeout(() => {
       const root = document.getElementById(id)?.closest(".power-grid-identity");
       const stress = root?.querySelector("[data-grid-stress]");
-      if (stress) stress.textContent = `${Math.round(latest.stressPct)}%`;
+      if (stress) stress.textContent = Number.isFinite(latest.stressPct) ? `${Math.round(latest.stressPct)}%` : "--";
     }, 0);
+
+    const loadLabel = Number.isFinite(latest.loadMw) ? formatMw(latest.loadMw) : "n/a";
+    const hzLabel = Number.isFinite(latest.frequencyHz) ? `${latest.frequencyHz.toFixed(3)} hz` : "-- hz";
+    const chartHtml = series.length ? fallbackChartHtml(series) : awaitingHtml("series");
+    const corridorList = corridors.length ? corridorHtml(corridors) : awaitingHtml("corridors");
+    const fuelList = fuel.length ? fuelHtml(fuel) : awaitingHtml("fuel mix");
 
     return `<div class="scene power-grid-identity">
       <section class="grid-vega-panel">
         <div class="grid-panel-head">
           <span class="grid-panel-title">${escapeHtml(data.respondentName || data.respondent || "Grid load")}</span>
-          <span class="grid-panel-meta">${formatMw(latest.loadMw)} / ${latest.frequencyHz.toFixed(3)} hz</span>
+          <span class="grid-panel-meta">${loadLabel} / ${hzLabel}</span>
         </div>
-        <div class="grid-vega-mount" id="${id}">${fallbackChartHtml(series)}</div>
+        <div class="grid-vega-mount" id="${id}">${chartHtml}</div>
       </section>
       <section class="grid-network-panel">
         ${nodeHtml()}
-        <div class="grid-corridor-list">${corridorHtml(corridors)}</div>
+        <div class="grid-corridor-list">${corridorList}</div>
       </section>
-      <section class="grid-fuel-panel">${fuelHtml(fuel)}</section>
+      <section class="grid-fuel-panel">${fuelList}</section>
     </div>`;
   };
 })();

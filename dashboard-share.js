@@ -45,7 +45,7 @@ const DASHBOARD_SHARE_CATALOG = {
   },
   "meme-coin": {
     label: "Meme Coin",
-    description: "Social market monitor with bonding curve state, holder clusters, liquidity, and narrative velocity.",
+    description: "Pump.fun launchpad monitor with fresh mints, bonding-curve graduation state, live trade flow, and liquidity risk.",
   },
   quantum: {
     label: "Quantum States",

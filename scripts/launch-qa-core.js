@@ -27,9 +27,9 @@ const FOCUSED_PROMPTS = [
   { channelId: "polyrec", prompt: "Show the weirdest active markets", slug: "weirdest-markets" },
   { channelId: "polyrec", prompt: "Find markets with high volume and close odds", slug: "close-odds-volume" },
   { channelId: "polyrec", prompt: "Build a live board for election and macro markets", slug: "election-macro" },
-  { channelId: "meme-coin", prompt: "Find the fastest moving meme coins", slug: "fastest-moving" },
-  { channelId: "meme-coin", prompt: "Show attention vs liquidity risk", slug: "attention-liquidity" },
-  { channelId: "meme-coin", prompt: "Build a board for tokens that look viral but fragile", slug: "viral-fragile" },
+  { channelId: "meme-coin", prompt: "Show me what's about to graduate", slug: "graduation-watch" },
+  { channelId: "meme-coin", prompt: "Which mints are under one minute old?", slug: "fresh-mints" },
+  { channelId: "meme-coin", prompt: "Find the loudest buy in the last five minutes", slug: "loudest-buy" },
 ];
 
 const VIEWPORTS = [

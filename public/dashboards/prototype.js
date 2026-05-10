@@ -745,6 +745,203 @@
        primitives shared by every channel.
        ============================================================ */
 
+    const liveCollectionSpecs = [
+      { field: "articles", label: "article stream", singular: "article", provider: "GDELT" },
+      { field: "items", label: "source feed", singular: "item", provider: "RSS" },
+      { field: "hn", label: "HN stream", singular: "story", provider: "Hacker News" },
+      { field: "studies", label: "clinical studies", singular: "study", provider: "ClinicalTrials.gov" },
+      { field: "objects", label: "catalog objects", singular: "object", provider: "NASA TAP" },
+      { field: "papers", label: "paper stream", singular: "paper", provider: "arXiv" },
+      { field: "sensors", label: "sensor stations", singular: "station", provider: "NOAA" },
+      { field: "datasets", label: "public datasets", singular: "dataset", provider: "CDC" },
+      { field: "runs", label: "workflow runs", singular: "run", provider: "GitHub" },
+      { field: "slides", label: "deck slides", singular: "slide", provider: "local JSON" },
+      { field: "arenaBoards", label: "Arena boards", singular: "board", provider: "LMArena" },
+      { field: "frontierModels", label: "frontier models", singular: "model", provider: "LMArena" },
+      { field: "capabilityMatrix", label: "capability matrix", singular: "model", provider: "Arena SOTA" },
+      { field: "polymarketMarkets", label: "AI market odds", singular: "market", provider: "Polymarket" },
+      { field: "marketSignals", label: "market signals", singular: "signal", provider: "Polymarket" },
+      { field: "divergence", label: "benchmark-market divergence", singular: "signal", provider: "Arena SOTA" },
+    ];
+
+    function liveCollectionFromData(data = state.livePayload?.data || {}, fieldHint = "") {
+      const specs = fieldHint
+        ? liveCollectionSpecs.filter((spec) => spec.field === fieldHint)
+        : liveCollectionSpecs;
+      for (const spec of specs) {
+        const rows = Array.isArray(data[spec.field]) ? data[spec.field] : [];
+        if (rows.length) return { ...spec, rows };
+      }
+      return null;
+    }
+
+    function compactLiveText(value, max = 90) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+    }
+
+    function liveRecordTitle(row, index = 0) {
+      return compactLiveText(
+        row?.title ||
+        row?.question ||
+        row?.modelName ||
+        row?.boardLabel ||
+        row?.entity ||
+        row?.name ||
+        row?.briefTitle ||
+        row?.headline ||
+        row?.id ||
+        `row ${index + 1}`,
+        110
+      );
+    }
+
+    function liveRecordMeta(row, fallback = "source") {
+      return compactLiveText(
+        row?.domain ||
+        row?.organization ||
+        row?.entity ||
+        row?.source ||
+        row?.sourceCountry ||
+        row?.category ||
+        row?.status ||
+        row?.conclusion ||
+        row?.station ||
+        row?.host ||
+        row?.sponsor ||
+        row?.publishedAt ||
+        row?.updatedAt ||
+        row?.createdAt ||
+        row?.seendate ||
+        fallback,
+        70
+      );
+    }
+
+    function liveRecordGroup(row, fallback = "source") {
+      return compactLiveText(
+        row?.domain ||
+        row?.organization ||
+        row?.entity ||
+        row?.source ||
+        row?.sourceCountry ||
+        row?.status ||
+        row?.conclusion ||
+        row?.station ||
+        row?.host ||
+        row?.domain ||
+        fallback,
+        40
+      );
+    }
+
+    function liveRecordTime(row) {
+      return row?.publishedAt || row?.updatedAt || row?.createdAt || row?.seendate || row?.startDate || row?.time || "";
+    }
+
+    function recencyScore(row, index, total) {
+      const parsed = Date.parse(liveRecordTime(row));
+      if (!Number.isFinite(parsed)) return Math.max(1, total - index);
+      const ageHours = Math.max(0, (Date.now() - parsed) / 3600000);
+      return Math.max(1, 100 - Math.min(96, ageHours));
+    }
+
+    function statusScore(value) {
+      const text = String(value || "").toLowerCase();
+      if (/success|completed|recruiting|active|posted|available/.test(text)) return 88;
+      if (/progress|queued|running|not_yet|unknown/.test(text)) return 58;
+      if (/fail|error|terminated|suspended|withdrawn|cancel/.test(text)) return 22;
+      return 48;
+    }
+
+    function liveRecordMetricValue(collection, row, index, metricIndex = 0, total = collection?.rows?.length || 1) {
+      if (!row || typeof row !== "object") return Math.max(1, total - index);
+      if (collection.field === "hn") {
+        const fields = ["points", "comments", "num_comments"];
+        return numericValue(row[fields[metricIndex] || "points"]) || Math.max(1, total - index);
+      }
+      if (collection.field === "studies") {
+        if (metricIndex === 0) return statusScore(row.status);
+        const yearText = String(row.startDate || "").slice(0, 4);
+        const year = /^\d{4}$/.test(yearText) ? Number(yearText) : NaN;
+        return Number.isFinite(year) ? year : recencyScore(row, index, total);
+      }
+      if (collection.field === "objects") {
+        const fields = dashboardId === "dark-forest"
+          ? ["periodDays", "distancePc", "radiusEarth", "year"]
+          : ["year", "distancePc", "radiusEarth", "massEarth"];
+        const value = numericValue(row[fields[metricIndex] || fields[0]]);
+        return value || Math.max(1, total - index);
+      }
+      if (collection.field === "sensors") {
+        const fields = ["windSpeedMs", "waveHeightM", "pressureHpa", "waterTempC", "airTempC"];
+        const value = numericValue(row[fields[metricIndex] || fields[0]]);
+        return value || Math.max(1, total - index);
+      }
+      if (collection.field === "datasets") {
+        if (metricIndex === 0) return recencyScore(row, index, total);
+        return numericValue(row.rows) || Math.max(1, total - index);
+      }
+      if (collection.field === "runs") return statusScore(row.conclusion || row.status) - index;
+      if (collection.field === "slides") return numericValue(row.index) + 1 || index + 1;
+      if (collection.field === "arenaBoards") return numericValue(row.leaders?.[0]?.rating || row.visibleRows || row.modelCount) || Math.max(1, total - index);
+      if (collection.field === "frontierModels" || collection.field === "capabilityMatrix") return numericValue(row.topThreeCount) * 20 + numericValue(row.topTenCount) * 4 + Math.max(0, 20 - numericValue(row.avgRank));
+      if (collection.field === "polymarketMarkets") return numericValue(row.yesPct ?? row.yes) || Math.max(1, total - index);
+      if (collection.field === "marketSignals") return numericValue(row.impliedYesPct) || Math.max(1, total - index);
+      if (collection.field === "divergence") return numericValue(row.value) || Math.max(1, total - index);
+      return recencyScore(row, index, total);
+    }
+
+    function liveRecordValues(collection, metricIndex = 0, limit = 60) {
+      if (!collection?.rows?.length) return [];
+      return collection.rows
+        .slice(0, limit)
+        .map((row, index, rows) => liveRecordMetricValue(collection, row, index, metricIndex, rows.length))
+        .filter((value) => Number.isFinite(value));
+    }
+
+    function liveRecordValueLabel(collection, row, index = 0) {
+      if (collection.field === "studies") return compactLiveText(row.status || row.startDate || `study ${index + 1}`, 32);
+      if (collection.field === "objects") {
+        if (dashboardId === "dark-forest" && row.periodDays) return `${Number(row.periodDays).toFixed(0)}d`;
+        return row.year ? String(row.year) : (row.distancePc ? `${Math.round(Number(row.distancePc))} pc` : `object ${index + 1}`);
+      }
+      if (collection.field === "sensors") {
+        const wind = Number(row.windSpeedMs);
+        const wave = Number(row.waveHeightM);
+        if (Number.isFinite(wind)) return `${wind.toFixed(1)} m/s`;
+        if (Number.isFinite(wave)) return `${wave.toFixed(1)} m`;
+      }
+      if (collection.field === "runs") return compactLiveText(row.conclusion || row.status || "run", 34);
+      if (collection.field === "hn" && row.points !== undefined) return `${Math.round(numericValue(row.points))} pts`;
+      if (collection.field === "datasets") return compactLiveText(row.updatedAt || row.domain || "dataset", 34);
+      if (collection.field === "slides") return `slide ${numericValue(row.index) + 1 || index + 1}`;
+      if (collection.field === "arenaBoards") return row.leaders?.[0]?.modelName ? `#1 ${compactLiveText(row.leaders[0].modelName, 28)}` : "board";
+      if (collection.field === "frontierModels" || collection.field === "capabilityMatrix") return row.bestRank ? `best #${row.bestRank}` : `${numericValue(row.topTenCount)} top-10`;
+      if (collection.field === "polymarketMarkets") return `${Math.round(numericValue(row.yesPct ?? row.yes) || 0)}% YES`;
+      if (collection.field === "marketSignals") return `${Math.round(numericValue(row.impliedYesPct) || 0)}%`;
+      if (collection.field === "divergence") return compactLiveText(row.value || row.label || "divergence", 34);
+      return liveRecordMeta(row, collection.provider || collection.label);
+    }
+
+    function liveRecordBarPct(collection, row, index, total) {
+      const value = liveRecordMetricValue(collection, row, index, 0, total);
+      if (collection.field === "objects" && value > 1800) return Math.max(10, Math.min(100, 24 + (value - 1990) * 2));
+      if (collection.field === "sensors" && value > 100) return Math.max(8, Math.min(100, value / 12));
+      if (collection.field === "slides") return Math.max(10, Math.min(100, (index + 1) / Math.max(1, total) * 100));
+      return Math.max(8, Math.min(100, value));
+    }
+
+    function liveRecordSpark(collection, row, index) {
+      const values = liveRecordValues(collection, index % 3, 24);
+      return values.length ? values : Array.from({ length: 8 }, (_, i) => Math.max(1, 8 - i + index));
+    }
+
+    function feedRankValues(limit = 24) {
+      const rows = state.feed.slice(0, limit);
+      return rows.map((_, index) => Math.max(1, rows.length - index));
+    }
+
     function pulseSourceData() {
       const data = state.livePayload?.data || {};
       if (Array.isArray(data.candles) && data.candles.length) {
@@ -779,6 +976,25 @@
         return {
           values: data.fuelMix.map((f) => numericValue(f.sharePct ?? f.mw)),
           label: "fuel mix share", kind: "share", unit: "%", live: true,
+        };
+      }
+      const collection = liveCollectionFromData(data);
+      if (collection) {
+        return {
+          values: liveRecordValues(collection, 0, 60),
+          label: collection.label,
+          kind: "records",
+          unit: "",
+          live: true,
+        };
+      }
+      if (Array.isArray(data.feed) && data.feed.length) {
+        return {
+          values: data.feed.slice(0, 60).map((_, index, rows) => Math.max(1, rows.length - index)),
+          label: `${state.livePayload?.source || "provider"} feed`,
+          kind: "records",
+          unit: "",
+          live: true,
         };
       }
       const palette = sceneFlavor();
@@ -900,6 +1116,9 @@
         const field = fields[metricIndex] || "fragilityScore";
         return data.tokens.slice(0, 24).map((t) => numericValue(t[field]));
       }
+      const collection = liveCollectionFromData(data);
+      if (collection) return liveRecordValues(collection, metricIndex, 24);
+      if (Array.isArray(data.feed) && data.feed.length) return feedRankValues(24);
       const m = visibleMetrics()[metricIndex] || ["", "0", ""];
       const base = numericValue(m[1]) || (50 + metricIndex * 12);
       return Array.from({ length: 24 }, (_, i) => base + seededValue(i + metricIndex * 31, -base * 0.08, base * 0.08));
@@ -957,6 +1176,31 @@
         items.push({ label: "attention", spark: att, value: att.length ? att[0].toFixed(0) : "—", note: "lead", kind: "bars" });
         items.push({ label: "liquidity risk", spark: liq, value: liq.length ? liq[0].toFixed(0) : "—", note: "thin = risk", kind: "bars", color: "amber" });
         items.push({ label: "fragility", spark: frag, value: frag.length ? frag[0].toFixed(0) : "—", note: "leader", kind: "bars", color: "down" });
+        return items;
+      }
+      const collection = liveCollectionFromData(data);
+      if (collection) {
+        const rows = collection.rows.slice(0, 30);
+        const primary = liveRecordValues(collection, 0, 30);
+        const secondary = liveRecordValues(collection, 1, 30);
+        const groups = [];
+        const seen = new Set();
+        rows.forEach((row) => {
+          const group = liveRecordGroup(row, collection.provider);
+          if (group) seen.add(group);
+          groups.push(seen.size);
+        });
+        const lead = rows[0] || {};
+        items.push({ label: collection.singular, spark: primary, value: String(collection.rows.length), note: collection.provider, kind: "bars" });
+        items.push({ label: "source spread", spark: groups, value: String(seen.size || 1), note: "groups", kind: "bars", color: "cyan" });
+        items.push({ label: "lead row", spark: secondary.length ? secondary : primary, value: liveRecordValueLabel(collection, lead, 0), note: liveRecordMeta(lead, collection.provider), kind: "spark", color: "amber" });
+        return items;
+      }
+      if (Array.isArray(data.feed) && data.feed.length) {
+        const values = feedRankValues(30);
+        items.push({ label: "feed rows", spark: values, value: String(data.feed.length), note: state.livePayload?.source || "provider", kind: "bars" });
+        items.push({ label: "latest row", spark: values, value: data.feed[0]?.[0] || "now", note: data.feed[0]?.[2] || "API", kind: "spark", color: "cyan" });
+        items.push({ label: "freshness", spark: values, value: freshnessLabel(state.livePayload?.freshness || "unavailable"), note: "source", kind: "bars", color: "amber" });
         return items;
       }
 
@@ -1051,6 +1295,23 @@
           const c = data.corridors[0];
           cards.push({ label: "corridor stress", value: `${numericValue(c.stressPct).toFixed(0)}%`, sub: `${c.from}-${c.to}`, spark: data.corridors.map(x => numericValue(x.stressPct)), meta: "topology", barPct: numericValue(c.stressPct), tone: numericValue(c.stressPct) > 80 ? "is-alert" : "is-warn" });
         }
+      } else {
+        const collection = liveCollectionFromData(data);
+        if (collection) {
+          const total = collection.rows.length;
+          collection.rows.slice(0, 4).forEach((row, i) => {
+            const score = liveRecordMetricValue(collection, row, i, 0, total);
+            cards.push({
+              label: i === 0 ? `lead ${collection.singular}` : `${collection.singular} ${i + 1}`,
+              value: liveRecordValueLabel(collection, row, i),
+              sub: liveRecordTitle(row, i),
+              spark: liveRecordSpark(collection, row, i),
+              meta: liveRecordMeta(row, collection.provider),
+              barPct: liveRecordBarPct(collection, row, i, total),
+              tone: score < 30 ? "is-warn" : "",
+            });
+          });
+        }
       }
 
       const needed = Math.max(0, 4 - cards.length);
@@ -1134,9 +1395,12 @@
       const trail = [];
       if (data.coin) trail.push(`${data.coin}`);
       if (data.respondent) trail.push(`${data.respondent}`);
+      const collection = liveCollectionFromData(data);
+      if (collection) trail.push(`${collection.rows.length} ${collection.label}`);
       if (m[0]) trail.push(`${m[0][0] || ""} ${m[0][1] || ""}`.trim());
       if (config.lens) trail.push(config.lens);
-      const liveTime = state.livePayload?.timestamp ? new Date(Number(state.livePayload.timestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+      const liveTimestamp = state.livePayload?.updatedAt || state.livePayload?.timestamp;
+      const liveTime = liveTimestamp ? new Date(Number(liveTimestamp)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
       if (liveTime) trail.push(`updated ${liveTime}`);
       return { headline, trail: trail.slice(0, 4) };
     }
@@ -1446,11 +1710,33 @@
       return iso.slice(11, 16);
     }
 
+    function liveCollectionChartRows(collection, limit = 48) {
+      if (!collection?.rows?.length) return [];
+      return collection.rows.slice(0, limit).map((row, index, rows) => ({
+        index,
+        label: liveRecordTitle(row, index).slice(0, 42),
+        title: liveRecordTitle(row, index),
+        meta: liveRecordMeta(row, collection.provider),
+        group: liveRecordGroup(row, collection.provider),
+        value: liveRecordMetricValue(collection, row, index, 0, rows.length),
+        score: liveRecordMetricValue(collection, row, index, 0, rows.length),
+        secondary: liveRecordMetricValue(collection, row, index, 1, rows.length),
+        tertiary: liveRecordMetricValue(collection, row, index, 2, rows.length),
+        barPct: liveRecordBarPct(collection, row, index, rows.length),
+      }));
+    }
+
     function chartRowsForBinding(component) {
       const chart = component.chart || {};
       const binding = chart.binding || component.binding || "none";
       const data = component._chartPayload?.data || state.livePayload?.data || {};
       if (Array.isArray(chart.data) && chart.data.length) return chart.data.slice(0, 96);
+
+      const liveCollectionMatch = String(binding).match(/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|arenaBoards|frontierModels|capabilityMatrix|polymarketMarkets|marketSignals|divergence|records)$/);
+      if (liveCollectionMatch) {
+        const collection = liveCollectionFromData(data, liveCollectionMatch[1] === "records" ? "" : liveCollectionMatch[1]);
+        return liveCollectionChartRows(collection);
+      }
 
       if (binding === "liveData.candles" && Array.isArray(data.candles)) {
         const candles = data.candles.slice(-48);
@@ -1594,9 +1880,12 @@
       if (binding === "liveData.book") return { type: chart.type || "market-depth", x: chart.x || "label", y: chart.y || "notional", color: chart.color || "side" };
       if (binding === "liveData.series") return { type: chart.type || "area", x: chart.x || "label", y: chart.y || "loadMw", y2: chart.y2 || "forecastMw" };
       if (binding === "liveData.markets") return { type: chart.type || "horizontal-bar", x: chart.x || "yes", y: chart.y || "label" };
+      if (binding === "liveData.polymarketMarkets" || binding === "liveData.marketSignals") return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
+      if (binding === "liveData.arenaBoards" || binding === "liveData.frontierModels" || binding === "liveData.capabilityMatrix" || binding === "liveData.divergence") return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
       if (binding === "liveData.tokens") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "change" };
       if (binding === "liveData.fuelMix") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "value" };
       if (binding === "liveData.corridors") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "stressPct" };
+      if (/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|records)$/.test(binding)) return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
       const first = rows[0] || {};
       return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || (Object.prototype.hasOwnProperty.call(first, "value") ? "value" : "index") };
     }
@@ -1784,12 +2073,21 @@
           { name: "y", type: "band", domain: { data: "table", field: y }, range: "height", padding: 0.22 },
         ];
         spec.axes = [{ orient: "bottom", scale: "x", grid: true, ticks: false }, { orient: "left", scale: "y", ticks: false, labelLimit }];
+        const colorField = color && /^[\w.]+$/.test(color) ? color : "";
+        const fillUpdate = colorField ? {
+          fill: [
+            { test: `datum.${colorField} === 'sell' || datum.${colorField} === 'ask'`, value: danger },
+            { test: `datum.${colorField} === 'buy' || datum.${colorField} === 'bid'`, value: accent2 },
+            { value: accent },
+          ],
+          fillOpacity: { value: 0.82 },
+        } : { fillOpacity: { value: 0.78 } };
         spec.marks = [{
           type: "rect",
           from: { data: "table" },
           encode: {
             enter: { y: { scale: "y", field: y }, height: { scale: "y", band: 1 }, x: { scale: "x", value: 0 }, x2: { scale: "x", field: x }, fill: { value: accent }, fillOpacity: { value: 0.72 }, cornerRadius: { value: 3 }, cursor: { value: "pointer" } },
-            update: { fillOpacity: { value: 0.78 } },
+            update: fillUpdate,
             hover: { fillOpacity: { value: 1 } },
           },
         }, {
@@ -1804,7 +2102,7 @@
               fill: { value: "rgba(243,246,248,0.72)" },
               font: { value: "SFMono-Regular, Consolas, monospace" },
               fontSize: { value: 10 },
-              text: { signal: `format(datum.${x}, ',.0f')` },
+              text: { signal: `datum.valueLabel ? datum.valueLabel : datum.${x} < 10 ? format(datum.${x}, ',.2f') : format(datum.${x}, ',.0f')` },
             },
           },
         }];
@@ -1912,7 +2210,7 @@
       if (!rows.length) {
         return `<div class="generated-chart-empty">No chart rows returned for this provider refresh.</div>`;
       }
-      const values = rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.close ?? row.yesPct ?? row.yes ?? row.closeOddsPct ?? row.score ?? row.change ?? row.attentionScore ?? row.fragilityScore ?? row.decayScore ?? row.loadMw ?? row.stressPct))));
+      const values = rows.slice(0, 8).map(row => Math.max(8, Math.min(100, numericValue(row.value ?? row.score ?? row.secondary ?? row.tertiary ?? row.barPct ?? row.close ?? row.yesPct ?? row.yes ?? row.closeOddsPct ?? row.change ?? row.fillPct ?? row.freshnessScore ?? row.lastTradeSol ?? row.attentionScore ?? row.fragilityScore ?? row.decayScore ?? row.loadMw ?? row.stressPct))));
       const max = Math.max(...values, 1);
       return `<div class="generated-chart-fallback">${values.map(value => `<span style="height:${Math.max(10, value / max * 100).toFixed(0)}%"></span>`).join("")}</div>`;
     }
@@ -1920,7 +2218,7 @@
     function selectedDatumText(datum) {
       if (!datum || typeof datum !== "object") return "";
       const label = datum.label ?? datum.index ?? "point";
-      const fields = ["close", "sma", "open", "high", "low", "volume", "notional", "yesPct", "closeOddsPct", "score", "yes", "change", "attentionScore", "liquidityRisk", "fragilityScore", "decayScore", "loadMw", "stressPct", "value"]
+      const fields = ["valueLabel", "close", "sma", "open", "high", "low", "volume", "notional", "yesPct", "closeOddsPct", "score", "secondary", "tertiary", "yes", "change", "fillPct", "freshnessScore", "ageSec", "lastTradeSol", "tradeType", "attentionScore", "liquidityRisk", "fragilityScore", "decayScore", "loadMw", "stressPct", "value"]
         .filter(key => datum[key] !== undefined && datum[key] !== null)
         .slice(0, 4)
         .map(key => `${key} ${typeof datum[key] === "number" ? Number(datum[key]).toLocaleString(undefined, { maximumFractionDigits: 4 }) : datum[key]}`);
@@ -2569,40 +2867,67 @@
     }
 
     function renderArena() {
-      // Two-lane match: agent A vs agent B with token-rate streams + judge ribbon ticks.
-      const a = numericValue((visibleMetrics()[0] || ["", "86", ""])[1]) || 86;
-      const b = numericValue((visibleMetrics()[1] || ["", "82", ""])[1]) || 82;
-      const judgeTicks = Array.from({ length: 8 }, (_, i) => `<span class="mj-tick" style="opacity:${(0.4 + (i / 8) * 0.6).toFixed(2)};box-shadow:0 0 ${6 + i * 2}px var(--accent);"></span>`).join("");
-      const lane = (label, score, win, accent) => {
-        const stream = Array.from({ length: 9 }, (_, i) => `<span style="width:${Math.max(34, Math.round(seededValue(i + (win ? 1 : 7), 36, 98)))}%"></span>`).join("");
-        return `<section class="match-lane ${win ? "win" : ""}" style="--accent: ${accent}">
-          <div class="ml-name">${escapeHtml(label)}</div>
-          <div class="ml-score">${score}</div>
-          <div class="ml-stream">${stream}</div>
-          <div class="ml-foot">
-            <span>tok ${Math.round(seededValue(score, 92, 240))}/s</span>
-            <span>lat ${Math.round(seededValue(score + 1, 80, 320))}ms</span>
-            <span>flags ${Math.round(seededValue(score + 2, 0, 3))}</span>
-            <span>cite ${Math.round(seededValue(score + 3, 1, 5))}</span>
-          </div>
-        </section>`;
-      };
-      return `<div class="dense-scene full">
-        <section class="dense-panel" style="grid-template-rows:auto minmax(0,1fr);">
+      const data = state.livePayload?.data || {};
+      const boards = Array.isArray(data.arenaBoards) ? data.arenaBoards : [];
+      const models = Array.isArray(data.frontierModels) ? data.frontierModels : [];
+      const markets = Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets : [];
+      const columns = Array.isArray(data.boardColumns) && data.boardColumns.length
+        ? data.boardColumns.slice(0, 5)
+        : boards.filter((board) => board.preferred).slice(0, 5).map((board) => ({ id: board.id, label: board.label, domain: board.domain }));
+      const leaders = columns.map((column) => {
+        const board = boards.find((candidate) => candidate.id === column.id) || {};
+        const leader = board.leaders?.[0] || {};
+        return {
+          label: column.label || board.label || column.id,
+          domain: column.domain || board.domain || "arena",
+          model: leader.modelName || "loading",
+          org: leader.organization || "LMArena",
+          rank: leader.rank || "—",
+          rating: leader.rating || "—",
+        };
+      });
+      const modelRows = models.slice(0, 7).map((model, index) => {
+        const score = Math.max(12, Math.min(100, numericValue(model.topThreeCount) * 18 + numericValue(model.topTenCount) * 5 + Math.max(0, 18 - numericValue(model.avgRank))));
+        return `<article class="rank-row" style="grid-template-columns:minmax(0,1.25fr) minmax(0,0.85fr) auto;">
+          <div class="rk-name">${escapeHtml(model.label || model.modelName || `model ${index + 1}`)}<span class="rk-source">${escapeHtml(model.organization || "unknown")} · ${escapeHtml(model.license || "license n/a")}</span></div>
+          <div class="rk-bar" style="--rk-w:${Math.round(score)}%"></div>
+          <div class="rk-delta">#${escapeHtml(String(model.bestRank || "—"))}</div>
+        </article>`;
+      }).join("");
+      const boardRows = leaders.map((leader) => {
+        const score = numericValue(leader.rating);
+        const width = score ? Math.max(22, Math.min(96, (score - 900) / 5)) : 42;
+        return `<article class="rank-row" style="grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;">
+          <div class="rk-name">${escapeHtml(leader.label)}<span class="rk-source">${escapeHtml(leader.model)} · ${escapeHtml(leader.org)}</span></div>
+          <div class="rk-bar" style="--rk-w:${Math.round(width)}%"></div>
+          <div class="rk-delta">${escapeHtml(String(leader.rating))}</div>
+        </article>`;
+      }).join("");
+      const marketRows = markets.slice(0, 5).map((market) => {
+        const yes = Math.round(numericValue(market.yesPct ?? market.yes));
+        return `<article class="rank-row ${yes > 65 ? "is-warn" : ""}" style="grid-template-columns:minmax(0,1.35fr) auto;">
+          <div class="rk-name">${escapeHtml(market.question || "AI market")}<span class="rk-source">${escapeHtml(market.volumeLabel || "n/a")} vol · ${escapeHtml((market.entities || []).join(", ") || "AI")}</span></div>
+          <div class="rk-delta">${yes}%</div>
+        </article>`;
+      }).join("");
+      return `<div class="dense-scene with-aside">
+        <section class="dense-panel">
           <div class="dense-panel-head">
-            <span class="dense-panel-title">round 142 / live judge</span>
-            <span class="dense-panel-meta">latency Δ ${Math.abs(a - b)}pt · ${state.feed[0]?.[2] || "round"}</span>
+            <span class="dense-panel-title">SOTA capability matrix</span>
+            <span class="dense-panel-meta">${boards.length || "—"} Arena boards · ${models.length || "—"} models</span>
           </div>
-          <div class="dense-panel-body" style="overflow:hidden;">
-            <div class="match-lanes">
-              ${lane("agent alpha", a, a >= b, "var(--accent)")}
-              <div class="match-judge">
-                <span class="mj-label">judge</span>
-                ${judgeTicks}
-                <span class="mj-label" style="color:var(--accent2)">live</span>
-              </div>
-              ${lane("agent beta", b, b > a, "var(--accent2)")}
-            </div>
+          <div class="dense-panel-body" style="grid-template-rows:auto minmax(0,1fr);gap:8px;">
+            <div class="rank-list">${boardRows || `<div class="rank-row"><div class="rk-name">awaiting LMArena rows<span class="rk-source">public dataset</span></div><div class="rk-delta">—</div></div>`}</div>
+            <div class="rank-list">${modelRows || `<div class="rank-row"><div class="rk-name">frontier model matrix loading<span class="rk-source">server-side adapter</span></div><div class="rk-delta">—</div></div>`}</div>
+          </div>
+        </section>
+        <section class="dense-panel">
+          <div class="dense-panel-head">
+            <span class="dense-panel-title">model-release odds</span>
+            <span class="dense-panel-meta">${markets.length || "—"} Polymarket rows</span>
+          </div>
+          <div class="dense-panel-body rank-list">
+            ${marketRows || `<div class="rank-row"><div class="rk-name">awaiting AI market discovery<span class="rk-source">Polymarket Gamma</span></div><div class="rk-delta">—</div></div>`}
           </div>
         </section>
       </div>`;
@@ -2894,7 +3219,7 @@
       const provider = String(payload.liveProvider || payload.provider || config.api || payload.source || "").replace(/-synthetic$/, "");
       if (provider === "hyperliquid") applyHyperliquidData(data);
       else if (provider === "polymarket") applyPolymarketData(data);
-      else if (provider === "pumpfun" || provider === "dexscreener" || provider === "coingecko-pumpfun") applyPumpfunData(data);
+      else if (provider === "pumpfun" || provider === "pumpportal" || provider === "dexscreener" || provider === "coingecko-pumpfun") applyPumpfunData(data);
       else if (provider === "eia-grid") applyPowerGridData(data);
       else applyChannelStateData(data);
       renderMetrics();
@@ -2963,6 +3288,9 @@
     }
 
     function applyPumpfunData(data) {
+      if (data && data.kind === "pumpfun-launchpad-v1") {
+        return applyPumpfunLaunchpadData(data);
+      }
       const allTokens = Array.isArray(data.tokens) ? data.tokens : [];
       const tokens = allTokens.slice(0, 5);
       if (!tokens.length) {
@@ -2984,6 +3312,58 @@
           : "Token missing name and symbol.",
         `liq ${compactMoney(token.liquidityUsd)} / read-only`,
       ]);
+    }
+
+    function applyPumpfunLaunchpadData(data) {
+      const m = (data && data.metrics) || {};
+      const mintsPerMin = Number(m.mintsPerMin || 0);
+      const grads24h = Number(m.graduations24h || 0);
+      const tradesPerMin = Number(m.tradesPerMin || 0);
+      const totalCurveUsd = Number(m.totalCurveUsd || 0);
+      const totalCurveSol = Number(m.totalCurveSol || 0);
+      const streamLabel = data.streamConnected
+        ? (data.streamSource === "pumpportal" ? "pumpportal · live" : `${data.streamSource}`)
+        : (data.streamSource === "coingecko-pump-fun" ? "fallback" : "warming up");
+      state.metrics[0] = ["Mints/min", mintsPerMin.toFixed(1), streamLabel];
+      state.metrics[1] = ["Grads · 24h", String(grads24h), "→ raydium"];
+      state.metrics[2] = ["Curve TVL", compactMoney(totalCurveUsd) || "—", `${Math.round(totalCurveSol)} SOL`];
+      const mints = Array.isArray(data.recentMints) ? data.recentMints : [];
+      const grads = Array.isArray(data.graduationCandidates) ? data.graduationCandidates : [];
+      const movers = Array.isArray(data.fastMovers) ? data.fastMovers : [];
+      const feedRows = [];
+      grads.slice(0, 2).forEach((token) => {
+        const sym = String(token.symbol || token.name || "TOKEN").toUpperCase();
+        feedRows.push([
+          `${Math.round(Number(token.fillPct || 0))}%`,
+          `${sym} filling toward 85 SOL · ${token.remainingSol ? token.remainingSol.toFixed(1) : "?"} SOL to graduate.`,
+          `cap ${compactMoney(token.marketCapUsd)} · pump.fun`,
+        ]);
+      });
+      mints.slice(0, 3).forEach((token) => {
+        const sym = String(token.symbol || token.name || "TOKEN").toUpperCase();
+        const ageSec = Number(token.ageSec || 0);
+        const ageLabel = ageSec < 60 ? `${Math.round(ageSec)}s` : `${Math.round(ageSec / 60)}m`;
+        feedRows.push([
+          ageLabel,
+          `${sym} just minted on pump.fun.`,
+          `cap ${compactMoney(token.marketCapUsd)} · ${token.creator ? "dev " + String(token.creator).slice(0, 4) : "live"}`,
+        ]);
+      });
+      movers.slice(0, 2).forEach((token) => {
+        const sym = String(token.symbol || token.name || "TOKEN").toUpperCase();
+        const sol = Number(token.lastTradeSol || 0).toFixed(2);
+        const ago = Number(token.lastTradeAgoSec || 0);
+        const agoLabel = ago < 60 ? `${ago}s` : `${Math.round(ago / 60)}m`;
+        feedRows.push([
+          agoLabel,
+          `${sym} ${token.lastTradeType || "trade"} ${sol} SOL hit the tape.`,
+          `cap ${compactMoney(token.marketCapUsd)} · ${Math.round(Number(token.fillPct || 0))}% curve`,
+        ]);
+      });
+      if (!feedRows.length) {
+        feedRows.push(["—", "PumpPortal websocket connected, waiting for first event…", `${tradesPerMin.toFixed(0)} trades/min`]);
+      }
+      state.feed = feedRows.slice(0, 8);
     }
 
     function formatGridMw(value) {

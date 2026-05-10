@@ -2750,11 +2750,11 @@
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
                 <div class="tile-lines"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-                <div class="tile-preview-title">meme coin</div>
+                <div class="tile-preview-title">pump.fun</div>
               </div>
             </div>
             <video data-src="videos/meme-coin.mp4" aria-label="Meme Coin" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
-            <div class="gif-label">Meme Coin</div>
+            <div class="gif-label">Pump.fun</div>
           </div>
           <div class="gif-box channel-preview channel-open" onclick="switchWs('quantum')" aria-label="Quantum States">
             <div class="tile-kicker">13 / QUANTUM</div>
@@ -3777,15 +3777,15 @@
       }));
     const WATCH_START_CHANNEL_IDS = ['meme-coin', 'polyrec', 'crypto-trading'];
     const WATCH_LABELS = {
-      'meme-coin': { short: 'Meme', title: "What's pumping?", read: "Kat is watching meme coins for attention that is outrunning liquidity." },
+      'meme-coin': { short: 'Meme', title: 'Pump.fun terminal', read: 'Kat is watching fresh mints, bonding curves, and live trade flow from the launchpad.' },
       polyrec: { short: 'Bets', title: 'What bets are moving?', read: 'Kat is watching weird prediction markets that moved enough to matter.' },
       'crypto-trading': { short: 'BTC', title: 'Is BTC trapped?', read: 'Kat is watching BTC depth, range, and whether the book is breaking or boxed in.' },
     };
     const WATCH_PROMPTS = {
       'meme-coin': {
-        initial: 'Find the fastest moving meme coins',
-        inCard: 'Show attention vs liquidity risk',
-        thesis: 'Build a board for tokens that look viral but fragile',
+        initial: "Show me what's about to graduate",
+        inCard: 'Which mints are under one minute old?',
+        thesis: 'Find the loudest buy in the last five minutes',
       },
       polyrec: {
         initial: 'Show the weirdest active markets',
@@ -6030,11 +6030,13 @@
       dc: null,
       micStream: null,
       micTrack: null,
+      micSender: null,
       inputSource: null,
       inputNode: null,
       inputSink: null,
       streamedSamples: 0,
       streamFailed: false,
+      recordingStartedAt: 0,
       audioEl: null,
       connected: false,
       recording: false,
@@ -6051,7 +6053,6 @@
     // PTT lifecycle. `active` gates re-entry; `pendingStop` lets us clean up
     // when the user releases during async startup (mic permission, WebRTC SDP).
     const ptt = { active: false, pendingStop: false, startSeq: 0 };
-    let realtimePcmWorkletPromise = null;
 
     function syncVoiceModeToggle() {
       if (!voiceModeToggle) return;
@@ -6115,80 +6116,82 @@
         ? `Selected dashboard target for this push-to-talk:\n${JSON.stringify(dashboardTargetVoice.target, null, 2)}`
         : '';
       return [
-        'You are Kat, the voice-native agent inside Katechon.',
-        'Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.',
-        'You can discuss the active channel, navigate dashboards, and route channel turns through specialist channel agents.',
-        'Ground dashboard answers in the active channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.',
-        'For meaningful channel-specific user requests, call route_channel_turn so the channel agent updates state, queries data, replaces surfaces, and returns provenance.',
-        'If the user asks for current data only, call query_channel_capability before answering.',
-        'When manually composing a view, call apply_channel_update. Use legacy dashboard tools only for narrow compatibility edits.',
+        '# Role and Objective',
+        'You are Kat, the voice-native agent inside Katechon. Help the user understand, navigate, and modify live software channels.',
+        'Kat is the only spoken persona. Channel agents are specialist runtimes behind Kat, not separate characters.',
+        'Your main job is to turn voice requests into grounded channel state changes: inspect context, query data, route meaningful turns, compose safe surfaces, explain what changed, and offer one useful next move.',
+
+        '# Personality and Tone',
+        'Speak naturally, calmly, and briefly. The user is holding push-to-talk, so use short spoken turns.',
+        'Be precise about what the dashboard actually shows. Do not hype uncertain data.',
+
+        '# Reasoning',
+        'For direct answers, simple navigation, and short confirmations, respond quickly.',
+        'For multi-step dashboard questions, data lookups, tool choice, or generated surface changes, reason before acting.',
+        'Do not reveal private reasoning. Explain outcomes, evidence, and next steps only.',
+        'If the audio is unclear, do not reason through guesses. Ask for clarification.',
+
+        '# Message Channels and Preambles',
+        'Tool calls happen in the commentary phase. Before a tool call that may take noticeable time, say one short preamble describing the action.',
+        'Use preambles for data checks, channel morphs, dashboard changes, or multi-step requests.',
+        'Do not use a preamble for direct answers, confirmations, unclear audio, silence, background audio, or very lightweight tool calls.',
+        'Preambles must describe the action, not internal reasoning. Prefer phrases like: "I\'ll check the channel state." or "I\'ll update the surface now."',
+
+        '# Verbosity',
+        'Direct answers: 1-2 short sentences.',
+        'Clarifying questions: ask one question at a time.',
+        'Tool results: summarize the result first, then give one useful next action.',
+        'Dashboard changes: say what changed, what data/source backs it, and what the user can inspect next.',
+
+        '# Tools',
+        'Use only tools explicitly provided in the current tool list. Do not invent, assume, simulate, or rename tools.',
+        'For normal dashboard state, call get_channel_context.',
+        'For current data not present in liveSummary, call query_channel_capability or get_channel_live before answering.',
+        'For meaningful channel-specific user requests, prefer route_channel_turn. This is the default path for morphing a channel because the specialist runtime updates state, data, layout, surfaces, provenance, and next actions together.',
+        'When manually composing a generated view, call apply_channel_update. Generated surfaces replace by default; append only when the user asks to keep multiple.',
+        'Use legacy dashboard tools only when a narrow compatibility action is enough.',
+        'For write tools or visible dashboard changes, summarize the intended change before the tool call. If the request is destructive, clears state, or may surprise the user, ask for confirmation first.',
+        'Only say an action completed after the tool call succeeds. If a tool fails, explain briefly without raw errors and offer retry or a narrower next step.',
+
+        '# Handling Silence and Background Audio',
+        'If the latest audio is silence, background noise, hold music, TV audio, side conversation, or speech not addressed to you, call wait_for_user.',
+        'After calling wait_for_user, do not respond conversationally.',
+        'Do not say "I\'m here," "I didn\'t catch that," "Take your time," or "Let me know when you\'re ready" for silence or background audio.',
+
+        '# Unclear Audio',
+        'Only act on clear audio or text.',
+        'If the user\'s audio is ambiguous, noisy, cut off, or unintelligible, ask a short clarification question.',
+        'Do not guess missing words, call tools, capture entities, or generate a preamble when the audio is unclear.',
+
+        '# Entity Capture',
+        'Treat market symbols, dashboard IDs, emails, account-like IDs, tickers, station IDs, and confirmation codes as high-precision values.',
+        'Normalize only when the field type is clear. Confirm ambiguous or high-impact identifiers before lookup or write actions.',
+
+        '# Channel Runtime',
         'Every generated chart or insight must include provenance and a DataBinding. If public data is not available, label it Data unavailable instead of inventing live facts.',
         'Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.',
         'When asked for arbitrary source-code edits outside the dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.',
+
+        '# Long Context Behavior',
+        'Use the active channel context as the source of truth. If dashboard state changes, respect the latest session update over earlier context.',
+        'Keep continuity across turns by using channel session state, depth stack, recent generated surfaces, and provenance.',
         targetContext,
-        `Active channel context:\n${JSON.stringify(context, null, 2)}`,
+        `# Active Channel Context\n${JSON.stringify(context, null, 2)}`,
       ].filter(Boolean).join('\n\n');
     }
 
     function realtimeSend(event) {
       if (!realtimeVoice.dc || realtimeVoice.dc.readyState !== 'open') return false;
-      if (realtimeDebugEnabled) {
-        const logged = event.type === 'input_audio_buffer.append'
-          ? { type: event.type, audioBytes: Math.floor((event.audio?.length || 0) * 3 / 4) }
-          : event;
-        console.log('realtime send:', logged);
-      }
+      if (realtimeDebugEnabled) console.log('realtime send:', event);
       realtimeVoice.dc.send(JSON.stringify(event));
       return true;
-    }
-
-    function bytesToBase64(bytes) {
-      let binary = '';
-      const step = 0x8000;
-      for (let i = 0; i < bytes.length; i += step) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + step));
-      }
-      return btoa(binary);
-    }
-
-    function ensureRealtimePcmWorklet(ctx) {
-      if (!realtimePcmWorkletPromise) {
-        realtimePcmWorkletPromise = ctx.audioWorklet.addModule(appUrl('/realtime-pcm-worklet.js'))
-          .catch((err) => { realtimePcmWorkletPromise = null; throw err; });
-      }
-      return realtimePcmWorkletPromise;
-    }
-
-    function pcmFromFloat32(float32, srcRate, dstRate) {
-      const len = float32.length;
-      if (!len) return new Int16Array(0);
-      if (srcRate === dstRate) {
-        const out = new Int16Array(len);
-        for (let i = 0; i < len; i++) {
-          const s = Math.max(-1, Math.min(1, float32[i]));
-          out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-        }
-        return out;
-      }
-      const ratio = srcRate / dstRate;
-      const dstLen = Math.max(1, Math.floor(len / ratio));
-      const out = new Int16Array(dstLen);
-      for (let i = 0; i < dstLen; i++) {
-        const pos = i * ratio;
-        const idx = Math.floor(pos);
-        const frac = pos - idx;
-        const a = float32[idx] || 0;
-        const b = float32[Math.min(idx + 1, len - 1)] || 0;
-        const s = Math.max(-1, Math.min(1, a + (b - a) * frac));
-        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-      }
-      return out;
     }
 
     function stopRealtimeInputStream() {
       try { realtimeVoice.micStream?.getTracks().forEach(track => track.stop()); } catch (_) {}
       realtimeVoice.micStream = null;
       realtimeVoice.micTrack = null;
+      realtimeVoice.micSender = null;
     }
 
     function teardownRealtimeInputGraph() {
@@ -6201,62 +6204,46 @@
       realtimeVoice.inputSink = null;
     }
 
-    async function startRealtimeInputRecording() {
+    async function ensureRealtimeMicStream() {
+      if (realtimeVoice.micStream && realtimeVoice.micTrack?.readyState === 'live') return realtimeVoice.micStream;
       stopRealtimeInputStream();
-      teardownRealtimeInputGraph();
       realtimeVoice.streamedSamples = 0;
       realtimeVoice.streamFailed = false;
-      let stream = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        });
-        realtimeVoice.micStream = stream;
-        realtimeVoice.micTrack = stream.getAudioTracks()[0] || null;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      realtimeVoice.micStream = stream;
+      realtimeVoice.micTrack = stream.getAudioTracks()[0] || null;
+      if (!realtimeVoice.micTrack) throw new Error('No microphone track available');
+      realtimeVoice.micTrack.enabled = false;
+      return stream;
+    }
 
-        const ctx = getReplyAudioContext();
-        if (ctx.state === 'suspended') await ctx.resume();
-        await ensureRealtimePcmWorklet(ctx);
-
-        const sourceRate = ctx.sampleRate || REALTIME_INPUT_RATE;
-        const node = new AudioWorkletNode(ctx, 'realtime-pcm-processor');
-        const source = ctx.createMediaStreamSource(stream);
-        const sink = ctx.createGain();
-        sink.gain.value = 0;
-        node.port.onmessage = ({ data }) => {
-          if (!data || realtimeVoice.streamFailed || realtimeVoice.inputNode !== node) return;
-          const pcm = pcmFromFloat32(data, sourceRate, REALTIME_INPUT_RATE);
-          if (!pcm.length) return;
-          const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
-          if (!realtimeSend({ type: 'input_audio_buffer.append', audio: bytesToBase64(bytes) })) {
-            realtimeVoice.streamFailed = true;
-            return;
-          }
-          realtimeVoice.streamedSamples += pcm.length;
-        };
-        source.connect(node);
-        node.connect(sink).connect(ctx.destination);
-        realtimeVoice.inputSource = source;
-        realtimeVoice.inputNode = node;
-        realtimeVoice.inputSink = sink;
-        if (realtimeDebugEnabled) console.log('realtime worklet running, srcRate=', sourceRate);
-      } catch (err) {
-        try { stream?.getTracks().forEach(t => t.stop()); } catch (_) {}
-        realtimeVoice.micStream = null;
-        realtimeVoice.micTrack = null;
-        teardownRealtimeInputGraph();
-        throw err;
-      }
+    async function startRealtimeInputRecording() {
+      teardownRealtimeInputGraph();
+      const stream = await ensureRealtimeMicStream();
+      const track = stream.getAudioTracks()[0] || realtimeVoice.micTrack;
+      if (!track || track.readyState !== 'live') throw new Error('Microphone track is not live');
+      realtimeVoice.micTrack = track;
+      realtimeVoice.streamedSamples = 0;
+      realtimeVoice.streamFailed = false;
+      realtimeVoice.recordingStartedAt = Date.now();
+      track.enabled = true;
+      if (realtimeDebugEnabled) console.log('realtime mic track enabled');
     }
 
     function stopRealtimeInputRecording() {
       teardownRealtimeInputGraph();
-      stopRealtimeInputStream();
+      if (realtimeVoice.micTrack) realtimeVoice.micTrack.enabled = false;
+      const elapsedMs = realtimeVoice.recordingStartedAt ? Date.now() - realtimeVoice.recordingStartedAt : 0;
+      realtimeVoice.recordingStartedAt = 0;
+      realtimeVoice.streamedSamples = Math.round((elapsedMs / 1000) * REALTIME_INPUT_RATE);
+      if (realtimeDebugEnabled) console.log('realtime mic track disabled, elapsedMs=', elapsedMs);
       return realtimeVoice.streamedSamples;
     }
 
@@ -6276,12 +6263,14 @@
       realtimeVoice.dc = null;
       realtimeVoice.streamedSamples = 0;
       realtimeVoice.streamFailed = false;
+      realtimeVoice.recordingStartedAt = 0;
       realtimeVoice.connected = false;
       realtimeVoice.recording = false;
       realtimeVoice.responding = false;
       realtimeVoice.awaitingResponse = false;
       realtimeVoice.activeResponseId = null;
       realtimeVoice.mouthSyncFrame = 0;
+      realtimeVoice.micSender = null;
       realtimeVoice.fallbackMode = false;
       realtimeVoice.degraded = true;
       micBtn.classList.remove('connecting', 'thinking');
@@ -6297,7 +6286,7 @@
         if (realtimeVoice.awaitingResponse || realtimeVoice.responding) {
           enterRealtimeDegradedState('realtime response timeout');
         }
-      }, 9000);
+      }, 20000);
     }
 
     async function sendRealtimeDashboardContext(id = currentDashboardId) {
@@ -6388,7 +6377,15 @@
           output: JSON.stringify(output),
         },
       });
-      realtimeSend({ type: 'response.create' });
+      if (output?.respond === false || name === 'wait_for_user') {
+        clearRealtimeResponseWatchdog();
+        realtimeVoice.responding = false;
+        realtimeVoice.awaitingResponse = false;
+        realtimeVoice.activeResponseId = null;
+        micBtn.classList.remove('thinking');
+        return;
+      }
+      if (realtimeSend({ type: 'response.create' })) scheduleRealtimeResponseWatchdog();
     }
 
     function handleRealtimeTranscriptDelta(delta) {
@@ -6434,7 +6431,6 @@
         return;
       }
       if (event.type === 'response.created') {
-        clearRealtimeResponseWatchdog();
         realtimeVoice.replyText = '';
         realtimeVoice.awaitingResponse = false;
         realtimeVoice.responding = true;
@@ -6506,7 +6502,7 @@
     }
 
     async function ensureRealtimeSession() {
-      if (realtimeVoice.connected && realtimeVoice.pc?.connectionState !== 'failed') {
+      if (realtimeVoice.connected && realtimeVoice.pc?.connectionState !== 'failed' && realtimeVoice.dc?.readyState === 'open') {
         sendRealtimeDashboardContext().catch(() => {});
         return;
       }
@@ -6516,6 +6512,11 @@
 
       micBtn.classList.add('connecting');
       showToast('connecting voice…', '#7de8ff');
+
+      const micStream = await ensureRealtimeMicStream();
+      const micTrack = micStream.getAudioTracks()[0] || realtimeVoice.micTrack;
+      if (!micTrack) throw new Error('No microphone track available');
+      micTrack.enabled = false;
 
       const pc = new RTCPeerConnection({
         iceServers: [
@@ -6535,7 +6536,7 @@
       });
       realtimeVoice.dc = pc.createDataChannel('oai-events');
       realtimeVoice.dc.addEventListener('close', () => {
-        if (realtimeVoiceEnabled && !realtimeVoice.fallbackMode) enterRealtimeDegradedState('realtime data channel closed');
+        if (realtimeVoice.pc === pc && realtimeVoiceEnabled && !realtimeVoice.fallbackMode) enterRealtimeDegradedState('realtime data channel closed');
       });
       realtimeVoice.dc.addEventListener('message', (message) => {
         try {
@@ -6558,7 +6559,7 @@
         startRealtimeMouthSync(stream);
       };
 
-      pc.addTransceiver('audio', { direction: 'recvonly' });
+      realtimeVoice.micSender = pc.addTrack(micTrack, micStream);
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -6584,13 +6585,16 @@
       await ensureRealtimeSession();
       stopDashboardNarration();
       stopBrowserAvatarAudio();
-      if (realtimeVoice.activeResponseId) realtimeSend({ type: 'response.cancel' });
+      if (realtimeVoice.activeResponseId) {
+        realtimeSend({ type: 'response.cancel' });
+        realtimeSend({ type: 'output_audio_buffer.clear' });
+      }
       if (!realtimeSend({ type: 'input_audio_buffer.clear' })) {
         enterRealtimeDegradedState('realtime data channel unavailable');
         throw new Error('OpenAI Realtime degraded');
       }
       await startRealtimeInputRecording();
-      // Worklet is live and pushing chunks. Mark recording AFTER startup so
+      // The negotiated mic track is live. Mark recording AFTER startup so
       // a release during init can't slip past the !recording guard in stop.
       realtimeVoice.recording = true;
       realtimeVoice.awaitingResponse = false;

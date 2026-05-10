@@ -47,6 +47,7 @@ const {
   syntheticChannelData,
   viewPresets,
 } = require("./lib/channel-registry");
+const pumpportalStream = require("./lib/pumpportal-stream");
 
 const app = express();
 app.use(express.text({ type: ["application/sdp", "text/plain"], limit: "1mb" }));
@@ -74,8 +75,13 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-2025100
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_REALTIME_URL = "https://api.openai.com/v1/realtime/calls";
 const OPENAI_REALTIME_MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-2";
+const OPENAI_REALTIME_REASONING_EFFORT = process.env.OPENAI_REALTIME_REASONING_EFFORT || "low";
 const OPENAI_REALTIME_VOICE = process.env.OPENAI_REALTIME_VOICE || "marin";
 const OPENAI_REALTIME_TRANSCRIBE_MODEL = process.env.OPENAI_REALTIME_TRANSCRIBE_MODEL || "gpt-4o-mini-transcribe";
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const OPENAI_DECK_MODEL = process.env.OPENAI_DECK_MODEL || process.env.OPENAI_FAST_MODEL || "gpt-5.4-nano";
+const OPENAI_DECK_REASONING_EFFORT = process.env.OPENAI_DECK_REASONING_EFFORT || "none";
+const OPENAI_DECK_TIMEOUT_MS = Number(process.env.OPENAI_DECK_TIMEOUT_MS || 9000);
 const DASHBOARD_NARRATION_REMOTE = process.env.DASHBOARD_NARRATION_REMOTE === "1";
 const DASHBOARD_NARRATION_TTS = process.env.DASHBOARD_NARRATION_TTS !== "0";
 const STREAM_AUDIO_ENABLED = process.env.STREAM_AUDIO_ENABLED === "1";
@@ -103,6 +109,12 @@ const LAUNCH_EVENT_TYPES = new Set([
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
 const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
+const KATECHON_COMPANY_CONTEXT_FILE = path.join(__dirname, "docs", "katechon-company-context.md");
+const OPEN_SLIDE_WORKSPACE_DIR = path.join(__dirname, "open-slide", "katechon-investor");
+const OPEN_SLIDE_GENERATED_SLIDE_ID = process.env.OPEN_SLIDE_GENERATED_SLIDE_ID || "live-generated";
+const OPEN_SLIDE_GENERATED_SLIDE_DIR = path.join(OPEN_SLIDE_WORKSPACE_DIR, "slides", OPEN_SLIDE_GENERATED_SLIDE_ID);
+const OPEN_SLIDE_GENERATED_SLIDE_FILE = path.join(OPEN_SLIDE_GENERATED_SLIDE_DIR, "index.tsx");
+const OPEN_SLIDE_WRITE_GENERATED = process.env.OPEN_SLIDE_WRITE_GENERATED !== "0";
 const USER_DB_FILE = path.resolve(__dirname, process.env.USER_DB_FILE || "data/users.json");
 const SPECTRE_PROXY_PREFIX = "/dashboards/spectre";
 const SPECTRE_DASHBOARD_UPSTREAMS = [
@@ -166,7 +178,7 @@ const EXTERNAL_DASHBOARDS = {
   },
   arena: {
     label: "AI Arena",
-    headline: "Live AI vs AI head-to-head battle — competing models, one task, judged in real time",
+    headline: "Realtime AI SOTA snapshot — LMArena leaders, frontier capability matrix, and Polymarket model-release odds",
     sourceUrl: "https://github.com/katechon/arena",
     upstreams: [process.env.ARENA_DASHBOARD_URL, process.env.ARENA_URL, "http://127.0.0.1:8520"],
     launch: "# Set ARENA_DASHBOARD_URL in .env to point at your arena app",
@@ -522,15 +534,15 @@ const DASHBOARD_NARRATION = {
     ],
   },
   arena: {
-    label: "AI Arena — live AI vs AI battle",
+    label: "AI Arena — realtime SOTA snapshot",
     voice:
-      "You are Kat narrating the AI Arena, a live head-to-head battle where two competing AI models run the same " +
-      "tasks simultaneously and their outputs are judged in real time. Be sharp, analytical, and treat it like a sport.",
+      "You are Kat narrating the AI Arena, a realtime frontier-model capability board that merges LMArena benchmark " +
+      "snapshots with public Polymarket AI/model-release markets. Be sharp, analytical, source-aware, and explicit about freshness.",
     fallback: [
-      "Two models, one task. I'm watching the outputs come in and deciding which one actually did the work.",
-      "The arena measures what matters: speed, accuracy, and whether the reasoning actually holds.",
-      "Left side is building an argument. Right side is running numbers. Let's see which approach closes first.",
-      "This is not a benchmark — it's live. The model that adapts to the prompt variation wins the round.",
+      "AI Arena is reading the SOTA board: benchmark leaders first, market expectations second.",
+      "The important distinction here is freshness. Benchmarks update in batches; market odds move live.",
+      "I'm watching where Arena evidence and model-release markets disagree.",
+      "This board is useful when each score keeps its source, date, and uncertainty visible.",
     ],
   },
   biotech: {
@@ -842,9 +854,9 @@ function domainForChannel(channel) {
   }
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
     return {
-      entities: ["velocity", "liquidity", "fragility", "narrative decay"],
-      vocabulary: ["fastest moving", "attention", "liquidity risk", "viral but fragile", "decay", "read-only"],
-      defaultTimeframes: ["now", "1h", "24h"],
+      entities: ["graduation", "fresh mints", "trade tape", "liquidity", "fragility"],
+      vocabulary: ["pump.fun", "bonding curve", "85 SOL", "graduation", "fresh mint", "loudest buy", "dev sell", "read-only"],
+      defaultTimeframes: ["now", "5m", "24h"],
     };
   }
   return {
@@ -852,6 +864,36 @@ function domainForChannel(channel) {
     vocabulary: ["events", "metrics", "sources", "rankings", "relationships", "current state"],
     defaultTimeframes: ["now", "24h", "7d"],
   };
+}
+
+function channelBaseTopic(channel) {
+  const topics = {
+    spectre: "source pressure turning into an incident",
+    news: "the story that deserves the board",
+    dashboard123: "the market signal that matters now",
+    "world-monitor": "regional pressure turning into risk",
+    arena: "the model proving itself today",
+    glance: "the first signal worth attention",
+    "crypto-trading": "range, depth, and market structure",
+    polyrec: "the prediction market worth watching",
+    biotech: "the trial signal moving the evidence",
+    space: "the object that deserves another look",
+    iran: "regional pressure tightening",
+    "meme-coin": "attention outrunning liquidity",
+    quantum: "the research signal changing the field map",
+    "deep-sea": "the sensor breaking pattern",
+    "power-grid": "load, forecast, and grid strain",
+    viral: "transmission risk and detection lag",
+    "dark-forest": "the anomaly that refuses to disappear",
+    "dune-deck": "the proof point that moves the pitch",
+  };
+  return topics[channel.id] || "the current channel signal";
+}
+
+function channelTopicForLayout(channel, layout = "overview") {
+  const base = channelBaseTopic(channel);
+  if (layout === "overview") return base;
+  return `${base}: ${titleFromId(layout)}`;
 }
 
 function openingPathsForChannel(channel) {
@@ -862,7 +904,7 @@ function openingPathsForChannel(channel) {
     return ["load vs forecast", "operating margin", "fuel mix", "corridor stress", "last-day grid risk"];
   }
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
-    return ["fastest moving meme coins", "attention vs liquidity risk", "viral but fragile board", "narrative decay watch"];
+    return ["graduation watch", "fresh mint firehose", "largest trade tape", "creator sell pressure", "liquidity risk"];
   }
   return ["overview", "events", "rankings", "entity detail", "relationship map"];
 }
@@ -915,7 +957,7 @@ function initialChannelSessionState(channel, sessionId = "local-session") {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     focus: {
-      topic: `${channel.label} overview`,
+      topic: channelBaseTopic(channel),
       entities: [],
       timeframe: null,
       mode: "overview",
@@ -935,6 +977,15 @@ function initialChannelSessionState(channel, sessionId = "local-session") {
     conclusions: [],
     unresolvedQuestions: [],
     nextActions: openingPathsForChannel(channel),
+    headline: {
+      title: formatPunchHeadline(channel, initialHeadlineHook(channel)),
+      hook: initialHeadlineHook(channel),
+      signature: "initial",
+      generatedAt: new Date().toISOString(),
+      generatedAtMs: Date.now(),
+      cadenceMs: CHANNEL_HEADLINE_REFRESH_MS,
+      reason: "initial",
+    },
     provenance: [],
     turns: [],
     traces: [],
@@ -1086,7 +1137,12 @@ function componentSourceState(provenance) {
 }
 
 function clampText(value, max = 220) {
-  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= max) return text;
+  const suffix = "...";
+  const limit = Math.max(1, max - suffix.length);
+  const clipped = text.slice(0, limit).replace(/\s+\S*$/, "").trim();
+  return `${clipped || text.slice(0, limit).trim()}${suffix}`;
 }
 
 function sanitizeStringArray(value, maxItems = 6, maxChars = 44) {
@@ -2160,6 +2216,17 @@ function realtimeTools() {
   return [
     {
       type: "function",
+      name: "wait_for_user",
+      description:
+        "Call this when the latest audio does not need a spoken response, such as silence, background noise, hold music, TV audio, side conversation, or speech not addressed to Kat. This ends the turn without a spoken reply.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: {},
+      },
+    },
+    {
+      type: "function",
       name: "open_dashboard",
       description: "Open a Katechon dashboard or return to the landing panel when the user asks to navigate.",
       parameters: {
@@ -2622,22 +2689,69 @@ function realtimeInstructions(dashboardId) {
   const context = katContextBootstrap(dashboardId);
   const panelCatalog = PANELS.map((panel) => `${panel.id}: ${panel.label} - ${panel.description}`).join("\n");
   return [
-    "You are Kat, the voice-native agent inside Katechon.",
-    "Talk naturally and concisely. The user is holding push-to-talk, so answer in short spoken turns.",
-    "You can discuss the active dashboard, navigate between dashboards, query channel capabilities, and compose channel views from validated components.",
-    "When answering about a dashboard, ground yourself in the provided channel context and liveSummary. Do not invent live facts, prices, events, incidents, trades, or medical claims.",
-    "For meaningful channel-specific user requests, prefer route_channel_turn so the specialist channel agent updates state, data, layout, surfaces, provenance, and next actions together.",
-    "If the user asks for current data that is not in liveSummary and does not need a full morph, call query_channel_capability before answering.",
-    "When manually composing a view, call apply_channel_update rather than legacy dashboard mutation tools.",
+    "# Role and Objective",
+    "You are Kat, the voice-native agent inside Katechon. Help the user understand, navigate, and modify live software channels.",
+    "Kat is the only spoken persona. Channel agents are specialist runtimes behind Kat, not separate characters.",
+    "Your main job is to turn voice requests into grounded channel state changes: inspect context, query data, route meaningful turns, compose safe surfaces, explain what changed, and offer one useful next move.",
+
+    "# Personality and Tone",
+    "Speak naturally, calmly, and briefly. The user is holding push-to-talk, so use short spoken turns.",
+    "Be precise about what the dashboard actually shows. Do not hype uncertain data.",
+
+    "# Reasoning",
+    "For direct answers, simple navigation, and short confirmations, respond quickly.",
+    "For multi-step dashboard questions, data lookups, tool choice, or generated surface changes, reason before acting.",
+    "Do not reveal private reasoning. Explain outcomes, evidence, and next steps only.",
+    "If the audio is unclear, do not reason through guesses. Ask for clarification.",
+
+    "# Message Channels and Preambles",
+    "Tool calls happen in the commentary phase. Before a tool call that may take noticeable time, say one short preamble describing the action.",
+    "Use preambles for data checks, channel morphs, dashboard changes, or multi-step requests.",
+    "Do not use a preamble for direct answers, confirmations, unclear audio, silence, background audio, or very lightweight tool calls.",
+    "Preambles must describe the action, not internal reasoning. Prefer phrases like: \"I'll check the channel state.\" or \"I'll update the surface now.\"",
+
+    "# Verbosity",
+    "Direct answers: 1-2 short sentences.",
+    "Clarifying questions: ask one question at a time.",
+    "Tool results: summarize the result first, then give one useful next action.",
+    "Dashboard changes: say what changed, what data/source backs it, and what the user can inspect next.",
+
+    "# Tools",
+    "Use only tools explicitly provided in the current tool list. Do not invent, assume, simulate, or rename tools.",
+    "For normal dashboard state, call get_channel_context.",
+    "For current data not present in liveSummary, call query_channel_capability or get_channel_live before answering.",
+    "For meaningful channel-specific user requests, prefer route_channel_turn. This is the default path for morphing a channel because the specialist runtime updates state, data, layout, surfaces, provenance, and next actions together.",
+    "When manually composing a generated view, call apply_channel_update. Generated surfaces replace by default; append only when the user asks to keep multiple.",
     "Use apply_dashboard_chart, apply_dashboard_mutation, and apply_dashboard_edit only as legacy helpers when a narrow compatibility action is enough.",
-    "Generated charts and components should replace the target generated surface by default; append only when the user explicitly asks to keep multiple.",
-    "For primary charts, prefer surface=stageOverlay so the chart renders as a clean stage surface over the dashboard graphic.",
-    "Use dataRequests in apply_channel_update to document what you queried or intended to query, but do not invent unsupported data.",
-    "Every generated chart or insight must include provenance and a data binding; unavailable provider states must be explicit and retryable.",
+    "For write tools or visible dashboard changes, summarize the intended change before the tool call. If the request is destructive, clears state, or may surprise the user, ask for confirmation first.",
+    "Only say an action completed after the tool call succeeds. If a tool fails, explain briefly without raw errors and offer retry or a narrower next step.",
+
+    "# Handling Silence and Background Audio",
+    "If the latest audio is silence, background noise, hold music, TV audio, side conversation, or speech not addressed to you, call wait_for_user.",
+    "After calling wait_for_user, do not respond conversationally.",
+    "Do not say \"I'm here,\" \"I didn't catch that,\" \"Take your time,\" or \"Let me know when you're ready\" for silence or background audio.",
+
+    "# Unclear Audio",
+    "Only act on clear audio or text.",
+    "If the user's audio is ambiguous, noisy, cut off, or unintelligible, ask a short clarification question.",
+    "Do not guess missing words, call tools, capture entities, or generate a preamble when the audio is unclear.",
+
+    "# Entity Capture",
+    "Treat market symbols, dashboard IDs, emails, account-like IDs, tickers, station IDs, and confirmation codes as high-precision values.",
+    "Normalize only when the field type is clear. Confirm ambiguous or high-impact identifiers before lookup or write actions.",
+    "For numeric or spelled identifiers, read back the normalized value before tool calls when an incorrect value could change the result.",
+
+    "# Channel Runtime",
+    "Every generated chart or insight must include provenance and a data binding. If public data is not available, label it Data unavailable instead of inventing live facts.",
     "Think like a fast channel composer, not an arbitrary code writer: choose capabilities, layouts, surfaces, components, copy, chart bindings, and theme tokens.",
-    "When the user asks to write arbitrary source code outside the safe dashboard override schema, explain that you can draft it but cannot apply arbitrary files from voice yet.",
-    `Current channel context:\n${JSON.stringify(context, null, 2)}`,
-    `Available dashboards:\n${panelCatalog}`,
+    "When the user asks for arbitrary source-code edits outside the safe dashboard override schema, explain that you can draft the change but cannot apply arbitrary files from voice yet.",
+
+    "# Long Context Behavior",
+    "Use the active channel context as the source of truth. If dashboard state changes, respect the latest session update over earlier context.",
+    "Keep continuity across turns by using channel session state, depth stack, recent generated surfaces, and provenance.",
+
+    `# Active Channel Context\n${JSON.stringify(context, null, 2)}`,
+    `# Available Dashboards\n${panelCatalog}`,
   ].join("\n\n");
 }
 
@@ -2645,10 +2759,11 @@ function realtimeSessionConfig(dashboardId) {
   return {
     type: "realtime",
     model: OPENAI_REALTIME_MODEL,
+    output_modalities: ["audio"],
+    reasoning: { effort: OPENAI_REALTIME_REASONING_EFFORT },
     instructions: realtimeInstructions(dashboardId),
     audio: {
       input: {
-        format: { type: "audio/pcm", rate: 24000 },
         transcription: { model: OPENAI_REALTIME_TRANSCRIBE_MODEL },
         turn_detection: null,
       },
@@ -2961,6 +3076,962 @@ function appendSearch(url, search) {
   return `${url}${url.includes("?") ? "&" : "?"}${search.slice(1)}`;
 }
 
+const DECK_GENERATION_PRIMITIVES = [
+  "generativeBrief",
+  "shift",
+  "channelObject",
+  "agentMesh",
+  "mutableSurface",
+  "dashboardSurface",
+  "turnFlow",
+  "liveExample",
+  "discoveryMap",
+  "generationFirehose",
+  "actionLayer",
+  "team",
+  "ask",
+  "containerShift",
+  "equation",
+  "agentStack",
+  "mutationLoop",
+  "surfaceMap",
+  "runtimeLoop",
+  "eventTrace",
+];
+const DECK_GENERATION_ACCENTS = new Set(["red", "green", "blue", "amber"]);
+const DECK_GENERATION_COPY_CLASSES = new Set(["minimal", "minimal end", "minimal cold-open", "compact", "teaching", "end"]);
+const DECK_GENERATION_STRATEGIES = new Set([
+  "problemChain",
+  "objectModel",
+  "runtimeLoop",
+  "wedgeLoop",
+  "moatMap",
+  "proofTurn",
+  "categoryDesign",
+  "teamCredibility",
+  "askClose",
+]);
+const DECK_GENERATION_COMPOSITIONS = new Set([
+  "splitCards",
+  "chain",
+  "orbit",
+  "stack",
+  "timeline",
+  "matrix",
+  "constellation",
+  "terminal",
+]);
+const DECK_CONTEXT_CACHE_MS = Number(process.env.DECK_CONTEXT_CACHE_MS || 30000);
+let deckContextCache = { key: "", expiresAt: 0, value: "" };
+const deckGenerationHistory = [];
+
+function listRelativeFiles(root, options = {}) {
+  const skipDirs = new Set(options.skipDirs || [".git", "node_modules", "data", ".vercel", ".next", "dist"]);
+  const skipExt = new Set(options.skipExt || [".mp3", ".mp4", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".pdf"]);
+  const results = [];
+
+  function walk(dir) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (_) {
+      return;
+    }
+
+    entries
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((entry) => {
+        if (skipDirs.has(entry.name)) return;
+        const full = path.join(dir, entry.name);
+        const relative = path.relative(root, full);
+        if (entry.isDirectory()) {
+          walk(full);
+          return;
+        }
+        if (!entry.isFile()) return;
+        if (skipExt.has(path.extname(entry.name).toLowerCase())) return;
+        results.push(relative);
+      });
+  }
+
+  walk(root);
+  return results;
+}
+
+function safeReadText(file, maxChars = 6000) {
+  try {
+    const text = fs.readFileSync(file, "utf8").replace(/\r/g, "");
+    return text.length > maxChars ? `${text.slice(0, maxChars)}\n[truncated ${text.length - maxChars} chars]` : text;
+  } catch (_) {
+    return "";
+  }
+}
+
+function markdownBrief(file, maxChars = 4200) {
+  const raw = safeReadText(file, 80000);
+  if (!raw) return "";
+  const relative = path.relative(__dirname, file);
+  const lines = raw.split("\n");
+  const title = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, "").trim() || relative;
+  const headings = lines
+    .filter((line) => /^#{1,3}\s+/.test(line))
+    .map((line) => line.replace(/^#{1,3}\s+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 28);
+  const signals = lines
+    .filter((line) =>
+      /\b(goal|accept|success|must|should|scope|runtime|generated|channel|deck|investor|demo|pitch|state|surface|realtime)\b/i.test(line)
+    )
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 34);
+  const excerpt = raw.replace(/\n{3,}/g, "\n\n").slice(0, Math.max(900, maxChars - 1400));
+  return [
+    `FILE: ${relative}`,
+    `TITLE: ${title}`,
+    headings.length ? `HEADINGS: ${headings.join(" | ")}` : "",
+    signals.length ? `SIGNALS:\n- ${signals.join("\n- ")}` : "",
+    `EXCERPT:\n${excerpt}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function deckContextFiles() {
+  const docsDir = path.join(__dirname, "docs");
+  const planDir = path.join(docsDir, "plans");
+  const docs = [
+    KATECHON_COMPANY_CONTEXT_FILE,
+    path.join(__dirname, "README.md"),
+    path.join(__dirname, "REFACTOR.md"),
+    path.join(docsDir, "channel-apis.md"),
+    path.join(docsDir, "issues", "audio-slowdown.md"),
+  ];
+
+  if (fs.existsSync(planDir)) {
+    fs.readdirSync(planDir)
+      .filter((name) => name.endsWith(".md"))
+      .sort()
+      .forEach((name) => docs.push(path.join(planDir, name)));
+  }
+
+  return docs.filter((file) => fs.existsSync(file));
+}
+
+function openSlideContextFiles() {
+  return [
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, "AGENTS.md"),
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, "open-slide.config.ts"),
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, ".agents", "skills", "slide-authoring", "SKILL.md"),
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, "themes", "katechon-generative.md"),
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, "examples", "katechon-background-template.tsx"),
+    path.join(OPEN_SLIDE_WORKSPACE_DIR, "examples", "live-generated-slide.example.tsx"),
+    OPEN_SLIDE_GENERATED_SLIDE_FILE,
+  ].filter((file) => fs.existsSync(file));
+}
+
+function buildDeckGenerationContext() {
+  const docs = deckContextFiles();
+  const openSlideFiles = openSlideContextFiles();
+  const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
+  const filesForKey = [...docs, ...openSlideFiles, deckFile, path.join(DUNE_DECK_DIR, "app.js"), path.join(__dirname, "server.js")].filter((file) =>
+    fs.existsSync(file)
+  );
+  const key = filesForKey
+    .map((file) => {
+      const stat = fs.statSync(file);
+      return `${file}:${stat.size}:${Math.floor(stat.mtimeMs)}`;
+    })
+    .join("|");
+  const now = Date.now();
+  if (deckContextCache.key === key && deckContextCache.expiresAt > now) return deckContextCache.value;
+
+  const repoFiles = listRelativeFiles(__dirname).slice(0, 360).join("\n");
+  const deckJson = safeReadText(deckFile, 12000);
+  const companyContext = safeReadText(KATECHON_COMPANY_CONTEXT_FILE, 16000);
+  const openSlideContext = openSlideFiles
+    .map((file) => `FILE: ${path.relative(__dirname, file)}\n${safeReadText(file, file.endsWith("SKILL.md") ? 9000 : 7000)}`)
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+  const docBriefs = docs
+    .filter((file) => file !== KATECHON_COMPANY_CONTEXT_FILE)
+    .map((file) => markdownBrief(file, file.includes(`${path.sep}viral-market-channels-goal.md`) ? 6200 : 4200))
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+
+  const value = [
+    "REPO FILE MAP (non-binary, trimmed):",
+    repoFiles,
+    "",
+    "CURRENT DUNE DECK JSON:",
+    deckJson,
+    "",
+    "AUTHORITATIVE KATECHON COMPANY CONTEXT:",
+    companyContext,
+    "",
+    "OPEN SLIDE FRAMEWORK, THEME, EXAMPLES, AND GENERATED TARGET:",
+    openSlideContext,
+    "",
+    "AVAILABLE DECK PRIMITIVES:",
+    DECK_GENERATION_PRIMITIVES.join(", "),
+    "",
+    "GOAL, PLANNING, AND REPO DOC BRIEFS:",
+    docBriefs,
+  ].join("\n");
+
+  deckContextCache = { key, expiresAt: now + DECK_CONTEXT_CACHE_MS, value };
+  return value;
+}
+
+function deckSlideSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      slide: {
+        type: "object",
+        additionalProperties: true,
+        properties: {
+          slug: { type: "string" },
+          accent: { type: "string" },
+          layout: { type: "string" },
+          eyebrow: { type: "string" },
+          headline: { type: "string" },
+          line: { type: "string" },
+          copyClass: { type: "string" },
+          narration: { type: "string" },
+          strategy: { type: "string" },
+          composition: { type: "string" },
+          stateRail: { type: "array", items: { type: "string" }, maxItems: 4 },
+          primitive: { type: "object", additionalProperties: true },
+        },
+      },
+    },
+    required: ["slide"],
+  };
+}
+
+function extractOpenAIText(data) {
+  if (typeof data?.output_text === "string") return data.output_text;
+  const chunks = [];
+  (data?.output || []).forEach((item) => {
+    (item.content || []).forEach((part) => {
+      if (typeof part.text === "string") chunks.push(part.text);
+    });
+  });
+  return chunks.join("\n").trim();
+}
+
+function parseJsonObject(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) throw new Error("model returned an empty response");
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) {
+    const match = trimmed.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("model did not return JSON");
+    return JSON.parse(match[0]);
+  }
+}
+
+function sanitizeTextList(value, maxItems = 6, maxChars = 40) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => clampText(item, maxChars)).filter(Boolean).slice(0, maxItems);
+}
+
+function sanitizeDeckCards(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => item && typeof item === "object")
+    .map((item) => ({
+      label: clampText(item.label, 34),
+      value: clampText(item.value || item.title || item.body, 76),
+      note: clampText(item.note || item.caption, 110),
+    }))
+    .filter((item) => item.label || item.value || item.note)
+    .slice(0, 4);
+}
+
+function inferDeckStrategy(slide, prompt) {
+  const text = `${prompt || ""} ${slide?.headline || ""} ${slide?.line || ""}`.toLowerCase();
+  const primitiveType = slide?.primitive?.type || "";
+  if (/problem|broken|pain|why.*fail|loss|flatten/.test(text)) return "problemChain";
+  if (/what is|define|channel|object|product|architecture/.test(text) || ["channelObject", "agentMesh", "agentStack", "surfaceMap"].includes(primitiveType)) return "objectModel";
+  if (/runtime|loop|flow|process|how it works|state transition/.test(text) || ["turnFlow", "runtimeLoop", "mutationLoop"].includes(primitiveType)) return "runtimeLoop";
+  if (/go.?to.?market|wedge|viral|share|fork|launch|market/.test(text) || primitiveType === "actionLayer") return "wedgeLoop";
+  if (/moat|defensib|advantage|network|graph/.test(text) || primitiveType === "discoveryMap") return "moatMap";
+  if (/demo|proof|example|watch|btc|poly|meme/.test(text) || primitiveType === "liveExample") return "proofTurn";
+  if (/team|founder|background|credibility/.test(text) || primitiveType === "team") return "teamCredibility";
+  if (/ask|raise|invest|closing|remember/.test(text) || primitiveType === "ask") return "askClose";
+  return "categoryDesign";
+}
+
+function compositionForStrategy(strategy, primitiveType = "", requested = "") {
+  if (DECK_GENERATION_COMPOSITIONS.has(requested)) return requested;
+  if (primitiveType === "generationFirehose" || strategy === "proofTurn") return "terminal";
+  if (primitiveType === "channelObject" || primitiveType === "agentMesh" || strategy === "objectModel") return "orbit";
+  if (primitiveType === "turnFlow" || primitiveType === "runtimeLoop" || strategy === "runtimeLoop") return "timeline";
+  if (primitiveType === "surfaceMap" || primitiveType === "dashboardSurface" || strategy === "moatMap") return "matrix";
+  if (primitiveType === "actionLayer" || primitiveType === "discoveryMap" || strategy === "wedgeLoop") return "constellation";
+  if (primitiveType === "containerShift" || primitiveType === "shift" || strategy === "problemChain") return "chain";
+  if (primitiveType === "agentStack" || primitiveType === "mutationLoop") return "stack";
+  return "splitCards";
+}
+
+function sanitizeDeckPrimitive(raw, prompt) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const type = DECK_GENERATION_PRIMITIVES.includes(source.type) ? source.type : "generativeBrief";
+  const primitive = { type };
+
+  if (type === "generativeBrief") {
+    primitive.thesis = clampText(source.thesis || source.title || source.center || "Generated live", 82);
+    primitive.cards = sanitizeDeckCards(source.cards || source.items || source.rows);
+    primitive.trail = sanitizeTextList(source.trail || source.actions || source.steps || source.signals, 5, 28);
+    if (!primitive.cards.length) {
+      primitive.cards = [
+        { label: "Input", value: clampText(prompt, 58), note: "Typed live into the deck." },
+        { label: "Runtime", value: "Model composes slide state", note: "The renderer mounts validated primitives." },
+        { label: "Surface", value: "Narrated investor artifact", note: "Copy, visual, and talk track arrive together." },
+      ];
+    }
+    return primitive;
+  }
+
+  if (type === "shift") primitive.labels = sanitizeTextList(source.labels, 3, 18);
+  if (type === "channelObject" || type === "discoveryMap") {
+    primitive.center = clampText(source.center || "CHANNEL", 24);
+    primitive.nodes = sanitizeTextList(source.nodes, 6, 26);
+    primitive.actions = sanitizeTextList(source.actions, 5, 22);
+  }
+  if (type === "agentMesh") {
+    primitive.center = clampText(source.center || "KAT", 18);
+    primitive.agents = sanitizeTextList(source.agents, 6, 22);
+  }
+  if (type === "mutableSurface") {
+    primitive.command = clampText(source.command || "ASK", 24);
+    primitive.states = sanitizeTextList(source.states, 4, 24);
+  }
+  if (type === "dashboardSurface") primitive.zones = sanitizeTextList(source.zones, 4, 24);
+  if (type === "turnFlow") primitive.steps = sanitizeTextList(source.steps, 5, 24);
+  if (type === "liveExample") {
+    primitive.command = clampText(source.command || prompt, 24);
+    primitive.signals = sanitizeTextList(source.signals, 4, 18);
+  }
+  if (type === "generationFirehose") {
+    primitive.tokens = sanitizeTextList(source.tokens, 10, 8);
+    primitive.captures = sanitizeTextList(source.captures, 5, 18);
+  }
+  if (type === "actionLayer") {
+    primitive.surface = clampText(source.surface || "CHANNEL", 24);
+    primitive.actions = sanitizeTextList(source.actions, 6, 14);
+  }
+  if (type === "team") primitive.credentials = sanitizeDeckCards(source.credentials || source.cards).map((card) => ({
+    tag: card.label,
+    name: card.value,
+    note: card.note,
+  }));
+  if (type === "ask") {
+    primitive.stage = clampText(source.stage || "Seed", 24);
+    primitive.tagline = clampText(source.tagline || source.thesis, 80);
+    primitive.contact = clampText(source.contact || "katechon.technology", 48);
+  }
+  if (type === "containerShift") primitive.items = sanitizeDeckCards(source.items);
+  if (type === "equation") {
+    primitive.terms = sanitizeTextList(source.terms, 5, 18);
+    primitive.output = clampText(source.output, 52);
+    primitive.caption = clampText(source.caption, 92);
+  }
+  if (type === "agentStack") {
+    primitive.kat = clampText(source.kat || "Kat", 20);
+    primitive.router = clampText(source.router || "agent router", 32);
+    primitive.agents = sanitizeTextList(source.agents, 6, 18);
+  }
+  if (type === "mutationLoop") {
+    primitive.source = clampText(source.source || "intent", 32);
+    primitive.steps = sanitizeTextList(source.steps, 5, 20);
+  }
+  if (type === "surfaceMap") primitive.areas = sanitizeDeckCards(source.areas || source.cards).map((card) => ({
+    label: card.label,
+    body: card.value || card.note,
+  }));
+  if (type === "runtimeLoop") primitive.steps = sanitizeTextList(source.steps, 7, 18);
+  if (type === "eventTrace") primitive.rows = sanitizeDeckCards(source.rows || source.cards).map((card) => ({
+    event: card.label,
+    value: card.value || card.note,
+  }));
+
+  return primitive;
+}
+
+function sanitizeGeneratedDeckSlide(raw, prompt, slideIndex) {
+  const slide = raw?.slide && typeof raw.slide === "object" ? raw.slide : raw;
+  if (!slide || typeof slide !== "object") throw new Error("generated slide payload is invalid");
+  const headline = clampText(slide.headline || "Realtime slide generated", 72);
+  const line = clampText(slide.line || slide.subtitle || "", 190);
+  const eyebrow = clampText(slide.eyebrow || "Realtime generation", 38);
+  const accent = DECK_GENERATION_ACCENTS.has(slide.accent) ? slide.accent : "green";
+  const copyClass = DECK_GENERATION_COPY_CLASSES.has(slide.copyClass) ? slide.copyClass : "minimal";
+  const stateRail = sanitizeTextList(slide.stateRail, 4, 28);
+  const strategy = DECK_GENERATION_STRATEGIES.has(slide.strategy) ? slide.strategy : inferDeckStrategy(slide, prompt);
+  const primitive = sanitizeDeckPrimitive(slide.primitive, prompt);
+  const composition = compositionForStrategy(strategy, primitive.type, slide.composition);
+  const slugBase = clampText(slide.slug || `generated-${slideIndex + 1}-${Date.now().toString(36)}`, 80)
+    .toLowerCase()
+    .replace(/[^\w-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return {
+    slug: slugBase || `generated-${slideIndex + 1}`,
+    accent,
+    layout: "",
+    eyebrow,
+    headline,
+    line,
+    copyClass,
+    narration: clampText(slide.narration || `${headline}. ${line}`, 430),
+    strategy,
+    composition,
+    primitive,
+    stateRail,
+    generated: true,
+  };
+}
+
+function openSlideCardsFromSlide(slide) {
+  const primitive = slide.primitive && typeof slide.primitive === "object" ? slide.primitive : {};
+  const candidates = [];
+
+  if (Array.isArray(primitive.cards)) candidates.push(...primitive.cards);
+  if (Array.isArray(primitive.credentials)) {
+    candidates.push(...primitive.credentials.map((item) => ({ label: item.tag, value: item.name, note: item.note })));
+  }
+  if (Array.isArray(primitive.areas)) candidates.push(...primitive.areas.map((item) => ({ label: item.label, value: item.body })));
+  if (Array.isArray(primitive.rows)) candidates.push(...primitive.rows.map((item) => ({ label: item.event, value: item.value })));
+  if (Array.isArray(primitive.items)) candidates.push(...primitive.items);
+
+  const list = sanitizeDeckCards(candidates);
+  if (list.length) return list;
+
+  const steps = primitive.steps || primitive.actions || primitive.nodes || primitive.agents || slide.stateRail;
+  if (Array.isArray(steps) && steps.length) {
+    return steps.slice(0, 4).map((value, index) => ({
+      label: `Step ${index + 1}`,
+      value: clampText(value, 64),
+      note: index === 0 ? "Generated from the live prompt." : "Part of the generated state.",
+    }));
+  }
+
+  return [
+    { label: "Prompt", value: clampText(slide.eyebrow || "Live input", 54), note: "User intent routed into the deck." },
+    { label: "Thesis", value: clampText(slide.headline || "Generated slide", 64), note: clampText(slide.line || "Composed from Katechon context.", 92) },
+    { label: "Artifact", value: "Open Slide page", note: "The slide also materializes as React code." },
+  ];
+}
+
+function openSlideTrailFromSlide(slide) {
+  const primitive = slide.primitive && typeof slide.primitive === "object" ? slide.primitive : {};
+  const trail = primitive.trail || primitive.steps || slide.stateRail;
+  const labels = sanitizeTextList(trail, 5, 24);
+  return labels.length ? labels : ["repo context", "schema validated", "Open Slide page"];
+}
+
+function openSlideNodesFromSlide(slide) {
+  const primitive = slide.primitive && typeof slide.primitive === "object" ? slide.primitive : {};
+  const raw = primitive.nodes || primitive.agents || primitive.actions || primitive.steps || primitive.states || primitive.terms || primitive.trail || slide.stateRail;
+  const nodes = sanitizeTextList(raw, 8, 24);
+  if (nodes.length >= 3) return nodes;
+  return ["feed", "agent", "state", "surface", "memory", "share"];
+}
+
+function openSlideTelemetryFromSlide(slide) {
+  const base = ["repo", "context", "schema", "react", "mount"];
+  const rail = Array.isArray(slide.stateRail) ? slide.stateRail : [];
+  return sanitizeTextList([...rail, ...base], 8, 18);
+}
+
+function recordDeckGeneration(prompt, slide) {
+  deckGenerationHistory.unshift({
+    prompt: clampText(prompt, 120),
+    headline: clampText(slide.headline, 90),
+    strategy: slide.strategy,
+    composition: slide.composition,
+    primitive: slide.primitive?.type || "",
+    accent: slide.accent,
+    at: new Date().toISOString(),
+  });
+  deckGenerationHistory.splice(6);
+}
+
+function deckGenerationHistoryContext(currentSlide) {
+  const current = currentSlide && typeof currentSlide === "object"
+    ? {
+        headline: clampText(currentSlide.headline, 90),
+        strategy: currentSlide.strategy || "",
+        composition: currentSlide.composition || "",
+        primitive: currentSlide.primitive?.type || "",
+        accent: currentSlide.accent || "",
+      }
+    : null;
+  return JSON.stringify({ current, recent: deckGenerationHistory }, null, 2);
+}
+
+function buildOpenSlideSource(slide, prompt, slideIndex) {
+  const slideData = {
+    eyebrow: clampText(slide.eyebrow || "Generated live", 38),
+    headline: clampText(slide.headline || "Realtime slide", 72),
+    line: clampText(slide.line || "Generated from the live investor prompt.", 190),
+    accent: DECK_GENERATION_ACCENTS.has(slide.accent) ? slide.accent : "green",
+    strategy: DECK_GENERATION_STRATEGIES.has(slide.strategy) ? slide.strategy : "categoryDesign",
+    composition: DECK_GENERATION_COMPOSITIONS.has(slide.composition) ? slide.composition : "splitCards",
+    narration: clampText(slide.narration || "", 430),
+    prompt: clampText(prompt, 220),
+    slideNumber: slideIndex + 1,
+    generatedAt: new Date().toISOString(),
+    cards: openSlideCardsFromSlide(slide),
+    nodes: openSlideNodesFromSlide(slide),
+    trail: openSlideTrailFromSlide(slide),
+    telemetry: openSlideTelemetryFromSlide(slide),
+  };
+  const accentColor = slideData.accent === "red" ? "#e04a2f" : slideData.accent === "blue" ? "#53a7ff" : slideData.accent === "amber" ? "#f3c85e" : "#31d07f";
+
+  return `import type { DesignSystem, Page, SlideMeta } from '@open-slide/core';
+
+export const design: DesignSystem = {
+  palette: { bg: '#050608', text: '#f5f2ea', accent: '${accentColor}' },
+  fonts: {
+    display: 'Arial, Helvetica, system-ui, sans-serif',
+    body: 'Arial, Helvetica, system-ui, sans-serif',
+  },
+  typeScale: { hero: 150, body: 34 },
+  radius: 8,
+};
+
+const slideData = ${JSON.stringify(slideData, null, 2)} as const;
+
+const accentColors = {
+  red: '#e04a2f',
+  green: '#31d07f',
+  blue: '#53a7ff',
+  amber: '#f3c85e',
+};
+
+const palette = {
+  panel: '#0d1110',
+  panelHi: '#141a18',
+  soft: '#b8b0a4',
+  muted: '#716b63',
+  line: 'rgba(245,242,234,0.14)',
+};
+
+const fill = {
+  width: '100%',
+  height: '100%',
+  position: 'relative',
+  overflow: 'hidden',
+  background: 'var(--osd-bg)',
+  color: 'var(--osd-text)',
+  fontFamily: 'var(--osd-font-body)',
+  letterSpacing: 0,
+} as const;
+
+const Background = ({ accent }: { accent: string }) => (
+  <>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background:
+          'radial-gradient(circle at 72% 18%, rgba(224,74,47,0.16), transparent 28%), radial-gradient(circle at 18% 86%, rgba(49,208,127,0.10), transparent 30%), #050608',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        backgroundImage:
+          'linear-gradient(rgba(245,242,234,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(245,242,234,0.025) 1px, transparent 1px)',
+        backgroundSize: '96px 96px',
+      }}
+    />
+    <div
+      style={{
+        position: 'absolute',
+        left: 118,
+        right: 118,
+        top: 128,
+        height: 1,
+        background: 'linear-gradient(90deg, transparent, ' + accent + ', transparent)',
+        opacity: 0.52,
+      }}
+    />
+    {[0, 1, 2, 3, 4, 5].map((index) => (
+      <span
+        key={index}
+        style={{
+          position: 'absolute',
+          left: [210, 740, 1220, 1580, 450, 1450][index],
+          top: [246, 160, 520, 742, 860, 300][index],
+          width: 10,
+          height: 10,
+          borderRadius: 99,
+          border: '1px solid rgba(245,242,234,0.26)',
+          background: index === 1 ? accent : 'rgba(224,74,47,0.42)',
+          boxShadow: '0 0 24px ' + (index === 1 ? accent : 'rgba(224,74,47,0.42)'),
+        }}
+      />
+    ))}
+  </>
+);
+
+const Eyebrow = ({ accent }: { accent: string }) => (
+  <p style={{ margin: 0, color: accent, fontFamily: 'monospace', fontSize: 24, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>
+    {slideData.eyebrow}
+  </p>
+);
+
+const Headline = ({ compact = false }: { compact?: boolean }) => (
+  <section style={{ width: compact ? 760 : 980 }}>
+    <h1 style={{ margin: '30px 0 0', fontFamily: 'var(--osd-font-display)', fontSize: compact ? 118 : 'var(--osd-size-hero)', lineHeight: compact ? 0.98 : 0.95, fontWeight: 950, letterSpacing: 0, whiteSpace: 'pre-line' }}>
+      {slideData.headline}
+    </h1>
+    <p style={{ width: compact ? 700 : 820, margin: '38px 0 0', color: palette.soft, fontSize: compact ? 32 : 38, lineHeight: 1.35, letterSpacing: 0 }}>
+      {slideData.line}
+    </p>
+  </section>
+);
+
+const Footer = () => (
+  <footer style={{ position: 'absolute', left: 132, right: 132, bottom: 72, display: 'flex', gap: 14 }}>
+    {slideData.trail.map((item) => (
+      <span key={item} style={{ border: '1px solid rgba(245,242,234,0.12)', borderRadius: 999, padding: '10px 14px', color: palette.soft, fontFamily: 'monospace', fontSize: 18, textTransform: 'uppercase', letterSpacing: 0 }}>
+        {item}
+      </span>
+    ))}
+  </footer>
+);
+
+const CardsColumn = ({ accent }: { accent: string }) => (
+  <div style={{ display: 'grid', gap: 18 }}>
+    {slideData.cards.map((card, index) => (
+      <article
+        key={card.label}
+        style={{
+          border: '1px solid rgba(245,242,234,0.13)',
+          borderLeft: '4px solid ' + (index === 0 ? '#e04a2f' : accent),
+          borderRadius: 8,
+          padding: '22px 26px',
+          background: 'rgba(13,17,16,0.72)',
+        }}
+      >
+        <p style={{ margin: 0, color: palette.muted, fontFamily: 'monospace', fontSize: 20, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>
+          {card.label}
+        </p>
+        <strong style={{ display: 'block', marginTop: 8, color: '#f5f2ea', fontSize: 34, lineHeight: 1.1, letterSpacing: 0 }}>
+          {card.value}
+        </strong>
+        <span style={{ display: 'block', marginTop: 8, color: palette.soft, fontSize: 24, lineHeight: 1.35, letterSpacing: 0 }}>
+          {card.note}
+        </span>
+      </article>
+    ))}
+  </div>
+);
+
+const ChainDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ position: 'relative', width: 720, height: 460 }}>
+    {slideData.cards.map((card, index) => (
+      <div key={card.label} style={{ position: 'absolute', left: index * 78, top: 40 + index * 76, width: 390, padding: 24, border: '1px solid rgba(245,242,234,0.14)', borderRadius: 8, background: index === slideData.cards.length - 1 ? 'rgba(49,208,127,0.10)' : 'rgba(13,17,16,0.82)' }}>
+        <span style={{ color: index === slideData.cards.length - 1 ? accent : palette.muted, fontFamily: 'monospace', fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>{card.label}</span>
+        <strong style={{ display: 'block', marginTop: 10, fontSize: 32, lineHeight: 1.08, letterSpacing: 0 }}>{card.value}</strong>
+      </div>
+    ))}
+    {[0, 1, 2].map((index) => (
+      <span key={index} style={{ position: 'absolute', left: 370 + index * 78, top: 122 + index * 76, width: 120, height: 1, background: accent, transform: 'rotate(32deg)', opacity: 0.62 }} />
+    ))}
+  </div>
+);
+
+const OrbitDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ position: 'relative', width: 660, height: 590 }}>
+    <div style={{ position: 'absolute', left: 185, top: 160, width: 290, height: 290, borderRadius: 999, border: '1px solid rgba(245,242,234,0.18)', display: 'grid', placeItems: 'center', color: '#f5f2ea', fontSize: 42, fontWeight: 900, background: 'rgba(13,17,16,0.76)', boxShadow: '0 0 60px rgba(0,0,0,0.45)' }}>
+      CHANNEL
+    </div>
+    {slideData.nodes.slice(0, 6).map((node, index) => {
+      const points = [[300, 30], [520, 118], [534, 386], [300, 510], [76, 386], [70, 118]][index] || [300, 30];
+      return (
+        <div key={node} style={{ position: 'absolute', left: points[0], top: points[1], transform: 'translate(-50%, -50%)', minWidth: 132, padding: '14px 18px', border: '1px solid rgba(245,242,234,0.16)', borderRadius: 999, color: index === 0 ? accent : palette.soft, background: 'rgba(5,6,8,0.88)', textAlign: 'center', fontFamily: 'monospace', fontSize: 19, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>
+          {node}
+        </div>
+      );
+    })}
+  </div>
+);
+
+const TimelineDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ width: 720, display: 'grid', gap: 18 }}>
+    {slideData.nodes.slice(0, 6).map((node, index) => (
+      <div key={node} style={{ display: 'grid', gridTemplateColumns: '72px 1fr', alignItems: 'center', gap: 18 }}>
+        <span style={{ width: 56, height: 56, borderRadius: 99, display: 'grid', placeItems: 'center', color: index === 0 ? '#050608' : accent, background: index === 0 ? accent : 'transparent', border: '1px solid ' + accent, fontFamily: 'monospace', fontSize: 19, fontWeight: 900 }}>{String(index + 1).padStart(2, '0')}</span>
+        <div style={{ border: '1px solid rgba(245,242,234,0.13)', borderRadius: 8, padding: '18px 22px', color: '#f5f2ea', background: 'rgba(13,17,16,0.72)', fontSize: 34, fontWeight: 850, letterSpacing: 0 }}>{node}</div>
+      </div>
+    ))}
+  </div>
+);
+
+const MatrixDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ width: 720, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+    {slideData.cards.map((card, index) => (
+      <article key={card.label} style={{ minHeight: 174, padding: 24, border: '1px solid rgba(245,242,234,0.13)', borderTop: '4px solid ' + (index === 0 ? accent : 'rgba(245,242,234,0.18)'), borderRadius: 8, background: 'rgba(13,17,16,0.72)' }}>
+        <p style={{ margin: 0, color: index === 0 ? accent : palette.muted, fontFamily: 'monospace', fontSize: 18, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>{card.label}</p>
+        <strong style={{ display: 'block', marginTop: 18, fontSize: 32, lineHeight: 1.08, letterSpacing: 0 }}>{card.value}</strong>
+        <span style={{ display: 'block', marginTop: 12, color: palette.soft, fontSize: 22, lineHeight: 1.35, letterSpacing: 0 }}>{card.note}</span>
+      </article>
+    ))}
+  </div>
+);
+
+const ConstellationDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ position: 'relative', width: 720, height: 560 }}>
+    <div style={{ position: 'absolute', left: 260, top: 206, width: 200, height: 200, borderRadius: 999, display: 'grid', placeItems: 'center', border: '1px solid rgba(245,242,234,0.18)', color: accent, fontSize: 34, fontWeight: 900, background: 'rgba(13,17,16,0.82)' }}>STATE</div>
+    {slideData.nodes.slice(0, 7).map((node, index) => {
+      const points = [[120, 70], [520, 62], [630, 250], [500, 470], [144, 460], [55, 260], [360, 28]][index] || [120, 70];
+      return (
+        <div key={node} style={{ position: 'absolute', left: points[0], top: points[1], width: 142, minHeight: 58, padding: '14px 16px', border: '1px solid rgba(245,242,234,0.14)', borderRadius: 8, color: palette.soft, background: 'rgba(5,6,8,0.86)', fontFamily: 'monospace', fontSize: 17, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0 }}>{node}</div>
+      );
+    })}
+  </div>
+);
+
+const TerminalDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ width: 720, border: '1px solid rgba(245,242,234,0.14)', borderRadius: 8, background: 'rgba(5,6,8,0.9)', overflow: 'hidden' }}>
+    <div style={{ height: 54, display: 'flex', alignItems: 'center', gap: 10, padding: '0 22px', borderBottom: '1px solid rgba(245,242,234,0.10)' }}>
+      {[0, 1, 2].map((i) => <span key={i} style={{ width: 13, height: 13, borderRadius: 99, background: ['#e04a2f', '#f3c85e', '#31d07f'][i] }} />)}
+      <span style={{ marginLeft: 12, color: palette.muted, fontFamily: 'monospace', fontSize: 16, letterSpacing: 0 }}>open-slide/live-generated</span>
+    </div>
+    <div style={{ padding: '26px 28px 30px', display: 'grid', gap: 16, fontFamily: 'monospace', fontSize: 24, lineHeight: 1.35, letterSpacing: 0 }}>
+      {slideData.telemetry.slice(0, 7).map((item, index) => (
+        <div key={item + index} style={{ color: index === slideData.telemetry.length - 1 ? accent : palette.soft }}>
+          <span style={{ color: palette.muted }}>$ </span>{item}
+        </div>
+      ))}
+      <div style={{ color: accent }}>$ mount state --validated</div>
+    </div>
+  </div>
+);
+
+const StackDiagram = ({ accent }: { accent: string }) => (
+  <div style={{ width: 700, display: 'grid', gap: 0 }}>
+    {slideData.nodes.slice(0, 6).map((node, index) => (
+      <div key={node} style={{ marginLeft: index * 34, marginTop: index ? -10 : 0, width: 520, padding: '22px 26px', border: '1px solid rgba(245,242,234,0.14)', borderRadius: 8, background: index === 0 ? 'rgba(49,208,127,0.11)' : 'rgba(13,17,16,0.76)', color: index === 0 ? accent : '#f5f2ea', fontSize: 34, fontWeight: 850, letterSpacing: 0 }}>
+        {node}
+      </div>
+    ))}
+  </div>
+);
+
+const Visual = ({ accent }: { accent: string }) => {
+  if (slideData.composition === 'chain') return <ChainDiagram accent={accent} />;
+  if (slideData.composition === 'orbit') return <OrbitDiagram accent={accent} />;
+  if (slideData.composition === 'timeline') return <TimelineDiagram accent={accent} />;
+  if (slideData.composition === 'matrix') return <MatrixDiagram accent={accent} />;
+  if (slideData.composition === 'constellation') return <ConstellationDiagram accent={accent} />;
+  if (slideData.composition === 'terminal') return <TerminalDiagram accent={accent} />;
+  if (slideData.composition === 'stack') return <StackDiagram accent={accent} />;
+  return <CardsColumn accent={accent} />;
+};
+
+const LiveGenerated: Page = () => {
+  const accent = accentColors[slideData.accent as keyof typeof accentColors] || accentColors.green;
+  const isStatement = slideData.composition === 'terminal' || slideData.composition === 'chain';
+
+  return (
+    <div style={fill}>
+      <Background accent={accent} />
+      <section style={{ position: 'absolute', left: 132, top: isStatement ? 150 : 142 }}>
+        <Eyebrow accent={accent} />
+        <Headline compact={!isStatement && slideData.composition !== 'splitCards'} />
+      </section>
+      <section style={{ position: 'absolute', right: 118, bottom: isStatement ? 142 : 128, width: slideData.composition === 'splitCards' ? 610 : 760 }}>
+        <Visual accent={accent} />
+      </section>
+      <Footer />
+    </div>
+  );
+};
+
+export const meta: SlideMeta = {
+  title: slideData.headline.replace(/\\s+/g, ' ').slice(0, 80),
+  theme: 'dark',
+};
+
+export const notes: Record<number, string> = {
+  0: slideData.narration,
+};
+
+export default [LiveGenerated] satisfies Page[];
+`;
+}
+
+function chunkText(text, size = 900) {
+  const chunks = [];
+  for (let index = 0; index < text.length; index += size) chunks.push(text.slice(index, index + size));
+  return chunks;
+}
+
+function attachOpenSlideArtifact(slide, prompt, slideIndex) {
+  const source = buildOpenSlideSource(slide, prompt, slideIndex);
+  const relativePath = path.relative(__dirname, OPEN_SLIDE_GENERATED_SLIDE_FILE);
+  let written = false;
+  if (OPEN_SLIDE_WRITE_GENERATED) {
+    fs.mkdirSync(OPEN_SLIDE_GENERATED_SLIDE_DIR, { recursive: true });
+    fs.writeFileSync(OPEN_SLIDE_GENERATED_SLIDE_FILE, source);
+    written = true;
+  }
+  slide.openSlide = {
+    framework: "open-slide",
+    workspace: path.relative(__dirname, OPEN_SLIDE_WORKSPACE_DIR),
+    deckId: OPEN_SLIDE_GENERATED_SLIDE_ID,
+    path: relativePath,
+    written,
+    source,
+  };
+  return slide.openSlide;
+}
+
+function deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, slideCount, options = {}) {
+  if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+  const repoContext = buildDeckGenerationContext();
+  const recentGenerationContext = deckGenerationHistoryContext(currentSlide);
+  const instructions = [
+    "# Role",
+    "You are Katechon's realtime investor-slide composer. The user is demoing that slides are generated live from a prompt, repo context, company memory, and Open Slide rules.",
+    "",
+    "# Task",
+    "Generate exactly one complete slide from scratch for the user's live prompt. The preset deck has been removed; do not imitate a fixed sequence. The slide will render immediately in the browser and materialize as an Open Slide React page.",
+    "",
+    "# Quality Bar",
+    "The slide must be investor-grade: specific, high-signal, sharp, and truthful. It should feel authored for this exact prompt, not like a generic template. Do not invent traction, revenue, customer names, valuations, live market data, signed deals, or regulated execution.",
+    "",
+    "# Variation Contract",
+    "You must choose a strategy and composition deliberately. Do not reuse the current/recent strategy, composition, primitive, or accent unless the user's prompt clearly demands it.",
+    "Available strategies: problemChain, objectModel, runtimeLoop, wedgeLoop, moatMap, proofTurn, categoryDesign, teamCredibility, askClose.",
+    "Available compositions: chain, orbit, timeline, matrix, constellation, terminal, stack, splitCards.",
+    "Use chain for failures and before/after logic; orbit for object definitions; timeline for runtime/process; constellation for networks/distribution/actions; matrix for moats/comparisons; terminal for live proof/code/provenance; stack for layers; splitCards only when none of the stronger compositions fits.",
+    "",
+    "# Primitive Contract",
+    "Use the deck primitive as a prebuilt browser visual, but vary it with the chosen strategy. Good pairings: problemChain -> containerShift|shift|generativeBrief, objectModel -> channelObject|agentMesh|agentStack, runtimeLoop -> turnFlow|runtimeLoop|mutationLoop, wedgeLoop -> actionLayer|discoveryMap, moatMap -> surfaceMap|discoveryMap|dashboardSurface, proofTurn -> liveExample|generationFirehose|eventTrace, teamCredibility -> team, askClose -> ask.",
+    "",
+    "# Copy Contract",
+    "Use one concrete headline, one support line, two to four proof points, and a narration under 55 words. Prefer the vocabulary in the company context: live software object, channel layer, generated software state, watch/command/share/fork/act, stateful surface, specialist channel agents, Kat as continuity layer, post-page internet.",
+    "",
+    "Return JSON only with a top-level slide object.",
+  ].join("\n");
+  const input = [
+    `REPO AND PLANNING CONTEXT:\n${repoContext}`,
+    `RECENT GENERATION HISTORY TO AVOID COPYING:\n${recentGenerationContext}`,
+    `ACTIVE SLIDE INDEX: ${slideIndex + 1} of ${slideCount}`,
+    `ACTIVE SLIDE BEFORE GENERATION:\n${JSON.stringify(currentSlide || {}, null, 2)}`,
+    `USER LIVE INPUT:\n${prompt}`,
+    [
+      "Return shape:",
+      "{",
+      '  "slide": {',
+      '    "slug": "short-kebab-case",',
+      '    "accent": "red|green|blue|amber",',
+      '    "strategy": "problemChain|objectModel|runtimeLoop|wedgeLoop|moatMap|proofTurn|categoryDesign|teamCredibility|askClose",',
+      '    "composition": "chain|orbit|timeline|matrix|constellation|terminal|stack|splitCards",',
+      '    "eyebrow": "2-4 words",',
+      '    "headline": "large slide title, may contain \\n",',
+      '    "line": "one sharp support sentence",',
+      '    "copyClass": "minimal",',
+      '    "narration": "spoken talk track under 55 words",',
+      '    "primitive": { "type": "turnFlow|channelObject|actionLayer|surfaceMap|generationFirehose|generativeBrief", "thesis": "...", "cards": [{"label":"...","value":"...","note":"..."}], "nodes":["..."], "steps":["..."], "actions":["..."], "trail":["..."] },',
+      '    "stateRail": ["optional", "short", "labels"]',
+      "  }",
+      "}",
+    ].join("\n"),
+  ].join("\n\n---\n\n");
+
+  const request = {
+    model: OPENAI_DECK_MODEL,
+    instructions,
+    input,
+    max_output_tokens: 1700,
+    store: false,
+    prompt_cache_key: "katechon-dune-generative-deck-v2",
+    text: {
+      verbosity: "low",
+      format: {
+        type: "json_schema",
+        name: "katechon_realtime_deck_slide",
+        strict: false,
+        schema: deckSlideSchema(),
+      },
+    },
+  };
+  if (OPENAI_DECK_REASONING_EFFORT) {
+    request.reasoning = { effort: OPENAI_DECK_REASONING_EFFORT };
+  }
+  if (options.jsonMode) {
+    request.text = {
+      verbosity: "low",
+      format: { type: "json_object" },
+    };
+    delete request.reasoning;
+  }
+  if (options.stream) request.stream = true;
+  return request;
+}
+
+async function sendOpenAIResponse(requestBody) {
+  const response = await fetch(OPENAI_RESPONSES_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+    timeout: OPENAI_DECK_TIMEOUT_MS,
+  });
+  return response;
+}
+
+async function callOpenAIForDeckSlide(prompt, currentSlide, slideIndex, slideCount) {
+  const baseRequest = deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, slideCount);
+
+  try {
+    const response = await sendOpenAIResponse(baseRequest);
+    const text = await response.text();
+    if (!response.ok) throw new Error(`OpenAI ${response.status}: ${text.slice(0, 500)}`);
+    return JSON.parse(text);
+  } catch (err) {
+    const fallbackRequest = deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, slideCount, { jsonMode: true });
+    try {
+      const response = await sendOpenAIResponse(fallbackRequest);
+      const text = await response.text();
+      if (!response.ok) throw new Error(`OpenAI ${response.status}: ${text.slice(0, 500)}`);
+      return JSON.parse(text);
+    } catch (_) {
+      throw err;
+    }
+  }
+}
+
+function parseOpenAISseBlock(block) {
+  const data = String(block || "")
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trimStart())
+    .join("\n")
+    .trim();
+  if (!data || data === "[DONE]") return null;
+  return JSON.parse(data);
+}
+
+function writeJsonLine(res, payload) {
+  res.write(`${JSON.stringify(payload)}\n`);
+}
+
 function redactLiveErrorMessage(message) {
   const text = String(message || "");
   if (/429|rate.?limit|too many requests/i.test(text)) return "Live source is rate-limited.";
@@ -2969,10 +4040,11 @@ function redactLiveErrorMessage(message) {
   return "Live source is temporarily unavailable.";
 }
 
-const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 900);
-const EIA_API_TIMEOUT_MS = Number(process.env.EIA_API_TIMEOUT_MS || Math.max(3500, LIVE_API_TIMEOUT_MS));
+const LIVE_API_TIMEOUT_MS = Number(process.env.LIVE_API_TIMEOUT_MS || 5000);
+const EIA_API_TIMEOUT_MS = Number(process.env.EIA_API_TIMEOUT_MS || Math.max(8000, LIVE_API_TIMEOUT_MS));
 const LIVE_API_TTL_MS = Number(process.env.LIVE_API_TTL_MS || 12000);
 const LIVE_API_STALE_TTL_MS = Number(process.env.LIVE_API_STALE_TTL_MS || 6 * 60 * 60 * 1000);
+const CHANNEL_HEADLINE_REFRESH_MS = Number(process.env.CHANNEL_HEADLINE_REFRESH_MS || 45000);
 const LIVE_API_CACHE = new Map();
 const LIVE_API_REFRESHING = new Map();
 const HYPERLIQUID_INTERVAL_MS = {
@@ -2990,6 +4062,38 @@ const HYPERLIQUID_INTERVAL_MS = {
 };
 const HYPERLIQUID_MAX_CANDLES = 180;
 const HYPERLIQUID_MAX_LOOKBACK_HOURS = 24 * 120;
+const LMARENA_DATASET_ID = process.env.ARENA_LMARENA_DATASET_ID || "lmarena-ai/leaderboard-dataset";
+const LMARENA_ROWS_URL = "https://datasets-server.huggingface.co/rows";
+const LMARENA_BOARD_CONFIGS = [
+  { id: "text_style_control", label: "Text", domain: "general chat", preferred: true },
+  { id: "text", label: "Text Raw", domain: "general chat" },
+  { id: "vision_style_control", label: "Vision", domain: "vision", preferred: true },
+  { id: "vision", label: "Vision Raw", domain: "vision" },
+  { id: "search_style_control", label: "Search", domain: "search", preferred: true },
+  { id: "search", label: "Search Raw", domain: "search" },
+  { id: "document_style_control", label: "Document", domain: "document", preferred: true },
+  { id: "document", label: "Document Raw", domain: "document" },
+  { id: "webdev", label: "WebDev / Code", domain: "webdev", preferred: true },
+  { id: "text_to_image", label: "Text To Image", domain: "image generation", preferred: true },
+  { id: "image_edit", label: "Image Edit", domain: "image editing", preferred: true },
+  { id: "text_to_video", label: "Text To Video", domain: "video generation", preferred: true },
+  { id: "image_to_video", label: "Image To Video", domain: "image-to-video", preferred: true },
+  { id: "video_edit", label: "Video Edit", domain: "video editing", preferred: true },
+];
+const POLYMARKET_AI_SEARCH_TERMS = [
+  "OpenAI",
+  "ChatGPT",
+  "GPT",
+  "Anthropic Claude",
+  "Google Gemini",
+  "AI model",
+  "AI benchmark",
+  "LLM",
+  "AGI",
+  "Llama",
+  "Grok",
+  "DeepSeek",
+];
 
 function readProviderCacheFile() {
   try {
@@ -3296,6 +4400,490 @@ async function getPolymarketLiveData() {
   };
 }
 
+function arenaRowsUrl(config, length = 80) {
+  const url = new URL(LMARENA_ROWS_URL);
+  url.searchParams.set("dataset", LMARENA_DATASET_ID);
+  url.searchParams.set("config", config);
+  url.searchParams.set("split", "latest");
+  url.searchParams.set("offset", "0");
+  url.searchParams.set("length", String(Math.max(1, Math.min(100, Number(length) || 80))));
+  return url.toString();
+}
+
+function normalizeArenaLeaderboardRow(row = {}, board) {
+  const modelName = clampText(row.model_name || row.model || row.name, 96);
+  if (!modelName) return null;
+  const rating = Number(row.rating);
+  const ratingLower = Number(row.rating_lower);
+  const ratingUpper = Number(row.rating_upper);
+  const rank = Number(row.rank);
+  const voteCount = Number(row.vote_count);
+  const license = clampText(row.license || "", 48) || "unknown";
+  return {
+    modelName,
+    organization: clampText(row.organization || row.creator || "", 48) || "unknown",
+    license,
+    openSource: !/proprietary/i.test(license),
+    rating: Number.isFinite(rating) ? Number(rating.toFixed(3)) : null,
+    ratingLower: Number.isFinite(ratingLower) ? Number(ratingLower.toFixed(3)) : null,
+    ratingUpper: Number.isFinite(ratingUpper) ? Number(ratingUpper.toFixed(3)) : null,
+    variance: Number.isFinite(Number(row.variance)) ? Number(Number(row.variance).toFixed(3)) : null,
+    voteCount: Number.isFinite(voteCount) ? voteCount : 0,
+    rank: Number.isFinite(rank) ? rank : 9999,
+    category: clampText(row.category || "overall", 48) || "overall",
+    publishDate: clampText(row.leaderboard_publish_date || "", 32),
+    boardId: board.id,
+    boardLabel: board.label,
+    domain: board.domain,
+    preferred: Boolean(board.preferred),
+  };
+}
+
+function arenaBoardRowsFromPayload(payload = {}, board) {
+  const rows = (Array.isArray(payload.rows) ? payload.rows : [])
+    .map((entry) => entry?.row || entry)
+    .map((row) => normalizeArenaLeaderboardRow(row, board))
+    .filter(Boolean);
+  const overall = rows.filter((row) => row.category === "overall");
+  return (overall.length ? overall : rows)
+    .sort((a, b) => a.rank - b.rank || Number(b.rating || 0) - Number(a.rating || 0));
+}
+
+async function fetchLmarenaBoard(board) {
+  const payload = await fetchLiveJson(arenaRowsUrl(board.id, process.env.ARENA_LMARENA_ROWS || 24), {
+    timeout: Math.max(45000, LIVE_API_TIMEOUT_MS),
+  });
+  const rows = arenaBoardRowsFromPayload(payload, board);
+  if (!rows.length) throw new Error(`LMArena ${board.id} returned no rows`);
+  const leaders = rows.slice(0, 12);
+  return {
+    id: board.id,
+    label: board.label,
+    domain: board.domain,
+    preferred: Boolean(board.preferred),
+    publishDate: leaders[0]?.publishDate || "",
+    modelCount: Number(payload.num_rows_total || rows.length) || rows.length,
+    visibleRows: rows.length,
+    openSourceCount: rows.filter((row) => row.openSource).length,
+    proprietaryCount: rows.filter((row) => !row.openSource).length,
+    leaders,
+    rows: rows.slice(0, 24),
+    sourceUrl: `https://huggingface.co/datasets/${LMARENA_DATASET_ID}`,
+  };
+}
+
+async function fetchLmarenaBoards() {
+  const settled = [];
+  const batchSize = clampNumber(Number(process.env.ARENA_LMARENA_CONCURRENCY || 2), 1, 8);
+  for (let index = 0; index < LMARENA_BOARD_CONFIGS.length; index += batchSize) {
+    const batch = LMARENA_BOARD_CONFIGS.slice(index, index + batchSize);
+    settled.push(...await Promise.allSettled(batch.map(fetchLmarenaBoard)));
+  }
+  return {
+    boards: settled.filter((entry) => entry.status === "fulfilled").map((entry) => entry.value),
+    failures: settled
+      .map((entry, index) => entry.status === "rejected"
+        ? { board: LMARENA_BOARD_CONFIGS[index].id, status: "unavailable", error: redactLiveErrorMessage(entry.reason?.message) }
+        : null)
+      .filter(Boolean),
+  };
+}
+
+function aiMarketText(market = {}) {
+  return normalizeAgentText([
+    market.question,
+    market.title,
+    market.eventTitle,
+    market.slug,
+    market.description,
+    market.category,
+    ...(Array.isArray(market.tags) ? market.tags.map((tag) => typeof tag === "string" ? tag : tag?.label || tag?.name || tag?.slug || "") : []),
+  ].filter(Boolean).join(" "));
+}
+
+function marketLooksAiRelated(market = {}) {
+  const text = aiMarketText(market);
+  const modelOrBenchmarkTerm = /\b(chatgpt|gpt(?:[-\s]?\d+)?|claude|gemini|deepmind|llama|xai|grok|mistral|qwen|deepseek|sora|agi|artificial intelligence|llm|benchmark|lmarena|arena|frontiermath|humanity'?s last exam|eval|exam|frontier model|model release)\b/.test(text);
+  const labTerm = /\b(openai|anthropic|google ai|deepmind|meta ai|xai|mistral|qwen|deepseek)\b/.test(text);
+  const capabilityContext = /\b(model|frontier|benchmark|score|exam|arena|agi|llm|eval|gpt|claude|gemini|llama|grok|sora)\b/.test(text);
+  return modelOrBenchmarkTerm || (labTerm && capabilityContext);
+}
+
+function inferAiMarketEntities(market = {}) {
+  const text = aiMarketText(market);
+  const labs = [];
+  const models = [];
+  const add = (list, value) => {
+    if (value && !list.includes(value)) list.push(value);
+  };
+  if (/\b(openai|chatgpt|gpt|sora)\b/.test(text)) add(labs, "OpenAI");
+  if (/\b(anthropic|claude)\b/.test(text)) add(labs, "Anthropic");
+  if (/\b(google|gemini|deepmind)\b/.test(text)) add(labs, "Google");
+  if (/\b(meta|llama)\b/.test(text)) add(labs, "Meta");
+  if (/\b(xai|grok)\b/.test(text)) add(labs, "xAI");
+  if (/\bmistral\b/.test(text)) add(labs, "Mistral");
+  if (/\bdeepseek\b/.test(text)) add(labs, "DeepSeek");
+  if (/\bqwen\b/.test(text)) add(labs, "Qwen");
+  if (/\bclaude\b/.test(text)) add(models, "Claude");
+  if (/\bgpt[-\s]?\d|chatgpt|gpt\b/.test(text)) add(models, "GPT");
+  if (/\bgemini\b/.test(text)) add(models, "Gemini");
+  if (/\bllama\b/.test(text)) add(models, "Llama");
+  if (/\bgrok\b/.test(text)) add(models, "Grok");
+  if (/\bsora\b/.test(text)) add(models, "Sora");
+  return { labs, models, entities: Array.from(new Set([...labs, ...models])) };
+}
+
+function gammaMarketsFromSearchPayload(payload = {}, sourceQuery = "") {
+  const markets = [];
+  if (Array.isArray(payload)) markets.push(...payload);
+  if (Array.isArray(payload.markets)) markets.push(...payload.markets);
+  if (Array.isArray(payload.results)) markets.push(...payload.results);
+  if (Array.isArray(payload.events)) {
+    for (const event of payload.events) {
+      for (const market of Array.isArray(event.markets) ? event.markets : []) {
+        markets.push({
+          ...market,
+          eventTitle: event.title || event.question || event.slug,
+          eventSlug: event.slug,
+          category: market.category || event.category,
+        });
+      }
+    }
+  }
+  return markets.map((market) => ({ ...market, sourceQuery }));
+}
+
+function normalizeAiPolymarketMarket(raw = {}, index = 0) {
+  const outcomes = parseMaybeJsonArray(raw.outcomes);
+  const prices = parseMaybeJsonArray(raw.outcomePrices).map(Number);
+  const yesIndex = outcomes.findIndex((outcome) => String(outcome).toLowerCase() === "yes");
+  const yesRaw = raw.yes ?? raw.lastTradePrice ?? raw.bestAsk ?? (Number.isFinite(prices[yesIndex]) ? prices[yesIndex] : prices[0]);
+  const yes = clampNumber(Number.isFinite(Number(yesRaw)) ? Number(yesRaw) : seededFloat(`ai-market:${index}`, 0.18, 0.82), 0, 1);
+  const rawTags = Array.isArray(raw.tags) ? raw.tags : parseMaybeJsonArray(raw.tags);
+  const tags = rawTags.map((tag) => typeof tag === "string" ? tag : tag?.label || tag?.name || tag?.slug || "").filter(Boolean).slice(0, 8);
+  const entities = inferAiMarketEntities({ ...raw, tags });
+  const volume = Number(raw.volumeNum || raw.volume24hr || raw.volume || raw.volumeClob || 0);
+  const liquidity = Number(raw.liquidityNum || raw.liquidity || 0);
+  const question = clampText(raw.question || raw.title || raw.eventTitle || raw.slug || "AI prediction market", 180);
+  const slug = clampText(raw.slug || raw.marketSlug || "", 120);
+  const yesPct = yes * 100;
+  return {
+    id: clampText(raw.id || raw.conditionId || slug || `ai-market-${index}`, 120),
+    question,
+    yes,
+    no: Math.max(0, 1 - yes),
+    yesPct: Number(yesPct.toFixed(1)),
+    volume: Number.isFinite(volume) ? volume : 0,
+    volumeLabel: formatCompactUsd(volume),
+    liquidity: Number.isFinite(liquidity) ? liquidity : 0,
+    liquidityLabel: formatCompactUsd(liquidity),
+    category: clampText(raw.category || tags[0] || "ai", 64),
+    tags,
+    labs: entities.labs,
+    models: entities.models,
+    entities: entities.entities,
+    sourceQuery: clampText(raw.sourceQuery || "", 64),
+    slug,
+    eventTitle: clampText(raw.eventTitle || "", 120),
+    endDate: clampText(raw.endDate || raw.end_date || raw.closedTime || "", 48),
+    url: slug ? `https://polymarket.com/event/${slug}` : "https://polymarket.com/",
+    boardScore: Math.log10(Math.max(10, volume)) * 11 + Math.log10(Math.max(10, liquidity)) * 4 + entities.entities.length * 8 + Math.max(0, 20 - Math.abs(50 - yesPct)),
+    reason: `${Math.round(yesPct)}% YES with ${formatCompactUsd(volume)} displayed volume`,
+  };
+}
+
+async function fetchPolymarketAiSearchTerm(term) {
+  const url = new URL("https://gamma-api.polymarket.com/public-search");
+  url.searchParams.set("q", term);
+  url.searchParams.set("limit_per_type", "12");
+  url.searchParams.set("events_status", "active");
+  url.searchParams.set("search_profiles", "false");
+  return gammaMarketsFromSearchPayload(await fetchLiveJson(url.toString()), term);
+}
+
+async function fetchPolymarketAiFallbackMarkets() {
+  const url = "https://gamma-api.polymarket.com/markets?active=true&closed=false&limit=200&order=volume24hr&ascending=false";
+  return gammaMarketsFromSearchPayload(await fetchLiveJson(url), "active-volume");
+}
+
+async function fetchPolymarketAiMarkets() {
+  const settled = await Promise.allSettled([
+    ...POLYMARKET_AI_SEARCH_TERMS.map(fetchPolymarketAiSearchTerm),
+    fetchPolymarketAiFallbackMarkets(),
+  ]);
+  const failures = settled.filter((entry) => entry.status === "rejected").map((entry, index) => ({
+    query: index < POLYMARKET_AI_SEARCH_TERMS.length ? POLYMARKET_AI_SEARCH_TERMS[index] : "active-volume",
+    status: "unavailable",
+    error: redactLiveErrorMessage(entry.reason?.message),
+  }));
+  const seen = new Set();
+  const markets = settled
+    .filter((entry) => entry.status === "fulfilled")
+    .flatMap((entry) => entry.value)
+    .filter((market) => market && marketLooksAiRelated(market))
+    .map(normalizeAiPolymarketMarket)
+    .filter((market) => market.id && !seen.has(market.id) && seen.add(market.id))
+    .sort((a, b) => b.boardScore - a.boardScore)
+    .slice(0, 36);
+  return { markets, failures };
+}
+
+function shortModelName(value, max = 24) {
+  const text = clampText(value, max + 12);
+  return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+}
+
+function modelKey(value = "") {
+  return normalizeAgentText(value).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function buildFrontierModels(boards = []) {
+  const byModel = new Map();
+  for (const board of boards) {
+    for (const row of board.leaders || []) {
+      const key = modelKey(row.modelName);
+      if (!key) continue;
+      const current = byModel.get(key) || {
+        modelName: row.modelName,
+        organization: row.organization,
+        license: row.license,
+        openSource: row.openSource,
+        boardCount: 0,
+        topThreeCount: 0,
+        topTenCount: 0,
+        rankSum: 0,
+        bestRank: 9999,
+        bestRating: null,
+        bestBoard: "",
+        boards: [],
+      };
+      current.boardCount += 1;
+      current.topThreeCount += row.rank <= 3 ? 1 : 0;
+      current.topTenCount += row.rank <= 10 ? 1 : 0;
+      current.rankSum += row.rank;
+      if (row.rank < current.bestRank || (row.rank === current.bestRank && Number(row.rating || 0) > Number(current.bestRating || 0))) {
+        current.bestRank = row.rank;
+        current.bestRating = row.rating;
+        current.bestBoard = row.boardLabel;
+      }
+      current.boards.push({
+        boardId: row.boardId,
+        boardLabel: row.boardLabel,
+        domain: row.domain,
+        rank: row.rank,
+        rating: row.rating,
+        voteCount: row.voteCount,
+        publishDate: row.publishDate,
+      });
+      byModel.set(key, current);
+    }
+  }
+  return Array.from(byModel.values())
+    .map((model) => ({
+      ...model,
+      avgRank: Number((model.rankSum / Math.max(1, model.boardCount)).toFixed(2)),
+      label: shortModelName(model.modelName),
+    }))
+    .sort((a, b) =>
+      b.topThreeCount - a.topThreeCount ||
+      b.topTenCount - a.topTenCount ||
+      a.avgRank - b.avgRank ||
+      Number(b.bestRating || 0) - Number(a.bestRating || 0)
+    )
+    .slice(0, 40);
+}
+
+function buildCapabilityMatrix(frontierModels = [], boards = []) {
+  const boardsByDomain = new Map();
+  for (const board of boards) {
+    const current = boardsByDomain.get(board.domain);
+    if (!current || (board.preferred && !current.preferred)) boardsByDomain.set(board.domain, board);
+  }
+  const preferredBoards = Array.from(boardsByDomain.values()).slice(0, 10);
+  return frontierModels.slice(0, 14).map((model) => {
+    const byBoard = new Map((model.boards || []).map((row) => [row.boardId, row]));
+    const row = {
+      modelName: model.modelName,
+      label: model.label,
+      organization: model.organization,
+      license: model.license,
+      avgRank: model.avgRank,
+      topThreeCount: model.topThreeCount,
+      topTenCount: model.topTenCount,
+    };
+    for (const board of preferredBoards) {
+      const score = byBoard.get(board.id);
+      row[board.id] = score ? score.rank : null;
+      row[`${board.id}_rating`] = score ? score.rating : null;
+    }
+    return row;
+  });
+}
+
+function buildMarketSignals(markets = []) {
+  const byEntity = new Map();
+  for (const market of markets) {
+    const entities = market.entities?.length ? market.entities : ["AI"];
+    for (const entity of entities) {
+      const current = byEntity.get(entity) || { entity, marketCount: 0, volume: 0, weightedYes: 0, topMarket: null };
+      const weight = Math.max(1, Number(market.volume || 0));
+      current.marketCount += 1;
+      current.volume += Number(market.volume || 0);
+      current.weightedYes += Number(market.yesPct || 0) * weight;
+      if (!current.topMarket || Number(market.volume || 0) > Number(current.topMarket.volume || 0)) current.topMarket = market;
+      byEntity.set(entity, current);
+    }
+  }
+  return Array.from(byEntity.values())
+    .map((signal) => ({
+      entity: signal.entity,
+      marketCount: signal.marketCount,
+      impliedYesPct: Number((signal.weightedYes / Math.max(1, signal.volume || signal.marketCount)).toFixed(1)),
+      volume: signal.volume,
+      volumeLabel: formatCompactUsd(signal.volume),
+      topQuestion: signal.topMarket?.question || "",
+      topMarketId: signal.topMarket?.id || "",
+    }))
+    .sort((a, b) => b.volume - a.volume || b.impliedYesPct - a.impliedYesPct)
+    .slice(0, 16);
+}
+
+function modelMatchesMarketSignal(model, signal) {
+  const modelText = normalizeAgentText(`${model.modelName} ${model.organization}`);
+  const entityText = normalizeAgentText(signal.entity);
+  return entityText && (modelText.includes(entityText) || entityText.includes(modelText.split(/\s+/)[0] || ""));
+}
+
+function buildArenaDivergence(frontierModels = [], marketSignals = []) {
+  const divergences = [];
+  for (const signal of marketSignals.slice(0, 10)) {
+    const matching = frontierModels.find((model) => modelMatchesMarketSignal(model, signal));
+    if (signal.impliedYesPct >= 65 && (!matching || matching.topThreeCount === 0)) {
+      divergences.push({
+        label: signal.entity,
+        title: "Market Expectation Ahead Of Benchmarks",
+        value: `${Math.round(signal.impliedYesPct)}%`,
+        note: matching ? `${matching.label} has ${matching.topTenCount} top-10 Arena rows.` : "No top Arena model match in the current slice.",
+      });
+    } else if (matching?.topThreeCount > 0 && signal.impliedYesPct <= 45) {
+      divergences.push({
+        label: matching.label,
+        title: "Benchmark Strength Underpriced By Markets",
+        value: `${Math.round(signal.impliedYesPct)}%`,
+        note: `${matching.topThreeCount} top-3 Arena rows; market signal remains below 45%.`,
+      });
+    }
+  }
+  return divergences.slice(0, 8);
+}
+
+function buildArenaFeed(boards = [], frontierModels = [], markets = [], sourceHealth = []) {
+  const rows = [];
+  boards.filter((board) => board.preferred).slice(0, 7).forEach((board) => {
+    const leader = board.leaders?.[0];
+    if (!leader) return;
+    rows.push([
+      `#${leader.rank}`,
+      `${leader.modelName} leads ${board.label} at ${leader.rating || "n/a"}.`,
+      `${leader.organization} / ${board.publishDate || "latest"}`,
+    ]);
+  });
+  markets.slice(0, 4).forEach((market) => {
+    rows.push([
+      `${Math.round(market.yesPct)}%`,
+      market.question,
+      `${market.volumeLabel} vol / Polymarket`,
+    ]);
+  });
+  sourceHealth.filter((source) => source.status !== "ok").slice(0, 2).forEach((source) => {
+    rows.push(["source", `${source.label || source.source} has partial coverage.`, source.error || source.status]);
+  });
+  if (!rows.length && frontierModels[0]) {
+    rows.push(["now", `${frontierModels[0].modelName} is the strongest visible model across current Arena slices.`, frontierModels[0].organization]);
+  }
+  return rows.slice(0, 10);
+}
+
+function normalizeArenaSotaData(lmarena, polymarket) {
+  const boards = lmarena.boards || [];
+  const markets = polymarket.markets || [];
+  if (!boards.length && !markets.length) throw new Error("AI SOTA sources returned no rows");
+  const frontierModels = buildFrontierModels(boards);
+  const capabilityMatrix = buildCapabilityMatrix(frontierModels, boards);
+  const marketSignals = buildMarketSignals(markets);
+  const divergence = buildArenaDivergence(frontierModels, marketSignals);
+  const sourceHealth = [
+    {
+      source: "lmarena",
+      label: "LMArena leaderboard dataset",
+      status: boards.length ? (lmarena.failures?.length ? "partial" : "ok") : "unavailable",
+      boardsSucceeded: boards.length,
+      boardsFailed: lmarena.failures?.length || 0,
+      error: lmarena.failures?.[0]?.error || "",
+    },
+    {
+      source: "polymarket-ai",
+      label: "Polymarket AI market search",
+      status: markets.length ? (polymarket.failures?.length ? "partial" : "ok") : "unavailable",
+      markets: markets.length,
+      searchesFailed: polymarket.failures?.length || 0,
+      error: polymarket.failures?.[0]?.error || "",
+    },
+  ];
+  const feed = buildArenaFeed(boards, frontierModels, markets, sourceHealth);
+  const leading = frontierModels[0] || null;
+  const topMarket = markets[0] || null;
+  const latestPublishDate = boards.map((board) => board.publishDate).filter(Boolean).sort().pop() || "";
+  return {
+    kind: "ai-sota-snapshot-v1",
+    mode: "lmarena-polymarket-public",
+    arenaBoards: boards,
+    frontierModels,
+    capabilityMatrix,
+    polymarketMarkets: markets,
+    marketSignals,
+    divergence,
+    sourceHealth,
+    boardColumns: boards.filter((board) => board.preferred).slice(0, 10).map((board) => ({
+      id: board.id,
+      label: board.label,
+      domain: board.domain,
+      publishDate: board.publishDate,
+    })),
+    metrics: [
+      ["Boards", String(boards.length), latestPublishDate || "LMArena"],
+      ["Frontier", leading ? shortModelName(leading.modelName, 18) : "n/a", leading?.organization || "model"],
+      ["AI Markets", String(markets.length), topMarket ? `${Math.round(topMarket.yesPct)}% top YES` : "Polymarket"],
+    ],
+    feed,
+    highlights: [
+      leading ? `${leading.modelName} has ${leading.topThreeCount} top-3 rows and ${leading.topTenCount} top-10 rows across current Arena slices.` : "",
+      boards[0]?.leaders?.[0] ? `${boards[0].leaders[0].modelName} leads ${boards[0].label} as of ${boards[0].publishDate || "the latest publish"}.` : "",
+      topMarket ? `Polymarket's strongest visible AI market is ${Math.round(topMarket.yesPct)}% YES with ${topMarket.volumeLabel} displayed volume.` : "",
+      divergence[0] ? `${divergence[0].title}: ${divergence[0].label}.` : "",
+    ].filter(Boolean).slice(0, 5),
+    sourceNotes: [
+      "Arena scores are leaderboard snapshots, not minute-live measurements.",
+      "Polymarket rows are read-only discovery signals, not trading advice or execution data.",
+    ],
+    updatedAt: Date.now(),
+  };
+}
+
+async function getArenaSotaLiveData() {
+  const [lmarenaResult, polymarketResult] = await Promise.allSettled([
+    fetchLmarenaBoards(),
+    fetchPolymarketAiMarkets(),
+  ]);
+  const lmarena = lmarenaResult.status === "fulfilled"
+    ? lmarenaResult.value
+    : { boards: [], failures: [{ source: "lmarena", error: redactLiveErrorMessage(lmarenaResult.reason?.message) }] };
+  const polymarket = polymarketResult.status === "fulfilled"
+    ? polymarketResult.value
+    : { markets: [], failures: [{ source: "polymarket-ai", error: redactLiveErrorMessage(polymarketResult.reason?.message) }] };
+  return normalizeArenaSotaData(lmarena, polymarket);
+}
+
 function parseUsdNumber(value) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const text = String(value || "").trim().toLowerCase();
@@ -3390,10 +4978,155 @@ function syntheticPumpfunData() {
 }
 
 async function getPumpfunLiveData() {
-  const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=pump-fun&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h,24h";
-  const coins = await fetchLiveJson(url);
+  let stream = null;
+  try { stream = pumpportalStream.getSnapshot(); } catch (_) { stream = null; }
+  let cgTokens = [];
+  try {
+    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=pump-fun&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h,24h";
+    const coins = await fetchLiveJson(url);
+    cgTokens = (Array.isArray(coins) ? coins : []).slice(0, 10).map(normalizePumpfunToken);
+  } catch (err) {
+    cgTokens = [];
+  }
+  return mergePumpfunData(stream, cgTokens, { fallbackSource: "coingecko-pump-fun" });
+}
+
+async function getPumpportalLaunchpadData() {
+  let stream = null;
+  try { stream = pumpportalStream.getSnapshot(); } catch (_) { stream = null; }
+  // Backfill the legacy `tokens` array from DexScreener when available so existing
+  // turn-update / search / summary paths still have ranked tokens to work with.
+  let dexTokens = [];
+  let fallbackSource = "none";
+  try {
+    const dex = await getDexScreenerLiveData();
+    dexTokens = Array.isArray(dex?.tokens) ? dex.tokens.slice(0, 12) : [];
+    if (dexTokens.length) fallbackSource = "dexscreener";
+  } catch (_) {
+    try {
+      const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&category=pump-fun&order=market_cap_desc&per_page=10&page=1&sparkline=false&price_change_percentage=1h,24h";
+      const coins = await fetchLiveJson(url);
+      dexTokens = (Array.isArray(coins) ? coins : []).slice(0, 10).map(normalizePumpfunToken);
+      if (dexTokens.length) fallbackSource = "coingecko-pump-fun";
+    } catch (_inner) {
+      dexTokens = [];
+    }
+  }
+  return mergePumpfunData(stream, dexTokens, { fallbackSource });
+}
+
+function fallbackFillPct(token = {}, index = 0) {
+  const marketCap = parseUsdNumber(token.marketCapUsd ?? token.marketCap);
+  const change = Math.max(0, numberOr(token.change1h ?? token.change24h, 0));
+  const liquidityRisk = numberOr(token.liquidityRisk, 0);
+  const score = Math.log10(marketCap + 10) * 7 + change * 0.9 + liquidityRisk * 0.12 + index * 0.2;
+  return clampNumber(Math.round(score * 10) / 10, 4, 96);
+}
+
+function pumpUrlForToken(token = {}) {
+  const mint = token.mint || token.tokenAddress || token.address || token.id || "";
+  if (/^https?:\/\//i.test(token.url || "")) return token.url;
+  return mint ? `https://pump.fun/coin/${mint}` : "https://pump.fun/";
+}
+
+function fallbackLaunchpadToken(token = {}, index = 0) {
+  const mint = clampText(token.mint || token.tokenAddress || token.address || token.id || `fallback-${index}`, 100);
+  const fillPct = fallbackFillPct(token, index);
+  const marketCapUsd = parseUsdNumber(token.marketCapUsd ?? token.marketCap);
+  const buySignal = Math.max(0.05, Math.abs(numberOr(token.change1h ?? token.change24h, 0)) / 10);
+  const ageSec = Math.max(15, Math.round(45 + index * 37 + Math.max(0, 60 - fillPct)));
   return {
-    tokens: (Array.isArray(coins) ? coins : []).slice(0, 10).map(normalizePumpfunToken),
+    mint,
+    name: clampText(token.name || token.label || token.symbol || `Token ${index + 1}`, 80),
+    symbol: clampText(String(token.symbol || token.label || `TOK${index + 1}`).toUpperCase(), 24),
+    imageUri: token.imageUri || token.image || "",
+    fillPct,
+    marketCapUsd,
+    marketCapSol: 0,
+    initialBuySol: Number((0.15 + buySignal).toFixed(2)),
+    lastTradeSol: Number((0.2 + buySignal * 1.7).toFixed(2)),
+    lastTradeType: numberOr(token.change1h ?? token.change24h, 0) >= 0 ? "buy" : "sell",
+    lastTradeAgoSec: Math.round(8 + index * 11),
+    ageSec,
+    remainingSol: Math.max(0, pumpportalStream.GRADUATION_SOL_TARGET * (1 - fillPct / 100)),
+    buyCount: Math.max(1, Math.round(Math.max(0, numberOr(token.change1h, 0)) / 4 + 2)),
+    sellCount: Math.max(0, Math.round(Math.max(0, -numberOr(token.change1h, 0)) / 5 + 1)),
+    buyVolSol5m: Number((buySignal * 2.4).toFixed(2)),
+    sellVolSol5m: Number((Math.max(0.05, buySignal * 0.55)).toFixed(2)),
+    etaSec: fillPct >= 85 ? Math.round((100 - fillPct) * 45) : null,
+    pumpUrl: pumpUrlForToken(token),
+    twitter: token.twitter || "",
+    telegram: token.telegram || "",
+    website: token.website || "",
+    fallback: true,
+  };
+}
+
+function fallbackRecentMintsFromTokens(tokens = []) {
+  return tokens.slice(0, 10).map((token, index) => {
+    const row = fallbackLaunchpadToken(token, index);
+    return {
+      ...row,
+      fillPct: Math.min(row.fillPct, 32),
+      ageSec: Math.max(20, Math.round(30 + index * 29)),
+    };
+  });
+}
+
+function fallbackGraduationCandidatesFromTokens(tokens = []) {
+  return tokens
+    .slice(0, 10)
+    .map((token, index) => fallbackLaunchpadToken(token, index))
+    .sort((a, b) => b.fillPct - a.fillPct)
+    .slice(0, 6);
+}
+
+function fallbackFastMoversFromTokens(tokens = []) {
+  return tokens
+    .slice(0, 10)
+    .map((token, index) => fallbackLaunchpadToken(token, index))
+    .sort((a, b) => Math.abs(b.lastTradeSol || 0) - Math.abs(a.lastTradeSol || 0))
+    .slice(0, 8);
+}
+
+function mergePumpfunData(stream, cgTokens, options = {}) {
+  const tokens = Array.isArray(cgTokens) ? cgTokens : [];
+  const streamSnapshot = stream && typeof stream === "object" ? stream : null;
+  const streamConnected = Boolean(streamSnapshot && streamSnapshot.connected);
+  const fallbackSource = options.fallbackSource || (tokens.length ? "coingecko-pump-fun" : "none");
+  const streamRecentMints = Array.isArray(streamSnapshot?.recentMints) ? streamSnapshot.recentMints : [];
+  const streamGraduationCandidates = Array.isArray(streamSnapshot?.graduationCandidates) ? streamSnapshot.graduationCandidates : [];
+  const streamFastMovers = Array.isArray(streamSnapshot?.fastMovers) ? streamSnapshot.fastMovers : [];
+  const recentMints = streamRecentMints.length ? streamRecentMints : fallbackRecentMintsFromTokens(tokens);
+  const graduationCandidates = streamGraduationCandidates.length ? streamGraduationCandidates : fallbackGraduationCandidatesFromTokens(tokens);
+  const fastMovers = streamFastMovers.length ? streamFastMovers : fallbackFastMoversFromTokens(tokens);
+  const recentMigrations = streamSnapshot?.recentMigrations || [];
+  const fallbackCurveSol = graduationCandidates.reduce((sum, token) => {
+    const fill = clampNumber(numberOr(token.fillPct, 0), 0, 100);
+    return sum + pumpportalStream.GRADUATION_SOL_TARGET * (fill / 100);
+  }, 0);
+  const fallbackCurveUsd = graduationCandidates.reduce((sum, token) => sum + parseUsdNumber(token.marketCapUsd), 0);
+  return {
+    kind: "pumpfun-launchpad-v1",
+    streamSource: streamConnected ? "pumpportal" : fallbackSource,
+    streamConnected,
+    streamLastEventAgoSec: streamSnapshot?.lastEventAgoSec ?? null,
+    streamUptimeSec: streamSnapshot?.streamUptimeSec ?? 0,
+    solUsd: streamSnapshot?.solUsd || 0,
+    graduationSolTarget: pumpportalStream.GRADUATION_SOL_TARGET,
+    metrics: {
+      mintsPerMin: Number(streamSnapshot?.mintsPerMin || (recentMints.length ? recentMints.length / 5 : 0)),
+      tradesPerMin: Number(streamSnapshot?.tradesPerMin || (fastMovers.length ? fastMovers.length * 2 : 0)),
+      graduations24h: Number(streamSnapshot?.graduations24h || 0),
+      activeTokenCount: Number(streamSnapshot?.activeTokenCount || graduationCandidates.length || tokens.length),
+      totalCurveSol: Number(streamSnapshot?.totalCurveSol || fallbackCurveSol),
+      totalCurveUsd: Number(streamSnapshot?.totalCurveUsd || fallbackCurveUsd),
+    },
+    recentMints,
+    graduationCandidates,
+    fastMovers,
+    recentMigrations,
+    tokens, // backward-compat for applyPumpfunData/older consumers
     updatedAt: Date.now(),
   };
 }
@@ -3754,7 +5487,7 @@ async function getGdeltLiveData(req, channel) {
   url.searchParams.set("maxrecords", String(Math.min(50, Number(req.query.limit || 20) || 20)));
   url.searchParams.set("sort", "HybridRel");
   url.searchParams.set("timespan", req.query.timespan || "24h");
-  const json = await fetchLiveJson(url.toString());
+  const json = await fetchLiveJson(url.toString(), { timeout: Math.max(10000, LIVE_API_TIMEOUT_MS) });
   const articles = (Array.isArray(json.articles) ? json.articles : []).map((article, index) => ({
     id: article.url || `gdelt-${index}`,
     title: article.title || "GDELT article",
@@ -3965,7 +5698,7 @@ async function getNasaExoplanetLiveData(req, channel) {
 
 async function getArxivLiveData(req, channel) {
   const search = encodeURIComponent(req.query.query || "quantum computing");
-  const text = await fetchLiveText(`https://export.arxiv.org/api/query?search_query=all:${search}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`);
+  const text = await fetchLiveText(`https://export.arxiv.org/api/query?search_query=all:${search}&start=0&max_results=15&sortBy=submittedDate&sortOrder=descending`, { timeout: Math.max(10000, LIVE_API_TIMEOUT_MS) });
   const papers = parseRssItems(text, "arXiv", 15).map((item) => ({
     ...item,
     authors: [],
@@ -4021,8 +5754,12 @@ function parseNdbcRealtimeText(station, text) {
 }
 
 async function getCdcSocrataLiveData(req, channel) {
-  const search = encodeURIComponent(req.query.query || "respiratory virus surveillance");
-  const json = await fetchLiveJson(`https://api.us.socrata.com/api/catalog/v1?domains=data.cdc.gov&search_context=data.cdc.gov&search=${search}&limit=20`);
+  const searchTerm = clampText(req.query.query || "", 80);
+  const url = new URL("https://api.us.socrata.com/api/catalog/v1");
+  url.searchParams.set("domains", "data.cdc.gov");
+  url.searchParams.set("limit", String(Math.min(50, Number(req.query.limit || 20) || 20)));
+  if (searchTerm) url.searchParams.set("search", searchTerm);
+  const json = await fetchLiveJson(url.toString());
   const results = (Array.isArray(json.results) ? json.results : []).map((entry, index) => {
     const resource = entry.resource || {};
     return {
@@ -4039,7 +5776,7 @@ async function getCdcSocrataLiveData(req, channel) {
     kind: channel.contract,
     mode: "cdc-socrata-catalog",
     datasets: results,
-    metrics: [["Datasets", String(results.length), "CDC"], ["Domain", "data.cdc.gov", "Socrata"], ["Query", decodeURIComponent(search).slice(0, 22), "catalog"]],
+    metrics: [["Datasets", String(results.length), "CDC"], ["Domain", "data.cdc.gov", "Socrata"], ["Query", searchTerm || "catalog", "catalog"]],
     feed: results.slice(0, 6).map((dataset, index) => [index === 0 ? "now" : `${index + 1}`, dataset.title, dataset.domain]),
     highlights: results.slice(0, 5).map((dataset) => `${dataset.title} is available through CDC Open Data.`),
     updatedAt: Date.now(),
@@ -4047,7 +5784,7 @@ async function getCdcSocrataLiveData(req, channel) {
 }
 
 async function getGithubActionsLiveData(req, channel) {
-  const repo = clampText(process.env.ARENA_GITHUB_REPO || req.query.repo, 120);
+  const repo = clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || process.env.ARENA_DEFAULT_GITHUB_REPO || "vercel/next.js", 120);
   if (!repo || !/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error("ARENA_GITHUB_REPO is not configured");
   const json = await fetchLiveJson(`https://api.github.com/repos/${repo}/actions/runs?per_page=20`, {
     headers: process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {},
@@ -4141,13 +5878,24 @@ const PUBLIC_PROVIDER_ADAPTERS = {
   "coingecko-pumpfun": {
     id: "coingecko-pumpfun",
     auth: "none",
-    cadenceMs: 60000,
-    ttlMs: 60000,
+    cadenceMs: 8000,
+    ttlMs: 8000,
     staleTtlMs: LIVE_API_STALE_TTL_MS,
     capabilities: ["snapshot", "rankings", "entity_detail"],
     docsUrl: providerById("coingecko-pumpfun")?.docsUrl,
     publicSourceUrls: ["https://api.coingecko.com/api/v3/coins/markets"],
     fetchLive: getPumpfunLiveData,
+  },
+  pumpportal: {
+    id: "pumpportal",
+    auth: "none",
+    cadenceMs: 6000,
+    ttlMs: 6000,
+    staleTtlMs: LIVE_API_STALE_TTL_MS,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail"],
+    docsUrl: providerById("pumpportal")?.docsUrl,
+    publicSourceUrls: ["wss://pumpportal.fun/api/data", "https://api.dexscreener.com/tokens/v1/solana", "https://api.coingecko.com/api/v3/coins/markets"],
+    fetchLive: getPumpportalLaunchpadData,
   },
   pumpfun: null,
   "eia-grid": {
@@ -4249,6 +5997,22 @@ const PUBLIC_PROVIDER_ADAPTERS = {
     publicSourceUrls: [],
     fetchLive: getGithubActionsLiveData,
   },
+  "ai-sota": {
+    id: "ai-sota",
+    auth: "none",
+    cadenceMs: 60 * 1000,
+    ttlMs: 60 * 1000,
+    staleTtlMs: 12 * 60 * 60 * 1000,
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "relationships", "search"],
+    docsUrl: providerById("ai-sota")?.docsUrl,
+    publicSourceUrls: [
+      `https://huggingface.co/datasets/${LMARENA_DATASET_ID}`,
+      "https://datasets-server.huggingface.co/rows",
+      "https://gamma-api.polymarket.com/public-search",
+      "https://docs.polymarket.com/api-reference",
+    ],
+    fetchLive: getArenaSotaLiveData,
+  },
   "local-deck-json": {
     id: "local-deck-json",
     auth: "none",
@@ -4305,7 +6069,7 @@ function unavailablePublicData(channel, providerId, status) {
 }
 
 function countEnvelopeRows(data = {}) {
-  for (const field of ["candles", "markets", "tokens", "series", "fuelMix", "articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides"]) {
+  for (const field of ["candles", "markets", "arenaBoards", "frontierModels", "capabilityMatrix", "polymarketMarkets", "marketSignals", "tokens", "recentMints", "graduationCandidates", "fastMovers", "recentMigrations", "series", "fuelMix", "articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides"]) {
     if (Array.isArray(data[field])) return data[field].length;
   }
   if (Array.isArray(data.feed)) return data.feed.length;
@@ -4472,6 +6236,10 @@ app.get("/api/live/pumpfun", (req, res) => {
   sendCachedLive(req, res, "pumpfun:tokens", getPumpfunLiveData, syntheticPumpfunData);
 });
 
+app.get("/api/live/pumpportal", (req, res) => {
+  sendCachedLive(req, res, "pumpportal:meme-coin", getPumpportalLaunchpadData, syntheticPumpfunData);
+});
+
 app.get("/api/live/eia-grid", (req, res) => {
   const respondent = cleanEiaRespondent(req.query.respondent || "US48");
   sendCachedLive(req, res, `eia-grid:${respondent}`, getEIAGridLiveData, syntheticPowerGridData);
@@ -4514,28 +6282,50 @@ function channelLiveKey(channel, req) {
   if (provider === "nasa-exoplanet") return `${provider}:${channel.id}:${channel.id === "dark-forest" ? "long-period" : "recent"}`;
   if (provider === "arxiv") return `${provider}:${channel.id}:${clampText(req.query.query || "quantum-computing", 80).replace(/\s+/g, "_")}`;
   if (provider === "noaa-ndbc") return `${provider}:${channel.id}:${clampText(req.query.stations || "46042,41009,51001", 80).replace(/\s+/g, "_")}`;
-  if (provider === "cdc-socrata") return `${provider}:${channel.id}:${clampText(req.query.query || "respiratory-virus-surveillance", 80).replace(/\s+/g, "_")}`;
-  if (provider === "github-actions") return `${provider}:${channel.id}:${clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || "unconfigured", 120).replace(/\s+/g, "_")}`;
+  if (provider === "cdc-socrata") return `${provider}:${channel.id}:${clampText(req.query.query || "catalog", 80).replace(/\s+/g, "_")}`;
+  if (provider === "github-actions") return `${provider}:${channel.id}:${clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || process.env.ARENA_DEFAULT_GITHUB_REPO || "vercel/next.js", 120).replace(/\s+/g, "_")}`;
+  if (provider === "ai-sota") return `${provider}:${channel.id}:latest`;
   if (provider === "local-deck-json") return `${provider}:${channel.id}:deck`;
   return `${provider}:${channel.id}`;
 }
 
 async function getChannelProviderPayload(req, channel) {
-  const provider = channel.liveProvider;
-  const providerReq = requestWithChannelDefaults(req, channel);
-  const adapter = adapterForProvider(provider);
+  const providerOrder = Array.from(new Set([channel.liveProvider, ...(channel.providers || [])].filter(Boolean)));
+  const attempts = [];
+  let lastUnavailable = null;
 
-  if (adapter) {
-    return getCachedProviderLive(providerReq, channelLiveKey(channel, providerReq), adapter, channel);
+  for (const provider of providerOrder) {
+    const adapter = adapterForProvider(provider);
+    if (!adapter) {
+      attempts.push(`${provider}:no_adapter`);
+      continue;
+    }
+
+    const providerChannel = { ...channel, liveProvider: provider };
+    const providerReq = requestWithChannelDefaults(req, providerChannel);
+    const payload = await getCachedProviderLive(providerReq, channelLiveKey(providerChannel, providerReq), adapter, providerChannel);
+    if (payload.freshness !== "unavailable") {
+      if (attempts.length && !payload.fallbackReason) {
+        payload.fallbackReason = `${channel.liveProvider} unavailable; using ${provider}`;
+      }
+      return payload;
+    }
+    attempts.push(`${provider}:${payload.health?.status || "unavailable"}`);
+    lastUnavailable = payload;
+  }
+
+  if (lastUnavailable) {
+    lastUnavailable.fallbackReason = lastUnavailable.fallbackReason || `all configured providers unavailable: ${attempts.join(", ")}`;
+    return lastUnavailable;
   }
 
   return {
     ok: true,
-    source: provider || "unavailable",
+    source: channel.liveProvider || "unavailable",
     providerIds: channel.providers || [],
     stale: false,
     freshness: "unavailable",
-    data: unavailablePublicData(channel, provider || "unavailable", "schema_changed"),
+    data: unavailablePublicData(channel, channel.liveProvider || "unavailable", "schema_changed"),
     fallbackReason: "no public provider adapter is registered for this channel",
     publicSourceUrls: [],
     health: { status: "schema_changed", checkedAt: new Date().toISOString() },
@@ -4678,11 +6468,15 @@ function formatSignedPercent(value, decimals = 1) {
 function sourceIs(envelope, provider) {
   const source = String(envelope.source || "").replace(/-synthetic$/, "");
   const aliases = {
-    pumpfun: ["pumpfun", "dexscreener", "coingecko-pumpfun"],
-    dexscreener: ["dexscreener", "pumpfun", "coingecko-pumpfun"],
+    pumpfun: ["pumpfun", "pumpportal", "dexscreener", "coingecko-pumpfun"],
+    pumpportal: ["pumpportal", "pumpfun", "dexscreener", "coingecko-pumpfun"],
+    dexscreener: ["dexscreener", "pumpfun", "pumpportal", "coingecko-pumpfun"],
     polymarket: ["polymarket", "polymarket-gamma"],
     hyperliquid: ["hyperliquid"],
     "eia-grid": ["eia-grid"],
+    "ai-sota": ["ai-sota"],
+    lmarena: ["ai-sota", "lmarena"],
+    "polymarket-ai": ["ai-sota", "polymarket-ai"],
   };
   return (aliases[provider] || [provider]).includes(source);
 }
@@ -4751,6 +6545,91 @@ function summarizeChannelLive(channel, envelope) {
       `${market.question || "Market"} is ${Math.round(Number(market.yes || 0) * 100)}% yes.`
     );
     summary.dataShape = ["markets[].question", "markets[].yes", "markets[].no", "markets[].volume", "markets[].category"];
+    return summary;
+  }
+
+  if (sourceIs(envelope, "ai-sota")) {
+    const boards = Array.isArray(data.arenaBoards) ? data.arenaBoards : [];
+    const models = Array.isArray(data.frontierModels) ? data.frontierModels : [];
+    const markets = Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets : [];
+    const leader = models[0] || null;
+    const topMarket = markets[0] || null;
+    summary.metrics = Array.isArray(data.metrics) && data.metrics.length ? data.metrics.slice(0, 3) : [
+      ["Boards", String(boards.length), "LMArena"],
+      ["Frontier", leader ? shortModelName(leader.modelName, 18) : "n/a", leader?.organization || "model"],
+      ["AI Markets", String(markets.length), "Polymarket"],
+    ];
+    summary.feed = Array.isArray(data.feed) && data.feed.length ? data.feed.slice(0, 7) : [
+      ...(boards.filter((board) => board.preferred).slice(0, 4).map((board) => {
+        const row = board.leaders?.[0];
+        return [row ? `#${row.rank}` : "—", row ? `${row.modelName} leads ${board.label}.` : `${board.label} loaded.`, row?.organization || "LMArena"];
+      })),
+      ...(markets.slice(0, 3).map((market) => [`${Math.round(Number(market.yesPct || 0))}%`, market.question, `${market.volumeLabel || "n/a"} vol / Polymarket`])),
+    ].slice(0, 7);
+    summary.highlights = Array.isArray(data.highlights) && data.highlights.length
+      ? data.highlights.slice(0, 5)
+      : summary.feed.map((row) => row[1]).filter(Boolean).slice(0, 4);
+    summary.dataShape = [
+      "arenaBoards[].leaders[]",
+      "frontierModels[]",
+      "capabilityMatrix[]",
+      "polymarketMarkets[]",
+      "marketSignals[]",
+      "divergence[]",
+      "sourceHealth[]",
+    ];
+    return summary;
+  }
+
+  if (data.kind === "pumpfun-launchpad-v1") {
+    const metrics = data.metrics || {};
+    const mints = Array.isArray(data.recentMints) ? data.recentMints : [];
+    const candidates = Array.isArray(data.graduationCandidates) ? data.graduationCandidates : [];
+    const movers = Array.isArray(data.fastMovers) ? data.fastMovers : [];
+    const topCandidate = candidates[0] || null;
+    const topMover = movers[0] || null;
+    summary.metrics = [
+      ["Mints/min", Number(metrics.mintsPerMin || 0).toFixed(1), data.streamConnected ? "PumpPortal" : data.streamSource || "fallback"],
+      ["Grads · 24h", String(metrics.graduations24h || 0), "Raydium"],
+      ["Curve TVL", formatCompactUsd(metrics.totalCurveUsd || 0), `${Math.round(Number(metrics.totalCurveSol || 0))} SOL`],
+    ];
+    summary.feed = [
+      ...candidates.slice(0, 3).map((token) => [
+        `${Math.round(Number(token.fillPct || 0))}%`,
+        `${token.symbol || token.name || "Token"} is filling toward the 85 SOL graduation.`,
+        `${formatCompactUsd(token.marketCapUsd)} cap / pump.fun`,
+      ]),
+      ...mints.slice(0, 3).map((token) => [
+        token.ageSec != null ? `${Math.round(Number(token.ageSec || 0))}s` : "new",
+        `${token.symbol || token.name || "Token"} just appeared in the launchpad feed.`,
+        `${formatCompactUsd(token.marketCapUsd)} cap / mint`,
+      ]),
+      ...movers.slice(0, 2).map((token) => [
+        token.lastTradeAgoSec != null ? `${Math.round(Number(token.lastTradeAgoSec || 0))}s` : "now",
+        `${token.symbol || token.name || "Token"} ${token.lastTradeType || "trade"} ${Number(token.lastTradeSol || 0).toFixed(2)} SOL hit the tape.`,
+        `${Math.round(Number(token.fillPct || 0))}% curve`,
+      ]),
+    ].slice(0, 6);
+    if (!summary.feed.length && Array.isArray(data.tokens)) {
+      summary.feed = rankPumpfunTokens(data.tokens, "velocity").slice(0, 5).map((token, index) => [
+        index === 0 ? "now" : `${index * 3}m`,
+        `${token.name || token.symbol || "Token"} is available from the fallback indexed token set.`,
+        `${formatPercent(token.change1h || token.change24h || 0)} / liq ${formatCompactUsd(token.liquidityUsd)}`,
+      ]);
+    }
+    summary.highlights = [
+      topCandidate ? `${topCandidate.symbol || topCandidate.name || "A token"} is ${Math.round(Number(topCandidate.fillPct || 0))}% through the bonding curve.` : "",
+      topMover ? `${topMover.symbol || topMover.name || "A token"} printed the largest recent trade at ${Number(topMover.lastTradeSol || 0).toFixed(2)} SOL.` : "",
+      mints[0] ? `${mints[0].symbol || mints[0].name || "A token"} is the freshest visible mint.` : "",
+      data.streamConnected ? "PumpPortal websocket is live." : `PumpPortal is warming up; ${data.streamSource || "fallback"} rows are visible.`,
+    ].filter(Boolean).slice(0, 5);
+    summary.dataShape = [
+      "recentMints[].symbol",
+      "graduationCandidates[].fillPct",
+      "fastMovers[].lastTradeSol",
+      "recentMigrations[]",
+      "tokens[]",
+    ];
     return summary;
   }
 
@@ -4839,6 +6718,29 @@ function compactChannelLiveEnvelope(envelope) {
     };
   } else if (sourceIs(envelope, "polymarket")) {
     compactData = { ...data, markets: Array.isArray(data.markets) ? data.markets.slice(0, 8) : [] };
+  } else if (sourceIs(envelope, "ai-sota")) {
+    compactData = {
+      ...data,
+      arenaBoards: Array.isArray(data.arenaBoards) ? data.arenaBoards.map((board) => ({
+        ...board,
+        leaders: Array.isArray(board.leaders) ? board.leaders.slice(0, 6) : [],
+        rows: Array.isArray(board.rows) ? board.rows.slice(0, 8) : [],
+      })).slice(0, 14) : [],
+      frontierModels: Array.isArray(data.frontierModels) ? data.frontierModels.slice(0, 16) : [],
+      capabilityMatrix: Array.isArray(data.capabilityMatrix) ? data.capabilityMatrix.slice(0, 16) : [],
+      polymarketMarkets: Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets.slice(0, 12) : [],
+      marketSignals: Array.isArray(data.marketSignals) ? data.marketSignals.slice(0, 10) : [],
+      divergence: Array.isArray(data.divergence) ? data.divergence.slice(0, 8) : [],
+    };
+  } else if (data.kind === "pumpfun-launchpad-v1") {
+    compactData = {
+      ...data,
+      recentMints: Array.isArray(data.recentMints) ? data.recentMints.slice(0, 10) : [],
+      graduationCandidates: Array.isArray(data.graduationCandidates) ? data.graduationCandidates.slice(0, 6) : [],
+      fastMovers: Array.isArray(data.fastMovers) ? data.fastMovers.slice(0, 8) : [],
+      recentMigrations: Array.isArray(data.recentMigrations) ? data.recentMigrations.slice(0, 6) : [],
+      tokens: Array.isArray(data.tokens) ? data.tokens.slice(0, 10) : [],
+    };
   } else if (sourceIs(envelope, "pumpfun")) {
     compactData = { ...data, tokens: Array.isArray(data.tokens) ? data.tokens.slice(0, 10) : [] };
   } else if (sourceIs(envelope, "eia-grid")) {
@@ -4884,6 +6786,11 @@ function providerQueryForCapability(channel, capability, params = {}) {
   if (["gdelt", "rss", "clinicaltrials", "arxiv", "cdc-socrata"].includes(channel.liveProvider)) {
     if (params.query || params.keyword || params.topic || entity) query.query = params.query || params.keyword || params.topic || entity;
     if (params.limit) query.limit = params.limit;
+  }
+  if (channel.liveProvider === "ai-sota") {
+    if (params.query || params.keyword || params.topic || entity) query.query = params.query || params.keyword || params.topic || entity;
+    if (params.limit) query.limit = params.limit;
+    if (params.metric) query.metric = params.metric;
   }
   if (channel.liveProvider === "noaa-ndbc" && (params.entity || params.query)) query.stations = params.entity || params.query;
   if (channel.liveProvider === "github-actions" && (params.entity || params.query)) query.repo = params.entity || params.query;
@@ -4950,11 +6857,70 @@ function eiaCapabilityRows(capability, data) {
   return [];
 }
 
+function memeLaunchpadRows(data = {}, params = {}) {
+  const metric = cleanComponentId(params.metric || "");
+  const tagRows = (rows, kind) => (Array.isArray(rows) ? rows : []).map((row, index) => ({
+    ...row,
+    index,
+    _launchpadKind: kind,
+  }));
+  if (metric === "graduation") return tagRows(data.graduationCandidates, "graduation").slice(0, Number(params.limit || 12));
+  if (metric === "fresh_mints") return tagRows(data.recentMints, "mint").slice(0, Number(params.limit || 12));
+  if (metric === "dev_sells") {
+    return tagRows(data.fastMovers, "trade")
+      .filter((row) => String(row.lastTradeType || "").toLowerCase() === "sell")
+      .slice(0, Number(params.limit || 12));
+  }
+  if (metric === "trade_size") return tagRows(data.fastMovers, "trade").slice(0, Number(params.limit || 12));
+  if (Array.isArray(data.tokens) && data.tokens.length) return rankPumpfunTokens(data.tokens, params.metric || "velocity").slice(0, Number(params.limit || 12));
+  return [
+    ...tagRows(data.graduationCandidates, "graduation"),
+    ...tagRows(data.fastMovers, "trade"),
+    ...tagRows(data.recentMints, "mint"),
+  ].slice(0, Number(params.limit || 12));
+}
+
+function arenaSotaCapabilityRows(capability, data = {}, params = {}) {
+  const limit = Number(params.limit || 24);
+  const query = normalizeAgentText(params.query || params.keyword || params.entity || "");
+  const matches = (value) => !query || normalizeAgentText(value).includes(query);
+  if (capability === "entity_detail" && (params.entity || params.query)) {
+    const models = (Array.isArray(data.frontierModels) ? data.frontierModels : [])
+      .filter((model) => matches(`${model.modelName} ${model.organization}`));
+    const markets = (Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets : [])
+      .filter((market) => matches(`${market.question} ${(market.entities || []).join(" ")}`));
+    return [...models, ...markets].slice(0, limit);
+  }
+  if (capability === "events" || capability === "search") {
+    const markets = (Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets : [])
+      .filter((market) => matches(`${market.question} ${(market.entities || []).join(" ")} ${(market.tags || []).join(" ")}`));
+    const feed = Array.isArray(data.feed) ? tupleRowsToObjects(data.feed).filter((row) => matches(`${row.title} ${row.meta}`)) : [];
+    return [...markets, ...feed].slice(0, limit);
+  }
+  if (capability === "relationships") {
+    return [
+      ...(Array.isArray(data.marketSignals) ? data.marketSignals : []),
+      ...(Array.isArray(data.divergence) ? data.divergence : []),
+    ].slice(0, limit);
+  }
+  if (capability === "rankings") {
+    const metric = cleanComponentId(params.metric || "");
+    if (/market|odds|poly/.test(metric)) return (Array.isArray(data.polymarketMarkets) ? data.polymarketMarkets : []).slice(0, limit);
+    if (/board|arena/.test(metric)) return (Array.isArray(data.arenaBoards) ? data.arenaBoards : []).slice(0, limit);
+    return (Array.isArray(data.frontierModels) ? data.frontierModels : []).slice(0, limit);
+  }
+  return (Array.isArray(data.capabilityMatrix) && data.capabilityMatrix.length
+    ? data.capabilityMatrix
+    : Array.isArray(data.frontierModels) ? data.frontierModels : []).slice(0, limit);
+}
+
 function providerRowsForCapability(channel, capability, envelope, summary, params = {}) {
   const data = envelope.data || {};
   if (sourceIs(envelope, "hyperliquid")) return hyperliquidCapabilityRows(capability, data);
   if (sourceIs(envelope, "eia-grid")) return eiaCapabilityRows(capability, data);
+  if (sourceIs(envelope, "ai-sota")) return arenaSotaCapabilityRows(capability, data, params);
   if (sourceIs(envelope, "polymarket") && Array.isArray(data.markets)) return rankPolymarketMarkets(data.markets, params).slice(0, Number(params.limit || 12));
+  if (data.kind === "pumpfun-launchpad-v1") return memeLaunchpadRows(data, params);
   if (sourceIs(envelope, "pumpfun") && Array.isArray(data.tokens)) return rankPumpfunTokens(data.tokens, params.metric || "velocity").slice(0, Number(params.limit || 12));
   for (const field of ["articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides", "hn"]) {
     if (Array.isArray(data[field]) && data[field].length) return data[field].slice(0, Number(params.limit || 24));
@@ -4998,8 +6964,18 @@ function bindingHintsForCapability(channel, capability, envelope) {
     if (["timeseries", "historical_state"].includes(capability)) return ["liveData.series"];
     if (capability === "rankings") return ["liveData.corridors", "liveData.fuelMix"];
   }
+  if (sourceIs(envelope, "ai-sota")) {
+    if (capability === "entity_detail") return ["liveData.frontierModels", "liveData.capabilityMatrix", "liveSummary.feed"];
+    if (capability === "events" || capability === "search") return ["liveData.polymarketMarkets", "liveSummary.feed"];
+    if (capability === "relationships") return ["liveData.marketSignals", "liveData.divergence", "liveSummary.feed"];
+    return ["liveData.capabilityMatrix", "liveData.arenaBoards", "liveData.frontierModels", "liveSummary.feed"];
+  }
   if (sourceIs(envelope, "polymarket")) return ["liveData.markets", "liveSummary.feed"];
+  if (envelope.data?.kind === "pumpfun-launchpad-v1") return ["liveData.graduationCandidates", "liveData.recentMints", "liveData.fastMovers", "liveSummary.feed"];
   if (sourceIs(envelope, "pumpfun")) return ["liveData.tokens", "liveSummary.feed"];
+  for (const field of ["articles", "items", "studies", "objects", "papers", "sensors", "datasets", "runs", "slides", "hn"]) {
+    if (Array.isArray(envelope.data?.[field]) && envelope.data[field].length) return [`liveData.${field}`, "liveSummary.feed"];
+  }
   if (capability === "events" || capability === "search" || capability === "relationships") return ["liveSummary.feed", "dashboard.feed"];
   return ["liveSummary.metrics", "dashboard.metrics"];
 }
@@ -5457,48 +7433,69 @@ function parsePolyrecIntent(channel, userText, normalizedText) {
 }
 
 function parseMemeChannelIntent(channel, userText, normalizedText) {
+  const wantsGraduation = /\b(graduat|raydium|bonding|curve|85\s*sol|about\s+to\s+graduate)\b/.test(normalizedText);
+  const wantsFreshMints = /\b(fresh|new|mint|mints|under\s+(one|1)\s+min|under\s+(one|1)\s+minute|just\s+launched|launchpad)\b/.test(normalizedText);
+  const wantsTradeTape = /\b(loudest|largest|biggest|whale|buy|sell|trade|tape|flow|sol\s+hit)\b/.test(normalizedText);
+  const wantsDevSells = /\b(dev\s+sell|developer\s+sell|creator\s+sell|rug|dump)\b/.test(normalizedText);
   const wantsDecay = /\b(decay|fade|fading|stale|cooling|peak|peaked|unwind)\b/.test(normalizedText);
   const wantsFragile = /\b(viral|fragile|fragility|risk\s*board|thin|break)\b/.test(normalizedText);
   const wantsLiquidityRisk = /\b(attention|liquidity|risk|mismatch|thin|float)\b/.test(normalizedText);
-  const intent = wantsDecay
-    ? "narrative_decay"
-    : wantsFragile
-      ? "viral_fragile"
-      : wantsLiquidityRisk
-        ? "attention_liquidity_risk"
-        : "token_velocity";
-  const metric = intent === "narrative_decay"
-    ? "narrative_decay"
-    : intent === "viral_fragile"
-      ? "fragility"
-      : intent === "attention_liquidity_risk"
-        ? "liquidity_risk"
-        : "velocity";
-  const topic = intent === "narrative_decay"
-    ? "narrative decay watch"
-    : intent === "viral_fragile"
-      ? "viral but fragile meme coins"
-      : intent === "attention_liquidity_risk"
-        ? "attention vs liquidity risk"
-        : "fastest moving meme coins";
+  let intent = "token_velocity";
+  if (wantsGraduation) intent = "graduation_watch";
+  else if (wantsDevSells) intent = "dev_sell_watch";
+  else if (wantsFreshMints) intent = "fresh_mints";
+  else if (wantsTradeTape) intent = "trade_tape";
+  else if (wantsDecay) intent = "narrative_decay";
+  else if (wantsFragile) intent = "viral_fragile";
+  else if (wantsLiquidityRisk) intent = "attention_liquidity_risk";
+  const metricByIntent = {
+    graduation_watch: "graduation",
+    fresh_mints: "fresh_mints",
+    trade_tape: "trade_size",
+    dev_sell_watch: "dev_sells",
+    narrative_decay: "narrative_decay",
+    viral_fragile: "fragility",
+    attention_liquidity_risk: "liquidity_risk",
+    token_velocity: "velocity",
+  };
+  const topicByIntent = {
+    graduation_watch: "pump.fun graduation watch",
+    fresh_mints: "fresh pump.fun mint firehose",
+    trade_tape: "largest recent pump.fun trades",
+    dev_sell_watch: "creator sell pressure watch",
+    narrative_decay: "narrative decay watch",
+    viral_fragile: "viral but fragile meme coins",
+    attention_liquidity_risk: "attention vs liquidity risk",
+    token_velocity: "fastest moving meme coins",
+  };
+  const metric = metricByIntent[intent] || "velocity";
+  const topic = topicByIntent[intent] || "fastest moving meme coins";
   return {
     intent,
     topic,
     entities: [],
-    timeframe: { label: "current indexed token set", lookbackHours: null },
-    mode: intent === "token_velocity" ? "ranked_board" : "risk_radar",
-    layout: intent === "token_velocity" ? "ranked_board" : "risk_radar",
-    capability: "rankings",
+    timeframe: { label: intent === "fresh_mints" || intent === "trade_tape" || intent === "dev_sell_watch" ? "current websocket window" : "current launchpad window", lookbackHours: null },
+    mode: intent === "token_velocity" ? "ranked_board" : intent === "attention_liquidity_risk" || intent === "viral_fragile" || intent === "narrative_decay" ? "risk_radar" : "ranked_board",
+    layout: intent === "token_velocity" ? "ranked_board" : intent === "attention_liquidity_risk" || intent === "viral_fragile" || intent === "narrative_decay" ? "risk_radar" : "ranked_board",
+    capability: intent === "fresh_mints" || intent === "trade_tape" || intent === "dev_sell_watch" ? "events" : "rankings",
     detail: "compact",
     params: { metric, limit: 12 },
-    stageIntent: intent === "token_velocity"
+    stageIntent: intent === "graduation_watch"
+      ? "bonding curve graduation board"
+      : intent === "fresh_mints"
+        ? "fresh pump.fun mint firehose"
+        : intent === "trade_tape"
+          ? "largest live trade tape"
+          : intent === "dev_sell_watch"
+            ? "creator sell pressure board"
+            : intent === "token_velocity"
       ? "token velocity leaderboard"
       : intent === "attention_liquidity_risk"
         ? "attention versus liquidity scatter"
         : intent === "viral_fragile"
           ? "risk and fragility board"
           : "narrative decay timeline",
-    railIntent: "top token inspector, source/risk labels, why-fragile card, non-advice guardrail, and fork prompts",
+    railIntent: "top token inspector, source labels, launchpad context, non-advice guardrail, and fork prompts",
     userText,
   };
 }
@@ -5520,7 +7517,7 @@ function parseGenericChannelIntent(channel, userText, normalizedText) {
         : "snapshot";
   return {
     intent: layout,
-    topic: `${channel.label} ${layout.replace(/_/g, " ")}`,
+    topic: channelTopicForLayout(channel, layout),
     entities: [],
     timeframe: null,
     mode: layout,
@@ -5582,6 +7579,128 @@ function fallbackNotice(provenance) {
   return "Live data is available. Details are available.";
 }
 
+function trimHeadlinePart(value, max) {
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+([?!.,;:])/g, "$1")
+    .trim();
+  if (text.length <= max) return text;
+  const clipped = text.slice(0, Math.max(1, max)).replace(/[.?!;:,\s]+$/g, "").trim();
+  const wordClipped = clipped.replace(/\s+\S*$/g, "").trim();
+  return wordClipped.length >= Math.min(18, Math.floor(max * 0.65)) ? wordClipped : clipped;
+}
+
+function headlinePart(value, max = 96) {
+  return trimHeadlinePart(value, max)
+    .replace(/[.?!;:,\s]+$/g, "")
+    .trim();
+}
+
+function headlineQuestion(value, fallback = "What matters now", max = 72) {
+  const text = headlinePart(value || fallback, max).replace(/\?+$/g, "");
+  return `${text || fallback}?`;
+}
+
+function headlineStory(value, fallback = "The current signal sets the next read", max = 92) {
+  const text = headlinePart(value || fallback, max);
+  return `${text || fallback}.`;
+}
+
+function formatChannelHeadline(channel, question, story, max = 80) {
+  const prefix = `${channel.label}: `;
+  let questionText = headlinePart(question || "What matters now", 72);
+  let storyText = headlinePart(story || "The current signal sets the next read", 92);
+  const compose = () => `${prefix}${questionText}? ${storyText}.`;
+  let headline = compose();
+  if (headline.length <= max) return headline;
+
+  const minStoryBudget = 18;
+  const questionBudget = Math.max(18, max - prefix.length - minStoryBudget - 3);
+  questionText = headlinePart(question || "What matters now", questionBudget);
+  const storyBudget = Math.max(minStoryBudget, max - prefix.length - questionText.length - 3);
+  storyText = headlinePart(story || "The signal sets the read", storyBudget);
+  headline = compose();
+  if (headline.length <= max) return headline;
+
+  questionText = headlinePart(question || "What matters", Math.max(14, max - prefix.length - storyText.length - 3));
+  headline = compose();
+  if (headline.length <= max) return headline;
+
+  storyText = headlinePart("Signals set the read", Math.max(14, max - prefix.length - questionText.length - 3));
+  headline = compose();
+  return headline.length <= max ? headline : `${prefix}${headlinePart("What matters", 14)}? ${storyText}.`;
+}
+
+function liveStoryFromResult(result, provenance, fallback = "") {
+  const highlight = result?.liveSummary?.highlights?.[0];
+  const feedRow = tupleRowsFromAny(result?.liveSummary?.feed, 1)[0];
+  return firstNonEmptyString([
+    highlight,
+    feedRow?.[1],
+    fallback,
+    fallbackNotice(provenance),
+  ], "The current signal sets the next read");
+}
+
+function channelMomentHeadline(channel, intent, result, provenance, options = {}) {
+  const entity = options.entity || intent.entities?.[0] || "";
+  const topic = headlinePart(options.fallbackTitle || intent.topic || channelBaseTopic(channel), 80);
+  const story = provenance.sourceType === "unavailable"
+    ? "The source gap is visible instead of being filled"
+    : liveStoryFromResult(result, provenance, options.story || topic);
+  const topLabel = headlinePart(options.topLabel || "", 46);
+  const timeframe = intent.timeframe?.label || "now";
+
+  if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
+    if (intent.intent === "liquidity_depth") return formatChannelHeadline(channel, `Is ${entity || "BTC"} trapped`, "Depth and spread are the pressure points");
+    if (intent.intent === "comparison") return formatChannelHeadline(channel, `Which asset is leading`, `${(intent.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} shows the split`);
+    if (intent.intent === "risk_anomaly") return formatChannelHeadline(channel, `Is volatility waking up`, "The range band shows whether structure is widening");
+    return formatChannelHeadline(channel, `Is ${entity || "BTC"} carrying the move`, `${timeframe} structure tells the story`);
+  }
+
+  if (channel.id === "polyrec" || channel.liveProvider === "polymarket") {
+    if (intent.intent === "close_volume") return formatChannelHeadline(channel, "Which tight market has real weight", "Close odds and volume set the board");
+    if (intent.intent === "category_board") return formatChannelHeadline(channel, "Which category is getting priced", "Active volume decides what to inspect");
+    if (intent.intent === "keyword_search") return formatChannelHeadline(channel, "Did the keyword find a live edge", "Matched markets stay tied to source rows");
+    return formatChannelHeadline(channel, "Which weird bet is worth the stare", "Odds shape sets the read");
+  }
+
+  if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    if (intent.intent === "graduation_watch") return formatChannelHeadline(channel, "Who is close enough to graduate", topLabel ? `${topLabel} leads the curve watch` : "Curve fill and trade flow set the list");
+    if (intent.intent === "fresh_mints") return formatChannelHeadline(channel, "Which mint just hit the wire", topLabel ? `${topLabel} leads the fresh row` : "Age and first buy set the order");
+    if (intent.intent === "trade_tape") return formatChannelHeadline(channel, "Which print is loudest now", topLabel ? `${topLabel} is the tape to inspect` : "The tape separates confirmation from churn");
+    if (intent.intent === "dev_sell_watch") return formatChannelHeadline(channel, "Is creator sell pressure flashing", topLabel ? `${topLabel} is the warning row` : "Sell size and curve position set the read");
+    if (intent.intent === "narrative_decay") return formatChannelHeadline(channel, "Is the story already fading", topLabel ? `${topLabel} carries the decay signal` : "Cooling attention shows up beside liquidity");
+    if (intent.intent === "viral_fragile") return formatChannelHeadline(channel, "Does viral also mean fragile", topLabel ? `${topLabel} leads the fragility board` : "Attention is moving faster than support");
+    if (intent.intent === "attention_liquidity_risk") return formatChannelHeadline(channel, "Is the hype actually liquid", topLabel ? `${topLabel} carries the mismatch` : "Attention and liquidity are not the same signal");
+    return formatChannelHeadline(channel, "What is actually pumping", topLabel || "Velocity stays tied to visible liquidity");
+  }
+
+  if (channel.id === "power-grid" || channel.liveProvider === "eia-grid") {
+    if (intent.intent === "grid_risk") return formatChannelHeadline(channel, "Where is the grid starting to strain", "Load and margin set the watch");
+    if (intent.intent === "fuel_mix") return formatChannelHeadline(channel, "What is carrying the grid right now", "Fuel mix shows the load");
+    return formatChannelHeadline(channel, "Is load outrunning forecast", "The forecast gap frames the risk");
+  }
+
+  const generic = {
+    spectre: ["Which signal becomes an incident", "Source spread sets the read"],
+    news: ["Which story deserves the board", "Fresh source movement sets priority"],
+    "world-monitor": ["Where is pressure turning into risk", "Events and market context shape the map"],
+    arena: ["Which model is proving it today", "Runs, scores, and failures make the match"],
+    glance: ["What deserves attention first", "Feeds, weather, and community signals set the scan"],
+    biotech: ["Which trial signal is moving", "Status and evidence decide the brief"],
+    space: ["Which object deserves another look", "Catalog context carries the signal"],
+    iran: ["Where is regional pressure tightening", "Public sources and energy context frame the watch"],
+    quantum: ["Which paper changes the field map", "Topic velocity sets the read"],
+    "deep-sea": ["Which sensor is breaking pattern", "Wave, wind, and pressure carry the anomaly"],
+    viral: ["Is detection behind", "R0, lag, and contacts set the risk"],
+    "dark-forest": ["Which dimming signal refuses to disappear", "Catalog context frames the anomaly"],
+    "dune-deck": ["What proof moves the pitch", "Slide state and traction tell the story"],
+  }[channel.id];
+  if (generic) return formatChannelHeadline(channel, generic[0], provenance.sourceType === "unavailable" ? "The source gap is visible" : generic[1]);
+  return formatChannelHeadline(channel, `What matters in ${channel.label}`, story);
+}
+
 function nextActionsForIntent(channel, intent) {
   if (channel.id === "crypto-trading" || channel.liveProvider === "hyperliquid") {
     if (intent.intent === "liquidity_depth") return ["Compare ETH depth", "Add price structure", "Inspect spread changes"];
@@ -5600,10 +7719,14 @@ function nextActionsForIntent(channel, intent) {
     return ["Find close odds with volume", "Build election and macro board", "Search crypto markets"];
   }
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    if (intent.intent === "graduation_watch") return ["Show fresh mints under one minute", "Find the loudest buy", "Check creator sell pressure"];
+    if (intent.intent === "fresh_mints") return ["Show what is about to graduate", "Find the loudest buy", "Rank fresh mints by curve fill"];
+    if (intent.intent === "trade_tape") return ["Show what is about to graduate", "Find fresh mints", "Check creator sell pressure"];
+    if (intent.intent === "dev_sell_watch") return ["Show largest buys", "Open graduation watch", "Find fresh mints"];
     if (intent.intent === "attention_liquidity_risk") return ["Show fastest movers", "Build viral but fragile board", "Sort by narrative decay"];
     if (intent.intent === "viral_fragile") return ["Compare liquidity risk", "Show fastest movers", "Inspect narrative decay"];
     if (intent.intent === "narrative_decay") return ["Find fresh spikes", "Compare liquidity risk", "Build viral but fragile board"];
-    return ["Show attention vs liquidity risk", "Build viral but fragile board", "Sort by narrative decay"];
+    return ["Show what is about to graduate", "Find fresh mints under one minute", "Find the loudest buy"];
   }
   return ["Open overview", "Show events", "Inspect top entity", "Map relationships"];
 }
@@ -5639,6 +7762,7 @@ function generatedPageTemplateForIntent(channel, intent) {
     return "ranked_board";
   }
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
+    if (["graduation_watch", "fresh_mints", "trade_tape", "dev_sell_watch"].includes(intent.intent)) return "ranked_board";
     if (intent.intent === "token_velocity") return "ranked_board";
     return "risk_radar";
   }
@@ -5693,7 +7817,7 @@ function buildGeneratedPageState(channel, intent, options = {}) {
       actions: "fork_prompts",
     },
     thesis: {
-      title: options.title || intent.topic || `${channel.label} Generated Page`,
+      title: options.title || intent.topic || formatChannelHeadline(channel, "What matters now", channelBaseTopic(channel)),
       summary: options.summary || options.body || "",
     },
     stage: {
@@ -5853,6 +7977,11 @@ function buildPolyrecTurnUpdate(channel, intent, result, provenance) {
   const primaryWhy = hasMarkets
     ? `${top.why || result.liveSummary?.highlights?.[0] || fallbackNotice(provenance)}${coverageNote ? ` ${coverageNote}` : ""}`
     : `${coverageNote || "No matching markets were returned for this filter."} ${fallbackNotice(provenance)}`;
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: title,
+    story: primaryWhy,
+    topLabel: hasMarkets ? compactQuestion(top.question, 54) : "",
+  });
   const visibleBoardRows = boardRows.length ? boardRows : [["No matching rows", coverageNote || "No matching markets in this refresh.", sourceLabelForType(provenance.sourceType)]];
   const chartField = intent.intent === "close_volume" ? "closeOddsPct" : "yesPct";
   const thesisBody = hasMarkets
@@ -5887,7 +8016,7 @@ function buildPolyrecTurnUpdate(channel, intent, result, provenance) {
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
     provenanceRecords,
     generatedPage: buildGeneratedPageState(channel, intent, {
-      title,
+      title: headline,
       summary: thesisBody,
       stageComponents: [stageLead],
       railComponents: [{
@@ -5931,7 +8060,7 @@ function buildPolyrecTurnUpdate(channel, intent, result, provenance) {
       sourceState,
     }),
     patch: {
-      title: `${channel.label}: ${title}`,
+      title: headline,
       subtitle: `A ranked Polymarket intelligence board. ${coverageNote || fallbackNotice(provenance)}`,
       visualLabel: intent.stageIntent,
       visualCopy: `${thesisBody} The rail keeps source freshness and exactly three fork prompts visible.`,
@@ -5989,7 +8118,335 @@ function buildPolyrecTurnUpdate(channel, intent, result, provenance) {
   };
 }
 
+function launchpadIntentTitle(intent) {
+  if (intent.intent === "graduation_watch") return "What Is About To Graduate?";
+  if (intent.intent === "fresh_mints") return "Fresh Mint Firehose";
+  if (intent.intent === "trade_tape") return "Loudest Buys On The Tape";
+  if (intent.intent === "dev_sell_watch") return "Creator Sell Pressure";
+  return "Pump.fun Launchpad";
+}
+
+function launchpadRowSymbol(row = {}, index = 0) {
+  return String(row.symbol || row.name || row.label || `TOKEN ${index + 1}`).toUpperCase().slice(0, 18);
+}
+
+function launchpadTupleRow(row = {}, intent, index = 0) {
+  const symbol = launchpadRowSymbol(row, index);
+  const fill = Math.round(numberOr(row.fillPct, 0));
+  const cap = formatCompactUsd(parseUsdNumber(row.marketCapUsd || row.marketCap));
+  if (intent.intent === "graduation_watch") {
+    const remaining = numberOr(row.remainingSol, Math.max(0, pumpportalStream.GRADUATION_SOL_TARGET * (1 - fill / 100)));
+    return [`${fill}%`, `${symbol} is filling toward the 85 SOL graduation.`, `${remaining.toFixed(1)} SOL left / ${cap}`];
+  }
+  if (intent.intent === "fresh_mints") {
+    const age = row.ageSec != null ? `${Math.round(numberOr(row.ageSec, 0))}s` : "new";
+    return [age, `${symbol} just appeared on pump.fun.`, `${cap} cap / dev buy ${Number(row.initialBuySol || 0).toFixed(2)} SOL`];
+  }
+  const tradeType = String(row.lastTradeType || "trade").toLowerCase();
+  const ago = row.lastTradeAgoSec != null ? `${Math.round(numberOr(row.lastTradeAgoSec, 0))}s` : "now";
+  return [ago, `${symbol} ${tradeType} ${Number(row.lastTradeSol || 0).toFixed(2)} SOL hit the tape.`, `${fill}% curve / ${cap}`];
+}
+
+function launchpadChartRows(rows = [], intent) {
+  return rows.slice(0, 12).map((row, index) => {
+    const ageSec = numberOr(row.ageSec, row.lastTradeAgoSec || 0);
+    const fillPct = numberOr(row.fillPct, 0);
+    const lastTradeSol = numberOr(row.lastTradeSol, row.initialBuySol || 0);
+    const valueLabel = intent.intent === "graduation_watch"
+      ? `${Math.round(fillPct)}%`
+      : intent.intent === "fresh_mints"
+        ? `${Math.round(ageSec)}s`
+        : `${lastTradeSol.toFixed(2)} SOL`;
+    return {
+      index,
+      label: launchpadRowSymbol(row, index),
+      fillPct,
+      freshnessScore: Math.max(0, 300 - ageSec),
+      ageSec,
+      lastTradeSol,
+      valueLabel,
+      marketCapUsd: parseUsdNumber(row.marketCapUsd || row.marketCap),
+      remainingSol: numberOr(row.remainingSol, Math.max(0, pumpportalStream.GRADUATION_SOL_TARGET * (1 - fillPct / 100))),
+      tradeType: row.lastTradeType || "",
+      sourceKind: row._launchpadKind || row.kind || "",
+    };
+  });
+}
+
+function launchpadDecisionContext(intent, top = {}, data = {}, provenance = {}, rows = []) {
+  const noRows = !rows.length;
+  const target = Number(data.graduationSolTarget || pumpportalStream.GRADUATION_SOL_TARGET || 85);
+  const symbol = noRows ? "No token" : launchpadRowSymbol(top, 0);
+  const fill = Math.round(numberOr(top.fillPct, 0));
+  const remainingSol = numberOr(top.remainingSol, Math.max(0, target * (1 - fill / 100)));
+  const cap = formatCompactUsd(parseUsdNumber(top.marketCapUsd || top.marketCap));
+  const age = top.ageSec != null ? `${Math.round(numberOr(top.ageSec, 0))}s old` : "age unavailable";
+  const tradeSol = numberOr(top.lastTradeSol, top.initialBuySol || 0);
+  const tradeType = String(top.lastTradeType || "trade").toLowerCase();
+  const sourceMode = data.streamConnected ? "live websocket" : sourceLabelForType(provenance.sourceType);
+  const sourceNote = data.streamConnected ? "PumpPortal" : (data.streamSource || provenance.provider || "fallback");
+
+  if (noRows) {
+    return {
+      summary: "PumpPortal has no matching launchpad rows for this fork yet. The page is preserving the source gap and pointing you to the next read-only pivots.",
+      stageBody: "No row is being promoted. Use the source rail first, then pivot to fresh mints, graduations, or the tape.",
+      chartTitle: "Launchpad Source Gap",
+      chartField: "fillPct",
+      metrics: [
+        ["Rows", "0", "matching"],
+        ["Source", sourceMode, sourceNote],
+        ["Next", "pivot", "read-only"],
+      ],
+      routeRows: [
+        ["1 source", "Check whether the stream is live or on public fallback.", sourceNote],
+        ["2 pivot", "Switch to fresh mints, graduations, or the tape.", "no fabricated rows"],
+        ["3 retry", "Run the same prompt again after the websocket warms up.", "same provenance path"],
+      ],
+      items: ["Keep the source gap visible.", "Switch to a broader launchpad view.", "Retry after the stream updates."],
+    };
+  }
+
+  if (intent.intent === "graduation_watch") {
+    return {
+      summary: `${symbol} leads the graduation board at ${fill}% curve fill with ${remainingSol.toFixed(1)} SOL left. Decision path: rank curve progress, confirm live trade flow, then inspect creator sell pressure before following the token deeper.`,
+      stageBody: "The chart is the decision surface: longer bars are closer to graduation, while the rail keeps flow, source, and next pivots beside it.",
+      chartTitle: "Graduation Curve Leaders",
+      chartField: "fillPct",
+      metrics: [
+        ["Lead", symbol, `${fill}% curve`],
+        ["Left", `${remainingSol.toFixed(1)} SOL`, `to ${target} SOL`],
+        ["Last flow", `${tradeSol.toFixed(2)} SOL`, tradeType],
+        ["Source", sourceMode, sourceNote],
+      ],
+      routeRows: [
+        ["1 rank", `${symbol} is closest to graduation right now.`, `${fill}% curve / ${cap}`],
+        ["2 confirm", `Last visible flow is a ${tradeType} for ${tradeSol.toFixed(2)} SOL.`, "compare against sell pressure"],
+        ["3 pivot", "Open creator sells if the lead stalls or sells dominate.", "read-only fork"],
+      ],
+      items: ["Confirm the lead token's latest flow.", "Fork into creator sell pressure.", "Switch to fresh mints if the board is thin."],
+    };
+  }
+
+  if (intent.intent === "fresh_mints") {
+    return {
+      summary: `${symbol} is the freshest visible mint at ${age}. Decision path: age first, then initial buy size, then curve fill so the newest rows do not overwhelm the stronger ones.`,
+      stageBody: "The chart ranks freshness as the primary signal; the rail adds cap, initial buy, curve fill, and source state so the next step is explicit.",
+      chartTitle: "Freshest Mints By Age",
+      chartField: "freshnessScore",
+      metrics: [
+        ["Freshest", symbol, age],
+        ["Curve", `${fill}%`, "bonding"],
+        ["Initial buy", `${numberOr(top.initialBuySol, tradeSol).toFixed(2)} SOL`, "dev context"],
+        ["Source", sourceMode, sourceNote],
+      ],
+      routeRows: [
+        ["1 age", `${symbol} is the freshest matching mint.`, age],
+        ["2 filter", "Promote only rows with visible initial buy or curve movement.", `${cap} cap`],
+        ["3 pivot", "Fork to curve leaders once a fresh mint starts moving.", "graduation watch"],
+      ],
+      items: ["Promote fresh rows with visible curve movement.", "Fork to graduation leaders.", "Check the tape for first large buys."],
+    };
+  }
+
+  if (intent.intent === "dev_sell_watch") {
+    return {
+      summary: `${symbol} is the clearest visible sell-pressure row at ${tradeSol.toFixed(2)} SOL. Decision path: identify sell size, compare curve position, then decide whether this is a warning row or just normal churn.`,
+      stageBody: "The chart keeps sell size prominent and leaves curve, cap, and source state in the rail so warnings are not detached from context.",
+      chartTitle: "Visible Creator Sell Pressure",
+      chartField: "lastTradeSol",
+      metrics: [
+        ["Sell row", symbol, `${tradeSol.toFixed(2)} SOL`],
+        ["Curve", `${fill}%`, "bonding"],
+        ["Cap", cap, "public"],
+        ["Source", sourceMode, sourceNote],
+      ],
+      routeRows: [
+        ["1 size", `${symbol} printed a visible ${tradeType}.`, `${tradeSol.toFixed(2)} SOL`],
+        ["2 context", "Compare that sell against curve progress and cap.", `${fill}% curve / ${cap}`],
+        ["3 pivot", "Open graduation watch if the sell row is still near the top.", "read-only fork"],
+      ],
+      items: ["Compare sell size with curve progress.", "Switch to graduation watch.", "Inspect fresh mints if sell rows dominate."],
+    };
+  }
+
+  return {
+    summary: `${symbol} printed the loudest visible trade at ${tradeSol.toFixed(2)} SOL. Decision path: size the flow, separate buys from sells, then pivot to the graduation or sell-pressure view.`,
+    stageBody: "The chart makes the tape's largest SOL prints the main surface; the rail explains whether the move is confirmation, churn, or a warning pivot.",
+    chartTitle: "Loudest Trades On The Tape",
+    chartField: "lastTradeSol",
+    metrics: [
+      ["Loudest", symbol, `${tradeSol.toFixed(2)} SOL`],
+      ["Side", tradeType, "last print"],
+      ["Curve", `${fill}%`, "bonding"],
+      ["Source", sourceMode, sourceNote],
+    ],
+    routeRows: [
+      ["1 size", `${symbol} has the largest recent tape print.`, `${tradeSol.toFixed(2)} SOL ${tradeType}`],
+      ["2 classify", "Treat buys and sells differently before pivoting.", `${fill}% curve / ${cap}`],
+      ["3 pivot", "Open graduation watch for buys or sell pressure for exits.", "next fork"],
+    ],
+    items: ["Classify the loudest print by side.", "Fork to graduation watch for buy-led moves.", "Fork to sell pressure for exit-led moves."],
+  };
+}
+
+function buildMemeLaunchpadTurnUpdate(channel, intent, result, provenance) {
+  const sourceState = componentSourceState(provenance);
+  const provenanceRecords = result.provenance?.length ? result.provenance : [provenance];
+  const data = result.data && result.data.kind === "pumpfun-launchpad-v1" ? result.data : {};
+  const rows = Array.isArray(result.rows) && result.rows.length ? result.rows : memeLaunchpadRows(data, intent.params);
+  const title = launchpadIntentTitle(intent);
+  const chartRows = launchpadChartRows(rows, intent);
+  const visibleRows = rows.length
+    ? rows.slice(0, 8).map((row, index) => launchpadTupleRow(row, intent, index))
+    : [["No rows", "PumpPortal is warming up and no fallback rows matched this request.", sourceLabelForType(provenance.sourceType)]];
+  const metrics = result.liveSummary?.metrics?.length ? result.liveSummary.metrics : [
+    ["Mints/min", Number(data.metrics?.mintsPerMin || 0).toFixed(1), data.streamSource || "source"],
+    ["Grads · 24h", String(data.metrics?.graduations24h || 0), "Raydium"],
+    ["Curve TVL", formatCompactUsd(data.metrics?.totalCurveUsd || 0), `${Math.round(Number(data.metrics?.totalCurveSol || 0))} SOL`],
+  ];
+  const top = rows[0] || {};
+  const nextActions = generatedPromptItems(channel, intent);
+  const noRows = !rows.length;
+  const decision = launchpadDecisionContext(intent, top, data, provenance, rows);
+  const thesisBody = decision.summary;
+  const chartField = decision.chartField;
+  const chartTitle = decision.chartTitle || title;
+  const stageLead = chartRows.length ? {
+    id: `meme-${intent.intent}-launchpad`,
+    type: "vega-chart",
+    eyebrow: "pump.fun launchpad",
+    title: chartTitle,
+    body: decision.stageBody,
+    chart: { type: "horizontal-bar", binding: "none", x: chartField, y: "label", color: "tradeType", data: chartRows },
+    note: `${fallbackNotice(provenance)} Click a bar to pin the row details below the chart.`,
+    provenanceIds: provenanceRecords.map((record) => record.id),
+    sourceState,
+    interactions: [{ type: "click-point", action: "inspect_launchpad_token" }],
+  } : {
+    id: `meme-${intent.intent}-source-gap`,
+    type: "insight-card",
+    eyebrow: "launchpad source gap",
+    title: "No Matching Launchpad Rows",
+    body: `${fallbackNotice(provenance)} PumpPortal may still be warming up.`,
+    items: ["No token movement was fabricated.", "Retry the stream, switch to graduations, or inspect indexed fallback tokens."],
+    provenanceIds: provenanceRecords.map((record) => record.id),
+    sourceState,
+  };
+  const topTitle = top.symbol || top.name || (noRows ? "No matching token" : "Launchpad token");
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: title,
+    story: thesisBody,
+    topLabel: topTitle,
+  });
+  return {
+    layout: { template: intent.layout, rationale: `User asked for ${intent.topic}.` },
+    dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
+    provenanceRecords,
+    generatedPage: buildGeneratedPageState(channel, intent, {
+      title: headline,
+      summary: thesisBody,
+      stageComponents: [stageLead],
+      railComponents: [{
+        id: "meme-launchpad-decision-snapshot",
+        type: "metric-strip",
+        eyebrow: "start here",
+        title: "Decision Snapshot",
+        body: noRows ? "No matching token is being promoted." : "Use this compact read before choosing the next fork.",
+        metrics: decision.metrics,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-launchpad-decision-route",
+        type: "insight-card",
+        eyebrow: "decision route",
+        title: noRows ? "Source Gap Route" : "Watch -> Confirm -> Pivot",
+        body: thesisBody,
+        rows: decision.routeRows,
+        items: decision.items,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-launchpad-token",
+        type: "entity-inspector",
+        eyebrow: noRows ? "source gap" : "leading row",
+        title: topTitle,
+        body: noRows ? "No launchpad row matched this request." : launchpadTupleRow(top, intent, 0)[1],
+        metrics: [
+          ["Curve", `${Math.round(numberOr(top.fillPct, 0))}%`, "bonding"],
+          ["Cap", formatCompactUsd(parseUsdNumber(top.marketCapUsd || top.marketCap)), "public"],
+          ["Trade", `${Number(top.lastTradeSol || top.initialBuySol || 0).toFixed(2)} SOL`, top.lastTradeType || "size"],
+        ],
+        rows: [
+          ["mint", top.mint ? clampText(top.mint, 18) : "n/a", "pump.fun"],
+          ["age", top.ageSec != null ? `${Math.round(numberOr(top.ageSec, 0))}s` : "n/a", "stream"],
+          ["source", data.streamSource || provenance.provider, data.streamConnected ? "websocket" : "fallback"],
+        ],
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-launchpad-source",
+        type: "source-confidence",
+        title: "Evidence And Freshness",
+        rows: [
+          ...sourceRowsWithFreshness(provenance),
+          ["guardrail", "not financial advice", "read-only"],
+        ].slice(0, 8),
+        note: "Pump.fun and DEX rows are public context only; no execution is available here.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-launchpad-next-actions",
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: "Each prompt keeps the same source/provenance path and creates a forkable state.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }],
+      actions: nextActions,
+      provenanceRecords,
+      sourceState,
+    }),
+    patch: {
+      title: headline,
+      subtitle: fallbackNotice(provenance),
+      visualLabel: intent.stageIntent,
+      visualCopy: `${thesisBody} Source freshness and read-only guardrails stay visible.`,
+      feedLabel: "launchpad tape",
+      lens: intent.intent.replace(/_/g, " "),
+      tabs: ["Mints", "Curve", "Tape", "Source"],
+      metrics,
+      feed: visibleRows.slice(0, 6),
+    },
+    surfaces: [
+      { surface: "stageOverlay", mode: "replace", components: [stageLead] },
+      { surface: "rail", mode: "replace", components: [{
+        id: "meme-launchpad-source",
+        type: "source-confidence",
+        title: "Evidence And Freshness",
+        rows: sourceRowsWithFreshness(provenance),
+        note: "Read-only launchpad context; no trade path is exposed.",
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }, {
+        id: "meme-launchpad-next-actions",
+        type: "action-panel",
+        title: "Inspect Next",
+        items: nextActions,
+        note: `Each prompt creates another forkable read-only channel state. ${fallbackNotice(provenance)}`,
+        provenanceIds: provenanceRecords.map((record) => record.id),
+        sourceState,
+      }] },
+      { surface: "modal", mode: "clear", components: [] },
+    ],
+    narration: `${title} is live as a read-only pump.fun launchpad state. ${fallbackNotice(provenance)}`,
+  };
+}
+
 function buildMemeTurnUpdate(channel, intent, result, provenance) {
+  if (result.data?.kind === "pumpfun-launchpad-v1" && ["graduation_watch", "fresh_mints", "trade_tape", "dev_sell_watch"].includes(intent.intent)) {
+    return buildMemeLaunchpadTurnUpdate(channel, intent, result, provenance);
+  }
   const sourceState = componentSourceState(provenance);
   const provenanceRecords = result.provenance?.length ? result.provenance : [provenance];
   const rawTokens = Array.isArray(result.rows) && result.rows.length
@@ -6052,6 +8509,11 @@ function buildMemeTurnUpdate(channel, intent, result, provenance) {
       : intent.intent === "narrative_decay"
         ? "This board surfaces tokens where short-term attention appears to be cooling against broader fragility signals."
         : "This board ranks current indexed token velocity and keeps liquidity, risk, and source state beside the visual.";
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: title,
+    story: thesisBody,
+    topLabel: top.label,
+  });
   const thesisItems = [
     `Why it matters now: ${primaryHighlight}`,
     fallbackNotice(provenance),
@@ -6067,7 +8529,7 @@ function buildMemeTurnUpdate(channel, intent, result, provenance) {
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
     provenanceRecords,
     generatedPage: buildGeneratedPageState(channel, intent, {
-      title,
+      title: headline,
       summary: thesisBody,
       stageComponents: [{
         id: `meme-${intent.intent}-chart`,
@@ -6125,7 +8587,7 @@ function buildMemeTurnUpdate(channel, intent, result, provenance) {
       sourceState,
     }),
     patch: {
-      title: `${channel.label}: ${title}`,
+      title: headline,
       subtitle: fallbackNotice(provenance),
       visualLabel: intent.stageIntent,
       visualCopy: `${thesisBody} The rail names source freshness, risk labels, and three follow-up prompts.`,
@@ -6233,6 +8695,11 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
       : isRisk
         ? `This is a volatility-regime view for ${entity}; the range band shows whether recent structure is widening or calming.`
         : `This is ${entity} price structure over ${intent.timeframe.label}; inspect whether the latest move is extending, mean-reverting, or stalling.`;
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: title,
+    story: primaryHighlight,
+    entity,
+  });
   const whyNowItems = [
     firstNonEmptyString([primaryHighlight], "The chart turns the provider refresh into one inspectable market thesis."),
     fallbackNotice(provenance),
@@ -6265,7 +8732,7 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
     provenanceRecords,
     generatedPage: buildGeneratedPageState(channel, intent, {
-      title,
+      title: headline,
       summary: thesisBody,
       stageComponents: [{
         id: `${entity.toLowerCase()}-${intent.layout}-stage`,
@@ -6315,7 +8782,7 @@ function buildCryptoTurnUpdate(channel, intent, result, provenance) {
       sourceState,
     }),
     patch: {
-      title: `${channel.label}: ${title}`,
+      title: headline,
       subtitle: fallbackNotice(provenance),
       visualLabel: intent.stageIntent,
       visualCopy: `${thesisBody} The rail names the source, freshness, and three concrete follow-up prompts.`,
@@ -6402,6 +8869,11 @@ function buildPowerGridTurnUpdate(channel, intent, result, provenance) {
   const primaryHighlight = result.liveSummary?.highlights?.[0] || fallbackNotice(provenance);
   const nextActions = nextActionsForIntent(channel, intent);
   const title = intent.intent === "grid_risk" ? `${respondent} Grid Risk` : intent.intent === "fuel_mix" ? `${respondent} Fuel Mix` : `${respondent} Load Vs Forecast`;
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: title,
+    story: primaryHighlight,
+    entity: respondent,
+  });
   return {
     layout: {
       template: intent.layout,
@@ -6410,7 +8882,7 @@ function buildPowerGridTurnUpdate(channel, intent, result, provenance) {
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
     provenanceRecords: [provenance],
     patch: {
-      title: `${channel.label}: ${title}`,
+      title: headline,
       subtitle: fallbackNotice(provenance),
       visualLabel: intent.stageIntent,
       visualCopy: intent.railIntent,
@@ -6486,12 +8958,16 @@ function buildPowerGridTurnUpdate(channel, intent, result, provenance) {
 function buildGenericTurnUpdate(channel, intent, result, provenance) {
   const sourceState = componentSourceState(provenance);
   const nextActions = nextActionsForIntent(channel, intent);
+  const headline = channelMomentHeadline(channel, intent, result, provenance, {
+    fallbackTitle: intent.topic,
+    story: result.liveSummary?.highlights?.[0],
+  });
   return {
     layout: { template: intent.layout, rationale: `User asked for ${intent.topic}.` },
     dataRequests: [{ capability: intent.capability, detail: "compact", params: intent.params, reason: intent.stageIntent }],
     provenanceRecords: [provenance],
     patch: {
-      title: `${channel.label}: ${intent.topic}`,
+      title: headline,
       subtitle: fallbackNotice(provenance),
       visualLabel: intent.stageIntent,
       visualCopy: intent.railIntent,
@@ -6506,7 +8982,7 @@ function buildGenericTurnUpdate(channel, intent, result, provenance) {
           id: `${channel.id}-${intent.layout}-stage`,
           type: "insight-card",
           eyebrow: "channel agent",
-          title: intent.topic,
+          title: headline,
           body: result.liveSummary?.highlights?.[0] || fallbackNotice(provenance),
           items: result.liveSummary?.highlights?.slice(1, 4) || [],
           provenanceIds: [provenance.id],
@@ -7150,25 +9626,26 @@ function sourceStateFromShareProvenance(provenanceRecords) {
 
 function shareHeadline(channel, state, prompt) {
   const text = normalizeAgentText(prompt || state.focus?.topic || "");
+  const entity = state.focus?.entities?.[0] || "BTC";
   if (channel.id === "crypto-trading") {
-    if (/\b(liquidity|depth|book)\b/.test(text)) return `${state.focus?.entities?.[0] || "BTC"} Liquidity Pocket`;
-    if (/\b(compare|versus|vs)\b/.test(text) || (state.focus?.entities || []).length > 1) return `${(state.focus?.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} Divergence`;
-    if (/\b(volatility|drawdown|range|regime)\b/.test(text)) return `${state.focus?.entities?.[0] || "BTC"} Volatility Regime`;
-    return "BTC 3M Price Structure";
+    if (/\b(liquidity|depth|book)\b/.test(text)) return formatChannelHeadline(channel, `Is ${entity} trapped`, "Depth and spread set the read");
+    if (/\b(compare|versus|vs)\b/.test(text) || (state.focus?.entities || []).length > 1) return formatChannelHeadline(channel, "Which asset is leading", `${(state.focus?.entities || ["BTC", "ETH"]).slice(0, 2).join(" vs ")} shows the split`);
+    if (/\b(volatility|drawdown|range|regime)\b/.test(text)) return formatChannelHeadline(channel, "Is volatility waking up", "Range and drawdown set the regime");
+    return formatChannelHeadline(channel, "Is BTC carrying the move", "Price structure tells the story");
   }
   if (channel.id === "polyrec") {
-    if (/\b(close|50 50|volume)\b/.test(text)) return "Close Odds, High Volume";
-    if (/\b(election|politic|macro|fed|rate|inflation)\b/.test(text)) return "Election Market Watch";
-    if (/\b(crypto|btc|bitcoin|eth|ethereum)\b/.test(text)) return "Crypto Prediction Market Drift";
-    return "Weirdest Polymarket Board";
+    if (/\b(close|50 50|volume)\b/.test(text)) return formatChannelHeadline(channel, "Which tight market has weight", "Close odds and volume set the board");
+    if (/\b(election|politic|macro|fed|rate|inflation)\b/.test(text)) return formatChannelHeadline(channel, "Which political bet is moving", "Volume and odds decide the watch");
+    if (/\b(crypto|btc|bitcoin|eth|ethereum)\b/.test(text)) return formatChannelHeadline(channel, "Which crypto bet is repricing", "Active markets set the board");
+    return formatChannelHeadline(channel, "Which weird bet is worth the stare", "Question shape and odds movement set the read");
   }
   if (channel.id === "meme-coin") {
-    if (/\b(decay|fade|fading|peak)\b/.test(text)) return "Narrative Decay Watch";
-    if (/\b(fragile|viral)\b/.test(text)) return "Viral But Fragile";
-    if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return "Attention Vs Liquidity Risk";
-    return "Fastest Moving Meme Coins";
+    if (/\b(decay|fade|fading|peak)\b/.test(text)) return formatChannelHeadline(channel, "Is the story already fading", "Cooling attention shows beside liquidity");
+    if (/\b(fragile|viral)\b/.test(text)) return formatChannelHeadline(channel, "Does viral also mean fragile", "Attention is outrunning support");
+    if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return formatChannelHeadline(channel, "Is the hype actually liquid", "Attention and liquidity split the board");
+    return formatChannelHeadline(channel, "What is actually pumping", "Velocity stays tied to visible liquidity");
   }
-  return `${channel.label} Generated State`;
+  return formatChannelHeadline(channel, "What matters now", channelBaseTopic(channel));
 }
 
 function buildChannelShareObject(channel, sessionId, options = {}) {
@@ -7181,7 +9658,7 @@ function buildChannelShareObject(channel, sessionId, options = {}) {
   const provenanceRecords = Array.isArray(channelUpdate.provenanceRecords) && channelUpdate.provenanceRecords.length
     ? channelUpdate.provenanceRecords
     : Array.isArray(state.provenance) ? state.provenance.slice(-6) : [];
-  const prompt = clampText(options.prompt || latestTurnText(state, "user") || state.focus?.topic || `${channel.label} overview`, 220);
+  const prompt = clampText(options.prompt || latestTurnText(state, "user") || state.focus?.topic || channelBaseTopic(channel), 220);
   const narrationScript = clampText(channelUpdate.narration || latestTurnText(state, "assistant") || `${channel.label} state is ready to replay.`, 260);
   const sourceState = sourceStateFromShareProvenance(provenanceRecords);
   const id = newChannelShareId(channel.id);
@@ -7700,6 +10177,7 @@ app.get("/api/realtime/status", (req, res) => {
     ok: true,
     configured: Boolean(process.env.OPENAI_API_KEY),
     model: OPENAI_REALTIME_MODEL,
+    reasoningEffort: OPENAI_REALTIME_REASONING_EFFORT,
     voice: OPENAI_REALTIME_VOICE,
     currentWorkspace: state.currentWorkspace,
     fallback: {
@@ -7709,6 +10187,196 @@ app.get("/api/realtime/status", (req, res) => {
       elevenLabsModel: ELEVENLABS_MODEL_ID,
     },
   });
+});
+
+app.get("/api/decks/dune/generative-status", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({
+    ok: true,
+    configured: Boolean(process.env.OPENAI_API_KEY),
+    model: OPENAI_DECK_MODEL,
+    reasoningEffort: OPENAI_DECK_REASONING_EFFORT,
+    primitives: DECK_GENERATION_PRIMITIVES,
+    openSlide: {
+      workspace: path.relative(__dirname, OPEN_SLIDE_WORKSPACE_DIR),
+      generatedSlide: path.relative(__dirname, OPEN_SLIDE_GENERATED_SLIDE_FILE),
+      writesEnabled: OPEN_SLIDE_WRITE_GENERATED,
+    },
+  });
+});
+
+app.post("/api/decks/dune/generate-slide", async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const prompt = clampText(body.prompt || body.userText || body.text, 900);
+    if (!prompt) return res.status(400).json({ ok: false, error: "prompt is required" });
+
+    const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
+    const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
+    const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
+    const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
+    const slideIndex = Number.isFinite(requestedIndex)
+      ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
+      : 0;
+    const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
+    const startedAt = Date.now();
+    const openaiResponse = await callOpenAIForDeckSlide(prompt, currentSlide, slideIndex, deckSlides.length || 1);
+    const parsed = parseJsonObject(extractOpenAIText(openaiResponse));
+    const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
+    attachOpenSlideArtifact(slide, prompt, slideIndex);
+    recordDeckGeneration(prompt, slide);
+
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json({
+      ok: true,
+      slide,
+      prompt,
+      model: openaiResponse.model || OPENAI_DECK_MODEL,
+      responseId: openaiResponse.id || "",
+      latencyMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error("dune deck generation failed:", err.message);
+    res.status(500).json({ ok: false, error: err.message, model: OPENAI_DECK_MODEL });
+  }
+});
+
+app.post("/api/decks/dune/generate-slide/stream", async (req, res) => {
+  const startedAt = Date.now();
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+
+  const emit = (payload) => writeJsonLine(res, payload);
+
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const prompt = clampText(body.prompt || body.userText || body.text, 900);
+    if (!prompt) {
+      emit({ type: "error", error: "prompt is required" });
+      return res.end();
+    }
+
+    emit({ type: "status", text: "reading repo context and planning docs" });
+    const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
+    const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
+    const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
+    const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
+    const slideIndex = Number.isFinite(requestedIndex)
+      ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
+      : 0;
+    const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
+    const requestBody = deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, deckSlides.length || 1, { stream: true });
+
+    emit({ type: "status", text: `routing prompt to ${OPENAI_DECK_MODEL}` });
+    const response = await sendOpenAIResponse(requestBody);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`OpenAI ${response.status}: ${text.slice(0, 500)}`);
+    }
+
+    emit({ type: "status", text: "streaming slide schema deltas" });
+    let rawText = "";
+    let responseId = "";
+    let responseModel = OPENAI_DECK_MODEL;
+    let sseBuffer = "";
+
+    const handleEvent = (event) => {
+      if (!event || typeof event !== "object") return;
+      if (event.type === "response.created") {
+        responseId = event.response?.id || responseId;
+        responseModel = event.response?.model || responseModel;
+        emit({ type: "meta", responseId, model: responseModel });
+      }
+      if (event.type === "response.output_text.delta" && event.delta) {
+        rawText += event.delta;
+        emit({ type: "delta", text: event.delta });
+      }
+      if (event.type === "response.output_text.done" && event.text && !rawText.trim()) {
+        rawText = event.text;
+        emit({ type: "delta", text: event.text });
+      }
+      if (event.type === "response.completed") {
+        responseId = event.response?.id || responseId;
+        responseModel = event.response?.model || responseModel;
+      }
+      if (event.type === "response.failed") {
+        throw new Error(event.response?.error?.message || "OpenAI stream failed");
+      }
+    };
+
+    for await (const chunk of response.body) {
+      sseBuffer += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
+      const blocks = sseBuffer.split(/\n\n/);
+      sseBuffer = blocks.pop() || "";
+      blocks.forEach((block) => {
+        const event = parseOpenAISseBlock(block);
+        if (event) handleEvent(event);
+      });
+    }
+    if (sseBuffer.trim()) {
+      const event = parseOpenAISseBlock(sseBuffer);
+      if (event) handleEvent(event);
+    }
+
+    emit({ type: "status", text: "validating generated slide schema" });
+    const parsed = parseJsonObject(rawText);
+    const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
+    const openSlide = attachOpenSlideArtifact(slide, prompt, slideIndex);
+    recordDeckGeneration(prompt, slide);
+    emit({ type: "status", text: openSlide.written ? "writing open-slide react page" : "materializing open-slide react page" });
+    chunkText(openSlide.source).forEach((chunk) => emit({ type: "code", path: openSlide.path, text: chunk }));
+    emit({
+      type: "slide",
+      ok: true,
+      slide,
+      prompt,
+      model: responseModel,
+      responseId,
+      latencyMs: Date.now() - startedAt,
+    });
+    emit({ type: "done" });
+    res.end();
+  } catch (err) {
+    console.error("dune deck stream generation failed:", err.message);
+    emit({ type: "status", text: "stream failed; trying single response fallback" });
+    try {
+      const body = req.body && typeof req.body === "object" ? req.body : {};
+      const prompt = clampText(body.prompt || body.userText || body.text, 900);
+      const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
+      const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
+      const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
+      const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
+      const slideIndex = Number.isFinite(requestedIndex)
+        ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
+        : 0;
+      const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
+      const openaiResponse = await callOpenAIForDeckSlide(prompt, currentSlide, slideIndex, deckSlides.length || 1);
+      const rawText = extractOpenAIText(openaiResponse);
+      emit({ type: "delta", text: rawText });
+      const parsed = parseJsonObject(rawText);
+      const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
+      const openSlide = attachOpenSlideArtifact(slide, prompt, slideIndex);
+      recordDeckGeneration(prompt, slide);
+      emit({ type: "status", text: openSlide.written ? "writing open-slide react page" : "materializing open-slide react page" });
+      chunkText(openSlide.source).forEach((chunk) => emit({ type: "code", path: openSlide.path, text: chunk }));
+      emit({
+        type: "slide",
+        ok: true,
+        slide,
+        prompt,
+        model: openaiResponse.model || OPENAI_DECK_MODEL,
+        responseId: openaiResponse.id || "",
+        latencyMs: Date.now() - startedAt,
+      });
+      emit({ type: "done" });
+    } catch (fallbackErr) {
+      emit({ type: "error", error: fallbackErr.message || err.message, model: OPENAI_DECK_MODEL });
+    } finally {
+      res.end();
+    }
+  }
 });
 
 app.post("/api/realtime/session", async (req, res) => {
@@ -7747,6 +10415,15 @@ app.post("/api/realtime/session", async (req, res) => {
 });
 
 async function runRealtimeTool(name, args = {}, fallbackDashboard = "") {
+  if (name === "wait_for_user") {
+    return {
+      ok: true,
+      action: "wait_for_user",
+      message: "No user-facing response needed.",
+      respond: false,
+    };
+  }
+
   if (name === "open_dashboard") {
     const workspace = cleanDashboardId(args.workspace);
     if (!PANELS.some((panel) => panel.id === workspace)) throw new Error("unknown dashboard");
@@ -9250,6 +11927,12 @@ const server = app.listen(PORT, () => {
   console.log(`Kat voice: ${VOICE_SOURCE} (${ELEVENLABS_VOICE_ID}), model=${ELEVENLABS_MODEL_ID}`);
   console.log(`OpenAI realtime: ${OPENAI_REALTIME_MODEL}, voice=${OPENAI_REALTIME_VOICE}`);
   console.log(`HLS control: ${HLS_CONTROL_URL}`);
+  try {
+    pumpportalStream.start();
+    console.log("PumpPortal stream: starting websocket subscription");
+  } catch (err) {
+    console.warn("PumpPortal stream failed to start:", err?.message || err);
+  }
 });
 server.on("upgrade", (req, socket, head) => {
   if (req.url?.startsWith("/_next/webpack-hmr")) {

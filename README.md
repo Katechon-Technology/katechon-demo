@@ -79,6 +79,10 @@ Edit `.env` and fill in:
 | `OPENAI_REALTIME_MODEL` | No | Defaults to `gpt-realtime-2` |
 | `OPENAI_REALTIME_VOICE` | No | Defaults to `marin` |
 | `OPENAI_REALTIME_TRANSCRIBE_MODEL` | No | Defaults to `gpt-4o-mini-transcribe` for input transcript events |
+| `OPENAI_DECK_MODEL` | No | Defaults to `gpt-5.4-nano` for realtime Dune slide generation |
+| `OPENAI_DECK_REASONING_EFFORT` | No | Defaults to `none`; tune if generated slides need more planning |
+| `OPENAI_DECK_TIMEOUT_MS` | No | Defaults to `9000`; caps realtime deck generation latency |
+| `OPEN_SLIDE_WRITE_GENERATED` | No | Defaults to on; set to `0` to stop realtime deck generation from overwriting `open-slide/katechon-investor/slides/live-generated/index.tsx` |
 | `GROQ_API_KEY` | Fallback | Legacy push-to-talk transcription via Groq Whisper when Realtime cannot connect |
 | `ELEVENLABS_API_KEY` | Recommended | Kat's existing TTS voice for dashboard narration, welcome audio, and legacy fallback replies |
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
@@ -220,9 +224,18 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
-The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. Slide changes emit narration events to the parent dashboard shell, which plays the pre-generated MP3 for that slide through the browser Live2D avatar.
+The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. The manifest now starts with an empty `slides` array: the first investor-facing slide is generated from the live prompt rather than selected from a preset sequence.
 
-For fast edits, use `public/decks/dune/deck.json` as the source of truth for slide copy, narration, audio paths, visual paths, and generation prompts. Useful iteration commands:
+The deck supports realtime slide generation. Type into the deck chat box and slide `0` is created or the active slide is replaced by `POST /api/decks/dune/generate-slide`. The route calls the OpenAI Responses API with context built from this repo, `docs/katechon-company-context.md`, `README.md`, `REFACTOR.md`, `docs/channel-apis.md`, every file in `docs/plans/`, and the Open Slide workspace rules/examples under `open-slide/katechon-investor/`. The generated slide is sanitized into the browser renderer's primitive schema and also materialized as an Open Slide React page at `open-slide/katechon-investor/slides/live-generated/index.tsx`. The UI prefers `POST /api/decks/dune/generate-slide/stream`, which streams status lines, schema deltas, and the final Open Slide source into the visible generation console before mounting the slide; the non-streaming route remains as fallback.
+
+Open Slide iteration commands:
+
+```bash
+npm run dune:slides:dev
+npm run dune:slides:build
+```
+
+Legacy deck asset commands still exist for old narration/visual workflows:
 
 ```bash
 npm run dune:voiceover
