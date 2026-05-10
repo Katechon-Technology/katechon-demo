@@ -3348,6 +3348,7 @@
       main.style.opacity = '';
       main.style.transform = '';
       loadChannelPreviewMedia({ immediate });
+      requestAnimationFrame(resumeChannelPreviewMedia);
 
       if (immediate) {
         main.style.opacity = '1';
@@ -3387,6 +3388,7 @@
     function hideMainOverlay(immediate = false) {
       const main = document.getElementById('main-overlay');
       if (main.classList.contains('hidden')) return;
+      pauseChannelPreviewMedia();
 
       if (immediate || !canMotion) {
         main.classList.add('hidden');
@@ -3503,6 +3505,29 @@
     let channelPreviewMediaObserver = null;
     const channelPreviewHydrated = new WeakSet();
 
+    function mainOverlayAllowsPreviewMedia() {
+      const main = document.getElementById('main-overlay');
+      return Boolean(
+        main &&
+        !main.classList.contains('hidden') &&
+        !document.body.classList.contains('watch-mode') &&
+        !isMobileGated()
+      );
+    }
+
+    function pauseChannelPreviewMedia() {
+      document.querySelectorAll('#main-overlay video').forEach(video => {
+        try { video.pause(); } catch (_) {}
+      });
+    }
+
+    function resumeChannelPreviewMedia() {
+      if (!mainOverlayAllowsPreviewMedia()) return;
+      document.querySelectorAll('#main-overlay video[src]').forEach(video => {
+        if (video.autoplay) video.play().catch(() => {});
+      });
+    }
+
     function previewTileForMedia(el) {
       return el.closest?.('.gif-box') || null;
     }
@@ -3523,6 +3548,7 @@
 
     function hydratePreviewMediaElement(el, options = {}) {
       const src = el.dataset?.src;
+      if (!mainOverlayAllowsPreviewMedia()) return;
       if (!src || channelPreviewHydrated.has(el)) return;
       channelPreviewHydrated.add(el);
       const tile = previewTileForMedia(el);
@@ -3566,19 +3592,25 @@
     }
 
     function warmChannelPreviewMedia() {
+      if (!mainOverlayAllowsPreviewMedia()) return;
       const media = Array.from(document.querySelectorAll('#main-overlay video[data-src], #main-overlay img[data-src]'));
       media.slice(0, 4).forEach((el, index) => {
-        setTimeout(() => hydratePreviewMediaElement(el, { priority: index < 2 }), index * 90);
+        setTimeout(() => {
+          if (mainOverlayAllowsPreviewMedia()) hydratePreviewMediaElement(el, { priority: index < 2 });
+        }, index * 90);
       });
     }
 
     function loadChannelPreviewMedia(options = {}) {
+      if (!mainOverlayAllowsPreviewMedia()) return;
       if (channelPreviewMediaStarted) return;
       channelPreviewMediaStarted = true;
       const media = Array.from(document.querySelectorAll('#main-overlay video[data-src], #main-overlay img[data-src]'));
       const visibleFirst = options.immediate ? 8 : 6;
       media.slice(0, visibleFirst).forEach((el, index) => {
-        setTimeout(() => hydratePreviewMediaElement(el, { priority: index < 2 }), index * 45);
+        setTimeout(() => {
+          if (mainOverlayAllowsPreviewMedia()) hydratePreviewMediaElement(el, { priority: index < 2 });
+        }, index * 45);
       });
 
       const rest = media.slice(visibleFirst);
@@ -3588,6 +3620,7 @@
           entries.forEach(entry => {
             if (!entry.isIntersecting) return;
             channelPreviewMediaObserver.unobserve(entry.target);
+            if (!mainOverlayAllowsPreviewMedia()) return;
             hydratePreviewMediaElement(entry.target);
           });
         }, { root, rootMargin: '320px 0px', threshold: 0.01 });
@@ -3596,7 +3629,9 @@
       }
 
       rest.forEach((el, index) => {
-        setTimeout(() => hydratePreviewMediaElement(el), visibleFirst * 35 + index * 120);
+        setTimeout(() => {
+          if (mainOverlayAllowsPreviewMedia()) hydratePreviewMediaElement(el);
+        }, visibleFirst * 35 + index * 120);
       });
     }
 
@@ -4898,6 +4933,22 @@
       frame.style.pointerEvents = '';
     }
 
+    function disposeDashboardFrame(frame) {
+      if (!frame) return;
+      const dashboardId = frame.dataset.dashboardId;
+      const index = dashboardFrames.indexOf(frame);
+      if (index >= 0) dashboardFrames.splice(index, 1);
+      if (dashboardId) dashboardFrameById.delete(dashboardId);
+      try { frame.remove(); } catch (_) {}
+    }
+
+    function disposeInactiveDashboardFrames(activeFrame = null) {
+      dashboardFrames.slice().forEach(frame => {
+        if (frame !== activeFrame) disposeDashboardFrame(frame);
+      });
+      activeDashboardFrameIndex = activeFrame ? dashboardFrames.indexOf(activeFrame) : -1;
+    }
+
     function ensureDashboardFrame(id) {
       if (dashboardFrameById.has(id)) return dashboardFrameById.get(id);
       const dashboard = DASHBOARDS[id];
@@ -4915,7 +4966,9 @@
     }
 
     function preloadDashboardFrames() {
-      channelIds().forEach(ensureDashboardFrame);
+      // Creating hidden iframes starts every dashboard's timers, media, and
+      // animations. Keep iframe creation lazy; document prefetch happens when
+      // a dashboard is active via scheduleDashboardNeighborPrefetch().
     }
 
     function resetDashboardFrame(frame) {
@@ -5169,6 +5222,7 @@
       nextFrame.style.transition = '';
 
       if (previousFrame && previousFrame !== nextFrame) hideDashboardFrame(previousFrame);
+      disposeInactiveDashboardFrames(nextFrame);
     }
 
     function runDashboardMaterializationCssFallback(token, nextFrame, previousFrame) {
@@ -5203,7 +5257,7 @@
       clearDashboardMaterializationStage();
       currentDashboardUrl = '';
       activeDashboardFrameIndex = -1;
-      dashboardFrames.forEach(hideDashboardFrame);
+      disposeInactiveDashboardFrames(null);
     }
 
     function revealDashboardFrame(token, nextFrame, previousFrame, direction, options = {}) {
