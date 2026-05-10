@@ -84,15 +84,19 @@
     },
     {
       "source": "/dashboards/dune-deck",
-      "destination": "/decks/dune/index.html"
+      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
     },
     {
       "source": "/dashboards/dune-deck/",
-      "destination": "/decks/dune/index.html"
+      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
+    },
+    {
+      "source": "/dashboards/dune-deck/slides/:path*",
+      "destination": "/decks/dune/:path*"
     },
     {
       "source": "/dashboards/dune-deck/:path*",
-      "destination": "/decks/dune/:path*"
+      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
     },
     {
       "source": "/dashboards/identities/:path*",
@@ -124,15 +128,19 @@
     },
     {
       "source": "/app/dashboards/dune-deck",
-      "destination": "/app/decks/dune/index.html"
+      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
     },
     {
       "source": "/app/dashboards/dune-deck/",
-      "destination": "/app/decks/dune/index.html"
+      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
+    },
+    {
+      "source": "/app/dashboards/dune-deck/slides/:path*",
+      "destination": "/app/decks/dune/:path*"
     },
     {
       "source": "/app/dashboards/dune-deck/:path*",
-      "destination": "/app/decks/dune/:path*"
+      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
     },
     {
       "source": "/app/dashboards/identities/:path*",

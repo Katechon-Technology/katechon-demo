@@ -338,12 +338,17 @@
     }
     .generated-page-head {
       min-width: 0;
+      min-height: max-content;
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
       align-items: start;
       padding-bottom: 10px;
       border-bottom: 1px solid rgba(255,255,255,0.10);
+      overflow: visible;
+    }
+    .generated-page-head > div {
+      min-height: max-content;
     }
     .generated-page-kicker,
     .generated-page-section-label {
@@ -362,10 +367,12 @@
     }
     .generated-page-head p {
       max-width: 920px;
+      min-height: max-content;
       margin: 9px 0 0;
       color: var(--muted);
       font-size: 14px;
       line-height: 1.38;
+      overflow: visible;
     }
     .generated-page-grid {
       min-height: 0;

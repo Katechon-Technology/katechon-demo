@@ -33,6 +33,7 @@ const dashboardIds = [
   "power-grid",
   "viral",
   "dark-forest",
+  "dune-deck",
 ];
 
 function publicOrigin() {
@@ -88,10 +89,7 @@ fs.cpSync(path.join(appSource, "share-cards"), path.join(output, "share-cards"),
 
 const rootPrototypeDashboard = path.join(output, "prototype-dashboard.html");
 materializeDashboardRoutes(output, rootPrototypeDashboard);
-fs.rmSync(path.join(output, "dashboards", "dune-deck"), { recursive: true, force: true });
-fs.cpSync(path.join(appSource, "decks", "dune"), path.join(output, "dashboards", "dune-deck"), { recursive: true, force: true });
 setHtmlBase(path.join(output, "decks", "dune", "index.html"), "/decks/dune/");
-setHtmlBase(path.join(output, "dashboards", "dune-deck", "index.html"), "/decks/dune/");
 
 const appIndex = path.join(appOutput, "index.html");
 const appIndexHtml = fs.readFileSync(appIndex, "utf8");
@@ -100,10 +98,7 @@ const appPrototypeDashboard = path.join(appOutput, "prototype-dashboard.html");
 rewriteAppPrototypeScripts(appPrototypeDashboard);
 materializeDashboardRoutes(appOutput, appPrototypeDashboard);
 
-fs.rmSync(path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
-fs.cpSync(path.join(appSource, "decks", "dune"), path.join(appOutput, "dashboards", "dune-deck"), { recursive: true, force: true });
 setHtmlBase(path.join(appOutput, "decks", "dune", "index.html"), "/app/decks/dune/");
-setHtmlBase(path.join(appOutput, "dashboards", "dune-deck", "index.html"), "/app/decks/dune/");
 
 writeSharePages(output, "");
 writeSharePages(appOutput, "/app");

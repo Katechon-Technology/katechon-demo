@@ -39,6 +39,7 @@ let narrationWaveAnimation = null;
 let assetVersion = '';
 let generateController = null;
 let generationCodeMode = 'schema';
+const pregeneratedSlideModel = 'repo-history/pregenerated';
 
 function deckAssetPath(value, version = assetVersion) {
   if (!value) return '';
@@ -718,6 +719,132 @@ async function loadDeckConfig() {
   const response = await fetch('./deck.json', { cache: 'no-store' });
   if (!response.ok) throw new Error(`deck.json returned HTTP ${response.status}`);
   return response.json();
+}
+
+function normalizeSlideCommand(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(?:kat|please|generate|create|make|build|show|turn|this|into|me|a|an|the|slide|frame|on|about|for|of|to|and)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function pregeneratedSlideCatalog() {
+  return Array.isArray(deckConfig && deckConfig.promptSlides) ? deckConfig.promptSlides : [];
+}
+
+function pregeneratedAliases(entry) {
+  return [
+    entry && entry.id,
+    entry && entry.topic,
+    ...((entry && entry.commands) || []),
+    ...((entry && entry.aliases) || []),
+  ].filter(Boolean);
+}
+
+function matchesPregeneratedSlide(prompt, entry) {
+  const normalizedPrompt = normalizeSlideCommand(prompt);
+  if (!normalizedPrompt) return false;
+  return pregeneratedAliases(entry).some((alias) => {
+    const normalizedAlias = normalizeSlideCommand(alias);
+    return normalizedAlias && (
+      normalizedPrompt === normalizedAlias ||
+      normalizedPrompt.includes(normalizedAlias) ||
+      normalizedAlias.includes(normalizedPrompt)
+    );
+  });
+}
+
+function findPregeneratedSlide(prompt) {
+  return pregeneratedSlideCatalog().find((entry) => entry && entry.slide && matchesPregeneratedSlide(prompt, entry)) || null;
+}
+
+function clonePregeneratedSlide(entry, prompt) {
+  const slide = JSON.parse(JSON.stringify(entry.slide || {}));
+  slide.slug = slide.slug || entry.id || `pregenerated-${Date.now().toString(36)}`;
+  slide.copyClass = slide.copyClass || 'statement';
+  slide.layout = slide.layout || 'stage';
+  slide.generated = true;
+  slide.pregenerated = true;
+  slide.promptTopic = entry.topic || entry.id || '';
+  slide.sourcePrompt = prompt;
+  return slide;
+}
+
+function mountedPregeneratedSlideIndex(entry) {
+  const slug = entry && entry.slide && entry.slide.slug;
+  if (!slug || !deckConfig || !Array.isArray(deckConfig.slides)) return -1;
+  return deckConfig.slides.findIndex((slide) => slide && slide.slug === slug);
+}
+
+function abortError() {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+function delayGeneration(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal && signal.aborted) {
+      reject(abortError());
+      return;
+    }
+    const timer = window.setTimeout(resolve, ms);
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        window.clearTimeout(timer);
+        reject(abortError());
+      }, { once: true });
+    }
+  });
+}
+
+function streamPregeneratedCode(slide, prompt) {
+  const primitive = slide.primitive && typeof slide.primitive === 'object'
+    ? { ...slide.primitive }
+    : {};
+  const preview = JSON.stringify({
+    prompt,
+    matchedTopic: slide.promptTopic,
+    slide: {
+      slug: slide.slug,
+      headline: slide.headline,
+      layout: slide.layout,
+      primitive,
+    },
+  }, null, 2);
+  appendGenerationCode(`${preview}\n`);
+}
+
+async function generatePregeneratedSlideFromPrompt(prompt, entry, targetIndex, controller) {
+  const startedAt = Date.now();
+  const slide = clonePregeneratedSlide(entry, prompt);
+  const steps = [
+    'matched previous pitch-deck topic',
+    'loading curated slide state',
+    'validating browser primitive',
+    'mounting generated frame',
+  ];
+
+  for (const [index, step] of steps.entries()) {
+    if (controller.signal.aborted) throw abortError();
+    setPromptStatus(step, 'loading');
+    appendGenerationStep(step);
+    if (index === 1) streamPregeneratedCode(slide, prompt);
+    await delayGeneration(index === steps.length - 1 ? 120 : 260, controller.signal);
+  }
+
+  return {
+    ok: true,
+    slide,
+    prompt,
+    model: pregeneratedSlideModel,
+    latencyMs: Date.now() - startedAt,
+    targetIndex,
+    pregenerated: true,
+  };
 }
 
 function setPromptStatus(message, mode = '') {
