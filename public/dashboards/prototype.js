@@ -62,10 +62,72 @@
     let dashboardRendered = false;
     let initialPromptRan = false;
     let replayStarted = false;
+    let duneSlideOverlay = null;
+    let duneSlideFrame = null;
+    let duneSlideFrameReady = false;
+    let duneSlidePendingPrompt = "";
 
     function animate(target, params) {
       if (!canMotion) return null;
       return animeApi.animate(target, params);
+    }
+
+    function isDuneGeneratedSlidePrompt(prompt) {
+      if (dashboardId !== "dune-deck") return false;
+      const command = String(prompt || "");
+      if (!/\b(?:generate|create|make|build|show)\b/i.test(command) || !/\b(?:slide|frame)\b/i.test(command)) return false;
+      return /\b(?:founder|builder|simon|inflection|why now|camera moment|screenshots?|state not pixels|broken container|live software channels?|channel object|what is a channel|specialist agents?|agent routing|kat|discovery graph|software feed|moat)\b/i.test(command);
+    }
+
+    function isDuneGeneratedSlideMessage(message) {
+      if (dashboardId !== "dune-deck" || !message) return false;
+      return message.type === "dune-generate-slide" ||
+        message.type === "deck-generate-slide" ||
+        message.type === "kat-deck-prompt";
+    }
+
+    function postDuneSlidePrompt(prompt) {
+      if (!prompt) return;
+      if (!duneSlideFrame || !duneSlideFrameReady) {
+        duneSlidePendingPrompt = prompt;
+        return;
+      }
+      duneSlideFrame.contentWindow?.postMessage({
+        type: "dune-generate-slide",
+        dashboard: "dune-deck",
+        prompt,
+        source: "prototype-overlay",
+      }, window.location.origin);
+    }
+
+    function ensureDuneSlideOverlay() {
+      if (duneSlideOverlay && duneSlideFrame) return;
+      duneSlideOverlay = document.createElement("section");
+      duneSlideOverlay.className = "dune-slide-overlay";
+      duneSlideOverlay.setAttribute("aria-live", "polite");
+      duneSlideFrame = document.createElement("iframe");
+      duneSlideFrame.className = "dune-slide-frame";
+      duneSlideFrame.title = "Generated Katechon Technology slide";
+      duneSlideFrame.setAttribute("allow", "autoplay");
+      duneSlideFrame.src = appUrl("/decks/dune/?avatar=0&narration=0");
+      duneSlideFrame.addEventListener("load", () => {
+        duneSlideFrameReady = true;
+        if (duneSlidePendingPrompt) {
+          const prompt = duneSlidePendingPrompt;
+          duneSlidePendingPrompt = "";
+          postDuneSlidePrompt(prompt);
+        }
+      });
+      duneSlideOverlay.appendChild(duneSlideFrame);
+      document.body.appendChild(duneSlideOverlay);
+    }
+
+    function showDuneGeneratedSlide(prompt) {
+      if (!isDuneGeneratedSlidePrompt(prompt)) return false;
+      ensureDuneSlideOverlay();
+      document.body.classList.add("dune-slide-overlay-active");
+      postDuneSlidePrompt(prompt);
+      return true;
     }
 
     function loadStylesheet(href) {
@@ -369,6 +431,17 @@
       const target = serializeKatTarget(options.target);
       const userText = targetInstructionText(rawPrompt, target);
       if (!userText || state.commandRunning) return;
+      if (!target && showDuneGeneratedSlide(rawPrompt)) {
+        state.lastPrompt = rawPrompt;
+        trackLaunchEvent("prompt_submitted", {
+          prompt: rawPrompt,
+          source: options.source || "command",
+          target: null,
+        });
+        setCommandStatus("generated slide mounted");
+        renderCommandPanel();
+        return;
+      }
       state.commandRunning = true;
       state.lastPrompt = rawPrompt || userText;
       trackLaunchEvent("prompt_submitted", {
@@ -1645,6 +1718,10 @@
       if (event.origin !== window.location.origin) return;
       const message = event.data || {};
       if (message.dashboard && message.dashboard !== dashboardId) return;
+      if (isDuneGeneratedSlideMessage(message)) {
+        showDuneGeneratedSlide(message.prompt || message.text || "");
+        return;
+      }
       if (message.type === "watch-run-prompt") {
         const targeted = Boolean(message.target);
         if (targeted) updateKatTargetStatus("building voice mutation");

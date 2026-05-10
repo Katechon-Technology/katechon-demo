@@ -40,6 +40,7 @@ let assetVersion = '';
 let generateController = null;
 let generationCodeMode = 'schema';
 const pregeneratedSlideModel = 'repo-history/pregenerated';
+let pendingDeckPrompt = '';
 
 function deckAssetPath(value, version = assetVersion) {
   if (!value) return '';
@@ -1038,7 +1039,11 @@ async function generateSlideWithoutStream(prompt, targetIndex, controller) {
 }
 
 async function generateSlideFromPrompt(prompt) {
-  if (!prompt || !deckConfig) return;
+  if (!prompt) return;
+  if (!deckConfig) {
+    pendingDeckPrompt = prompt;
+    return;
+  }
   if (generateController) generateController.abort();
   const controller = new AbortController();
   generateController = controller;
@@ -1078,6 +1083,13 @@ async function generateSlideFromPrompt(prompt) {
       generateController = null;
     }
   }
+}
+
+function flushPendingDeckPrompt() {
+  if (!pendingDeckPrompt || !deckConfig) return;
+  const prompt = pendingDeckPrompt;
+  pendingDeckPrompt = '';
+  window.setTimeout(() => generateSlideFromPrompt(prompt), 80);
 }
 
 function update(options = {}) {
@@ -1756,6 +1768,7 @@ async function init() {
     deckConfig = config;
     if (config.title) document.title = config.title;
     renderSlides(config);
+    flushPendingDeckPrompt();
   } catch (error) {
     renderManifestError(error);
     return;
