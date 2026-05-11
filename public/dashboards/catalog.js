@@ -490,6 +490,11 @@
         ["03", "The third internet distributes software state directly.", "channels"],
       ],
       caption: "Kat reads this as the category sequence: pages, feeds, then live software channels.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/three-internets.css",
+        script: "dashboards/identities/three-internets.js",
+      },
     },
     "every-age-thinks-its-the-last": {
       palette: "katechon",

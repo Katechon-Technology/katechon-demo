@@ -1827,7 +1827,20 @@
         const node = $(id);
         if (node && "hidden" in node) node.hidden = true;
       });
-      renderBlankStage();
+      if (config.stageQuote) {
+        $("stage").innerHTML = cleanBackdropHtml() + stageQuoteHtml(config.stageQuote);
+        runSceneMotion();
+      } else if (config.renderScene && customRenderers[dashboardId]) {
+        $("stage").innerHTML = customRenderers[dashboardId]({
+          dashboardId,
+          config,
+          state,
+          helpers: { appUrl, bars: null, escapeHtml, lines: null, metricText: null, nodes: null, seededValue },
+        });
+        runSceneMotion();
+      } else {
+        renderBlankStage();
+      }
       if (!dashboardRendered) dashboardRendered = true;
     }
 
@@ -3003,8 +3016,12 @@
       return `${asset}${video}<div class="scene-grid"></div><div class="scan-line"></div>`;
     }
 
+    function cleanBackdropHtml() {
+      return `<div class="scene-grid"></div><div class="scan-line"></div>`;
+    }
+
     function renderStage() {
-      $("stage").innerHTML = backdropHtml() + sceneHtml(config.scene) + generatedStageHtml();
+      $("stage").innerHTML = (config.stageQuote ? cleanBackdropHtml() : backdropHtml()) + sceneHtml(config.scene) + generatedStageHtml();
       wireSceneInteractions();
       runSceneMotion();
       requestAnimationFrame(renderGeneratedCharts);
@@ -3323,6 +3340,7 @@
     }
 
     function renderKatechonSystem() {
+      if (config.stageQuote) return stageQuoteHtml(config.stageQuote);
       const data = state.livePayload?.data || {};
       const stack = (Array.isArray(data.technologyStack) && data.technologyStack.length
         ? data.technologyStack
@@ -3555,6 +3573,29 @@
       </div>`;
     }
 
+    function quoteWordsHtml(text) {
+      return String(text || "").split(/\s+/).filter(Boolean)
+        .map((word) => `<span class="quote-word">${escapeHtml(word)}</span>`)
+        .join(" ");
+    }
+
+    function stageQuoteHtml(quote) {
+      const text = quote && typeof quote === "object" ? quote.text : "";
+      if (!text) return "";
+      const author = quote.author || "";
+      const kicker = quote.kicker || config.kicker || "";
+      return `<div class="dense-scene quote-scene full" aria-label="${escapeHtml(`${text}${author ? ` ${author}` : ""}`)}">
+        <span class="quote-field-line line-a"></span>
+        <span class="quote-field-line line-b"></span>
+        <span class="quote-field-line line-c"></span>
+        <figure class="quote-lockup">
+          ${kicker ? `<div class="quote-kicker">${escapeHtml(kicker)}</div>` : ""}
+          <blockquote class="quote-text">&ldquo;${quoteWordsHtml(text)}&rdquo;</blockquote>
+          ${author ? `<figcaption class="quote-author">${escapeHtml(author)}</figcaption>` : ""}
+        </figure>
+      </div>`;
+    }
+
     function wireSceneInteractions() {
       document.querySelectorAll(".scene-card, .node, .grid-node, .person, .qbit, .protein-node").forEach((el) => {
         el.addEventListener("mouseenter", () => animate(el, { scale: 1.035, duration: 260, ease: "out(3)" }));
@@ -3581,6 +3622,10 @@
       animate(".evidence-pins span, .meme-flare", { scale: [0.78, 1.18, 0.88], opacity: [0.42, 1, 0.58], delay: stagger(80), duration: 2200, loop: true, ease: "inOut(2)" });
       animate(".timeline-sweep, .transit-path", { translateX: ["-120%", "120%"], duration: 2600, loop: true, ease: "inOut(2)" });
       animate(".texture-video", { opacity: [0.18, 0.30, 0.22], duration: 5200, loop: true, ease: "inOut(2)" });
+      animate(".quote-lockup", { opacity: [0, 1], y: [18, 0], scale: [0.985, 1], duration: 760, ease: "out(3)" });
+      animate(".quote-word", { opacity: [0, 1], y: [16, 0], filter: ["blur(10px)", "blur(0px)"], delay: stagger(46), duration: 880, ease: "out(3)" });
+      animate(".quote-kicker, .quote-author", { opacity: [0, 1], y: [8, 0], delay: 360, duration: 620, ease: "out(3)" });
+      animate(".quote-field-line", { opacity: [0.12, 0.46, 0.18], scaleX: [0.64, 1, 0.76], delay: stagger(180), duration: 3200, loop: true, ease: "inOut(2)" });
     }
 
     function runMiniMotion() {

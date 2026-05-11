@@ -5364,10 +5364,8 @@
     function dashboardDirectionForKey(event) {
       const keys = {
         ArrowDown: 1,
-        ArrowRight: 1,
         PageDown: 1,
         ArrowUp: -1,
-        ArrowLeft: -1,
         PageUp: -1,
       };
       return keys[event.code] ?? keys[event.key] ?? 0;
