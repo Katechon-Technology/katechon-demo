@@ -483,6 +483,11 @@ const PANELS = [
     label: "Build With Us",
     description: "Katechon dashboard inviting collaborators to build channels, agents, surfaces, and the state graph.",
   },
+  {
+    id: "seed-round",
+    label: "Seed Round",
+    description: "Katechon closer slide: $4M seed round.",
+  },
 ];
 
 const KATECHON_THESIS_DASHBOARD_IDS = new Set([
@@ -497,6 +502,7 @@ const KATECHON_THESIS_DASHBOARD_IDS = new Set([
   "attention-architecture",
   "reality-glix",
   "build-with-us",
+  "seed-round",
 ]);
 
 // Session IDs tracked at runtime — pre-seed known sessions
@@ -967,6 +973,7 @@ function channelBaseTopic(channel) {
     "attention-architecture": "attention turning into routed software state",
     "reality-glix": "software discovery choosing what to build next",
     "build-with-us": "the builder invitation for the channel layer",
+    "seed-round": "the seed-round closer",
   };
   return topics[channel.id] || "the current channel signal";
 }
@@ -8000,6 +8007,7 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     "attention-architecture": ["Attention Routes the Work", "Intent Becomes Architecture"],
     "reality-glix": ["Software Gets Discovered", "Katechon Builds The Next State"],
     "build-with-us": ["Build the Channel Layer", "The Builder Graph Opens"],
+    "seed-round": ["Katechon Seed Round", "$4M Open"],
   }[channel.id] || [initialHeadlineHook(channel), "Signal Breaks Pattern"]).forEach((candidate) => addHeadlineCandidate(candidates, candidate));
   if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, `${leadLabel} Breaks Pattern`);
   return candidates;
@@ -10445,7 +10453,7 @@ app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
 app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
 app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
-app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us|seed-round)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];

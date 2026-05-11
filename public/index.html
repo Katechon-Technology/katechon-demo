@@ -398,6 +398,14 @@
        top:7.4%, height:81.5% of the viewport. The box is 75% of that,
        centered. So box right edge ≈ 36.75% from right, box bottom edge
        ≈ 21.29% from bottom. */
+    /* Hide Kat everywhere in the deck except on the live channel reel
+       (build-with-us). The presentation should be silent and clean on
+       every thesis slide; only the channel scene shows Kat in-frame. */
+    body[data-current-dashboard]:not([data-current-dashboard="build-with-us"]) #browser-avatar-wrap {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: opacity 200ms ease;
+    }
     body[data-current-dashboard="build-with-us"] #browser-avatar-wrap {
       right: 33% !important;
       bottom: 14% !important;
@@ -2575,6 +2583,7 @@
       'attention-architecture',
       'reality-glix',
       'build-with-us',
+      'seed-round',
     ];
     const isDeckRoute =
       /^\/(?:app\/)?deck(?:\/|$)/.test(window.location.pathname) ||
@@ -4023,13 +4032,15 @@
         const text = String(event.data.text || '').trim();
         if (!text) return;
         const id = String(event.data.id || `seed-${Date.now()}`);
+        // Prefer audio attached to the event (build-with-us.js prefetches
+        // per-scene). Fall back to the legacy single-line cache, then to
+        // muted lip-sync if neither is available.
+        const inlineAudio = String(event.data.audio || '');
         const cached = seedChannelAudioCache;
-        const payload = cached?.audio
-          ? { id: cached.id || id, text: cached.text || text, audio: cached.audio, muted: false }
+        const audio = inlineAudio || (cached && cached.audio) || '';
+        const payload = audio
+          ? { id, text, audio, muted: false }
           : { id, text, muted: true };
-        // Route through the avatar iframe (no preferParentAudio) so Kat
-        // lip-syncs on the closing line. If audio isn't available the
-        // avatar pipeline falls back to browser speech synthesis.
         playAvatarSpeech(payload).catch(err => {
           console.warn('seed-channel speech failed:', err);
         });

@@ -1,7 +1,7 @@
-/* Final slide: a single "channel broadcasting" box centered in the
-   dashboard overlay, with everything else blacked out. A 5-row cap
-   table forms inside: lead lands, "your row" highlights, then a hard
-   cut to a single line of contact. */
+/* Final slide: a 15s channel snapshot inside a single broadcasting box.
+   Three scenes back to back — Iran (video bg + betting cards), Strait of
+   Hormuz (video bg + oil ticker), Seed Round (cap-table closer). The
+   seed scene keeps the existing lead-lands → your-row → hard-cut beat. */
 
 body[data-dashboard="build-with-us"] {
   background: #000 !important;
@@ -69,46 +69,701 @@ body[data-dashboard="build-with-us"] .action-rail {
   display: none !important;
 }
 
-/* ---- cap-table scene ------------------------------------------------- */
+/* ---- scene shell ----------------------------------------------------- */
 
 .bwu-root {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: clamp(14px, 1.6vh, 22px);
-  padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
   color: rgba(243, 246, 248, 0.92);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   transition: filter 260ms ease, opacity 260ms ease;
 }
 
-/* "Live channel" badge in upper-left */
-.bwu-root::before {
-  content: "Live channel";
+.bwu-scene {
   position: absolute;
-  top: 10px;
-  left: 28px;
-  font: 800 10px/1 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--accent, #00e87b) 72%, white);
-  z-index: 2;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.bwu-root[data-bwu-scene="iran"]   .bwu-scene-iran,
+.bwu-root[data-bwu-scene="strait"] .bwu-scene-strait,
+.bwu-root[data-bwu-scene="seed"]   .bwu-scene-seed,
+.bwu-root[data-bwu-scene="tanker"] .bwu-scene-tanker {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Dip-to-black plate that sits above all scenes. We pulse it (in then
+   out, ~350ms each way) around every scene swap so each transition
+   is a single clean cut through black instead of overlapping fades. */
+.bwu-blackout {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 350ms ease;
+}
+.bwu-root.is-blackout .bwu-blackout {
+  opacity: 1;
+}
+
+/* The seed scene is a grid (the original cap-table layout). */
+.bwu-scene-seed {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(14px, 1.6vh, 22px);
+  padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+}
+
+/* Iran + Strait + Tanker scenes all use a video background. */
+.bwu-scene-iran,
+.bwu-scene-strait,
+.bwu-scene-tanker {
+  overflow: hidden;
+  padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+}
+
+.bwu-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  filter: saturate(0.92) contrast(1.04);
+  transition: opacity 320ms ease;
+}
+
+.bwu-video-grad {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.15) 38%, rgba(0, 0, 0, 0.78) 100%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0) 38%, rgba(0, 0, 0, 0.55) 100%);
   pointer-events: none;
 }
-.bwu-root::after {
+
+/* ---- Persistent globe inset ----------------------------------------- */
+
+.bwu-globe-panel {
+  position: absolute;
+  top: clamp(96px, 11vh, 132px);
+  right: clamp(28px, 3vw, 42px);
+  z-index: 4;
+  width: clamp(190px, 23vw, 310px);
+  pointer-events: none;
+  opacity: 0.94;
+  transition: opacity 360ms ease, transform 420ms ease, filter 420ms ease;
+  filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.48));
+}
+
+.bwu-root[data-bwu-scene="tanker"] .bwu-globe-panel {
+  top: clamp(86px, 9vh, 112px);
+  width: clamp(200px, 24vw, 330px);
+}
+
+.bwu-globe-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid rgba(125, 232, 255, 0.26);
+  background:
+    radial-gradient(circle at 42% 34%, rgba(125, 232, 255, 0.16), rgba(0, 0, 0, 0.06) 42%, rgba(0, 0, 0, 0) 72%),
+    rgba(0, 12, 18, 0.1);
+  box-shadow:
+    0 0 28px rgba(125, 232, 255, 0.14),
+    inset 0 0 22px rgba(125, 232, 255, 0.13);
+}
+
+.bwu-globe {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+
+.bwu-root.is-globe-ready .bwu-globe {
+  opacity: 1;
+}
+
+.bwu-globe canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.bwu-globe-fallback {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  border: 1px solid rgba(125, 232, 255, 0.42);
+  background:
+    linear-gradient(90deg, rgba(125, 232, 255, 0.16), transparent 45%, rgba(255, 154, 92, 0.12)),
+    rgba(0, 16, 24, 0.12);
+  box-shadow:
+    0 0 22px rgba(125, 232, 255, 0.16),
+    inset 0 0 32px rgba(125, 232, 255, 0.08);
+  opacity: 1;
+  transform: rotate(-11deg);
+  animation: bwu-globe-fallback-spin 18s linear infinite;
+  transition: opacity 260ms ease;
+}
+
+.bwu-root.is-globe-ready .bwu-globe-fallback {
+  opacity: 0;
+}
+
+.bwu-globe-fallback::before,
+.bwu-globe-fallback::after {
   content: "";
   position: absolute;
-  top: 14px;
-  left: 16px;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1px solid rgba(125, 232, 255, 0.18);
+}
+
+.bwu-globe-fallback::after {
+  inset: 24%;
+  opacity: 0.72;
+}
+
+.bwu-globe-meridian,
+.bwu-globe-lat {
+  position: absolute;
+  border: 1px solid rgba(125, 232, 255, 0.2);
+  border-radius: 50%;
+}
+
+.bwu-globe-meridian-a {
+  inset: 0 38%;
+}
+
+.bwu-globe-meridian-b {
+  inset: 0 18%;
+}
+
+.bwu-globe-lat-a {
+  left: 6%;
+  right: 6%;
+  top: 28%;
+  height: 18%;
+}
+
+.bwu-globe-lat-b {
+  left: 8%;
+  right: 8%;
+  bottom: 25%;
+  height: 14%;
+}
+
+.bwu-globe-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(125, 232, 255, 0.9);
+  box-shadow: 0 0 14px rgba(125, 232, 255, 0.72);
+  transform: translate(-50%, -50%);
+  opacity: 0.34;
+  transition: opacity 260ms ease, width 260ms ease, height 260ms ease, background 260ms ease, box-shadow 260ms ease;
+}
+
+.bwu-globe-dot-iran {
+  left: 56%;
+  top: 42%;
+}
+
+.bwu-globe-dot-hormuz {
+  left: 61%;
+  top: 54%;
+  background: rgba(255, 154, 92, 0.95);
+  box-shadow: 0 0 14px rgba(255, 154, 92, 0.7);
+}
+
+.bwu-globe-dot-artemis {
+  left: 63%;
+  top: 55%;
+  background: #ff4b3e;
+  box-shadow: 0 0 18px rgba(255, 75, 62, 0.9);
+}
+
+.bwu-root[data-bwu-globe-frame="iran"] .bwu-globe-dot-iran,
+.bwu-root[data-bwu-globe-frame="iran"] .bwu-globe-dot-hormuz,
+.bwu-root[data-bwu-globe-frame="strait"] .bwu-globe-dot-hormuz,
+.bwu-root[data-bwu-globe-frame="tanker"] .bwu-globe-dot-artemis {
+  opacity: 1;
+  width: 10px;
+  height: 10px;
+}
+
+.bwu-root[data-bwu-globe-frame="tanker"] .bwu-globe-dot-artemis {
+  width: 12px;
+  height: 12px;
+}
+
+.bwu-globe-caption {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(125, 232, 255, 0.24);
+  border-radius: 6px;
+  background: rgba(2, 10, 15, 0.68);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.bwu-globe-kicker,
+.bwu-globe-detail {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: 0.2em;
+  color: rgba(243, 246, 248, 0.52);
+}
+
+.bwu-globe-label {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(14px, 1.35vw, 19px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  color: rgba(232, 250, 255, 0.96);
+}
+
+.bwu-root[data-bwu-globe-frame="tanker"] .bwu-globe-caption {
+  border-color: rgba(255, 75, 62, 0.34);
+}
+
+.bwu-root[data-bwu-globe-frame="tanker"] .bwu-globe-label {
+  color: rgba(255, 104, 86, 0.98);
+}
+
+@keyframes bwu-globe-fallback-spin {
+  from { transform: rotate(-11deg); }
+  to   { transform: rotate(349deg); }
+}
+
+.bwu-scene-head {
+  position: absolute;
+  top: clamp(18px, 2.2vh, 28px);
+  left: clamp(28px, 3vw, 42px);
+  z-index: 3;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bwu-scene-head .bwu-status {
+  color: var(--accent, #00e87b);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.24em;
+}
+
+.bwu-scene-tag {
+  position: absolute;
+  top: clamp(46px, 5.4vh, 64px);
+  left: clamp(28px, 3vw, 42px);
+  z-index: 3;
+  font-size: clamp(11px, 0.9vw, 12px);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(243, 246, 248, 0.62);
+}
+
+.bwu-scene-tanker .bwu-scene-tag {
+  top: clamp(68px, 7.4vh, 88px);
+}
+
+/* ---- Breaking headline bar (top of Iran / Hormuz / Tanker scenes) --- */
+
+.bwu-headline {
+  position: absolute;
+  top: clamp(18px, 2.2vh, 28px);
+  right: clamp(28px, 3vw, 42px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 90, 60, 0.5);
+  border-radius: 4px;
+  background: rgba(28, 4, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  max-width: 60%;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 360ms ease, transform 360ms ease;
+}
+.bwu-headline.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.bwu-scene-tanker .bwu-headline {
+  border-color: rgba(125, 232, 255, 0.5);
+  background: rgba(0, 14, 22, 0.74);
+}
+.bwu-headline-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: #ff5a3c;
+  color: #110703;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+.bwu-scene-tanker .bwu-headline-pill {
+  background: var(--accent2, #7de8ff);
+  color: #021018;
+}
+.bwu-headline-text {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 600;
+  color: rgba(243, 246, 248, 0.96);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+
+/* ---- Signal-log feed (left rail on Iran / Hormuz scenes) ------------- */
+
+.bwu-feed {
+  position: absolute;
+  left: clamp(28px, 3vw, 42px);
+  top: clamp(96px, 11vh, 130px);
+  width: clamp(280px, 32%, 380px);
+  z-index: 3;
+  padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.2vw, 16px) clamp(10px, 1.2vh, 14px);
+  background: rgba(4, 8, 10, 0.78);
+  border: 1px solid rgba(243, 246, 248, 0.1);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+.bwu-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  font-weight: 800;
+  color: rgba(243, 246, 248, 0.62);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.08);
+}
+.bwu-feed-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--accent, #00e87b);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #00e87b) 60%, transparent);
-  animation: bwu-pulse 1400ms ease-in-out infinite;
-  z-index: 2;
+  animation: bwu-row-dot-pulse 1400ms ease-in-out infinite;
 }
+.bwu-feed-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(243, 246, 248, 0.05);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+.bwu-feed-row:last-child { border-bottom: 0; }
+.bwu-feed-row.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.bwu-feed-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--accent, #00e87b);
+}
+.bwu-feed-text {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(11px, 0.9vw, 13px);
+  font-weight: 500;
+  color: rgba(243, 246, 248, 0.92);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bwu-feed-stamp {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(243, 246, 248, 0.42);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---- Scene 3: Tanker deep-dive HUDs --------------------------------- */
+
+.bwu-hud {
+  position: absolute;
+  z-index: 3;
+  padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.2vw, 16px);
+  background: rgba(2, 10, 16, 0.78);
+  border: 1px solid rgba(125, 232, 255, 0.32);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  color: rgba(232, 250, 255, 0.95);
+  min-width: 220px;
+  max-width: 320px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 320ms ease, transform 320ms ease;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+}
+.bwu-hud.is-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+.bwu-hud-id        { left: clamp(28px, 3vw, 42px); top: clamp(96px, 11vh, 130px); }
+.bwu-hud-cargo     { left: clamp(28px, 3vw, 42px); bottom: clamp(28px, 3vh, 44px); }
+.bwu-hud-telemetry { right: clamp(28px, 3vw, 42px); bottom: clamp(28px, 3vh, 44px); }
+
+.bwu-hud-title {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: var(--accent2, #7de8ff);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(125, 232, 255, 0.22);
+}
+.bwu-hud-row {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+}
+.bwu-hud-k {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: rgba(243, 246, 248, 0.5);
+}
+.bwu-hud-v {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(232, 250, 255, 0.96);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Targeting reticule centered on the tanker. */
+.bwu-hud-targeting {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 360ms ease;
+}
+.bwu-hud-targeting.is-in { opacity: 1; }
+.bwu-hud-crosshair {
+  width: 86px;
+  height: 86px;
+  border: 1px solid rgba(125, 232, 255, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent2, #7de8ff) 30%, transparent),
+              inset 0 0 12px color-mix(in srgb, var(--accent2, #7de8ff) 18%, transparent);
+  position: relative;
+}
+.bwu-hud-crosshair::before,
+.bwu-hud-crosshair::after {
+  content: "";
+  position: absolute;
+  background: rgba(125, 232, 255, 0.7);
+}
+.bwu-hud-crosshair::before {
+  left: 50%; top: -8px; bottom: -8px;
+  width: 1px; transform: translateX(-50%);
+}
+.bwu-hud-crosshair::after {
+  top: 50%; left: -8px; right: -8px;
+  height: 1px; transform: translateY(-50%);
+}
+.bwu-hud-target {
+  margin-top: 10px;
+  text-align: center;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: var(--accent2, #7de8ff);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--accent2, #7de8ff) 60%, transparent);
+}
+
+/* ---- Scene 1: Iran betting cards ------------------------------------- */
+
+.bwu-markets {
+  position: absolute;
+  right: clamp(28px, 3vw, 42px);
+  bottom: clamp(28px, 3vh, 44px);
+  z-index: 3;
+  display: grid;
+  gap: clamp(8px, 1vh, 12px);
+  width: clamp(280px, 38%, 460px);
+}
+
+.bwu-market {
+  display: grid;
+  grid-template-rows: auto auto;
+  gap: 6px;
+  padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.2vw, 16px);
+  background: rgba(4, 8, 10, 0.78);
+  border: 1px solid rgba(243, 246, 248, 0.1);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: bwu-market-in 360ms ease both;
+}
+
+.bwu-market:nth-child(2) { animation-delay: 140ms; }
+.bwu-market:nth-child(3) { animation-delay: 280ms; }
+
+@keyframes bwu-market-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.bwu-market-q {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 600;
+  color: rgba(243, 246, 248, 0.94);
+  letter-spacing: 0.01em;
+  line-height: 1.35;
+}
+
+.bwu-market-odds {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bwu-market-side {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  font-weight: 800;
+}
+
+.bwu-market-yes { color: var(--accent, #00e87b); }
+
+.bwu-market-num {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(20px, 2.1vw, 26px);
+  font-weight: 800;
+  color: rgba(243, 246, 248, 0.98);
+  letter-spacing: 0.01em;
+}
+
+.bwu-market-tick {
+  font-size: clamp(11px, 0.95vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(243, 246, 248, 0.5);
+}
+
+.bwu-market-tick.is-up {
+  color: var(--accent, #00e87b);
+}
+
+/* ---- Scene 2: Hormuz oil ticker -------------------------------------- */
+
+.bwu-ticker {
+  position: absolute;
+  inset: auto clamp(28px, 3vw, 42px) clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 36%, 420px);
+  gap: clamp(12px, 1.4vw, 18px);
+  align-items: end;
+}
+
+.bwu-ticker-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(6px, 0.8vh, 10px);
+  padding: clamp(10px, 1.2vh, 14px) clamp(12px, 1.2vw, 16px);
+  background: rgba(4, 8, 10, 0.78);
+  border: 1px solid rgba(243, 246, 248, 0.1);
+  border-radius: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.bwu-tick-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.bwu-tick-sym {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  font-weight: 800;
+  color: rgba(243, 246, 248, 0.62);
+}
+
+.bwu-tick-price {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(15px, 1.4vw, 18px);
+  font-weight: 700;
+  color: rgba(243, 246, 248, 0.96);
+  letter-spacing: 0.01em;
+}
+
+.bwu-tick-delta {
+  font-size: clamp(10px, 0.85vw, 12px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(243, 246, 248, 0.5);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  text-align: right;
+}
+
+.bwu-tick-delta.is-up {
+  color: #ff7a45;
+}
+
+.bwu-market-strait {
+  margin: 0;
+}
+
+.bwu-market-strait .bwu-market-num { color: #ff9a5c; }
+
+/* ---- cap-table scene (existing seed-round closer) -------------------- */
 
 .bwu-head {
   display: flex;
@@ -118,6 +773,50 @@ body[data-dashboard="build-with-us"] .action-rail {
   padding-top: clamp(6px, 0.8vh, 12px);
   border-bottom: 1px solid rgba(243, 246, 248, 0.08);
   padding-bottom: clamp(10px, 1.2vh, 16px);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 360ms ease, transform 360ms ease;
+}
+.bwu-root[data-bwu-scene="seed"] .bwu-head {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 80ms;
+}
+
+/* Stagger the cap-table rows in once the seed scene is active so the
+   final beat doesn't snap into existence. Uses :not() so that the
+   investor / your-row classes can still override opacity via the
+   existing .is-committed / .is-yours rules. */
+.bwu-scene-seed .bwu-row {
+  transform: translateY(8px);
+}
+.bwu-scene-seed .bwu-row:not(.is-committed):not(.is-yours) {
+  opacity: 0;
+}
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row {
+  transform: translateY(0);
+  transition:
+    transform 360ms ease,
+    opacity 360ms ease,
+    border-color 360ms ease,
+    background 360ms ease,
+    box-shadow 360ms ease;
+}
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row:not(.is-committed):not(.is-yours) {
+  opacity: 0.78;
+}
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row[data-row="1"] { transition-delay: 200ms; }
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row[data-row="2"] { transition-delay: 260ms; }
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row[data-row="3"] { transition-delay: 320ms; }
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row[data-row="4"] { transition-delay: 380ms; }
+.bwu-root[data-bwu-scene="seed"] .bwu-scene-seed .bwu-row[data-row="5"] { transition-delay: 440ms; }
+
+.bwu-counter {
+  opacity: 0;
+}
+.bwu-root[data-bwu-scene="seed"] .bwu-counter {
+  opacity: 1;
+  transition: opacity 360ms ease 540ms;
 }
 
 .bwu-head-left {

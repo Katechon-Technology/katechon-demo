@@ -736,6 +736,30 @@
         script: "dashboards/identities/build-with-us.js",
       },
     },
+    "seed-round": {
+      palette: "pitchBuild",
+      scene: "katechon-system",
+      api: null,
+      asset: "share-thumbnails/build-with-us.jpg",
+      kicker: "katechon / seed round",
+      title: "Seed Round",
+      subtitle: "$4M. Open.",
+      visualLabel: "seed round",
+      visualCopy: "$4M.",
+      stageQuote: {
+        text: "$4M",
+        kicker: "seed round",
+        quoteMarks: false,
+      },
+      feedLabel: "seed",
+      lens: "raise",
+      tabs: ["Seed"],
+      metrics: [["Seed", "$4M", "open"]],
+      feed: [
+        ["seed", "$4M open round.", "raise"],
+      ],
+      caption: "Katechon $4M seed round.",
+    },
   };
 
   function liveFeed(id) {
@@ -954,6 +978,7 @@
     "attention-architecture",
     "reality-glix",
     "build-with-us",
+    "seed-round",
   ];
 
   const channels = {
@@ -1414,6 +1439,24 @@
           src: "share-thumbnails/build-with-us.jpg",
           fallbackSrc: "share-thumbnails/dune-deck.jpg",
           ariaLabel: "Build With Us",
+        },
+      },
+    },
+    "seed-round": {
+      label: "Seed Round",
+      title: "// KATECHON - SEED ROUND",
+      channel: "29 / KATECHON",
+      route: "prototype",
+      narration: false,
+      tile: {
+        group: "dashboard",
+        kicker: "29 / KATECHON",
+        previewTitle: "seed round",
+        media: {
+          type: "image",
+          src: "share-thumbnails/build-with-us.jpg",
+          fallbackSrc: "share-thumbnails/dune-deck.jpg",
+          ariaLabel: "Seed Round",
         },
       },
     },

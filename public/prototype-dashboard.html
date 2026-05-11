@@ -3398,6 +3398,14 @@
       backdrop-filter: blur(3px);
       opacity: 0.96;
     }
+    .quote-lockup-multiline {
+      width: min(1120px, 100%);
+      padding-left: 30px;
+      padding-right: 30px;
+    }
+    .quote-lockup-multiline::before {
+      inset: -26px -28px;
+    }
     .quote-kicker {
       color: var(--accent);
       font-family: "SFMono-Regular", Consolas, monospace;
@@ -3416,6 +3424,18 @@
       letter-spacing: 0;
       text-wrap: balance;
       text-shadow: 0 18px 42px rgba(0,0,0,0.72), 0 0 34px color-mix(in srgb, var(--accent2) 14%, transparent);
+    }
+    .quote-text-multiline {
+      max-width: 100%;
+      font-size: 42px;
+      line-height: 1.16;
+      display: grid;
+      gap: 12px;
+      text-wrap: initial;
+    }
+    .quote-text-multiline .quote-line {
+      display: block;
+      white-space: nowrap;
     }
     .quote-word {
       display: inline-block;
@@ -4171,7 +4191,10 @@
       .dense-scene.with-aside { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
       .quote-lockup { padding: 30px 20px; }
       .quote-lockup::before { inset: -20px -18px; }
+      .quote-lockup-multiline { width: min(100%, 920px); }
       .quote-text { font-size: 38px; line-height: 1.08; }
+      .quote-text-multiline { font-size: 36px; line-height: 1.12; gap: 12px; }
+      .quote-text-multiline .quote-line { white-space: normal; }
       .quote-author { grid-template-columns: 32px auto 32px; }
       .match-lanes { grid-template-columns: 1fr; grid-template-rows: 1fr 12px 1fr; }
       .topbar-meta { flex-direction: column; align-items: stretch; }
@@ -4183,6 +4206,7 @@
     @media (max-width: 520px) {
       .quote-scene { padding: 10px; }
       .quote-text { font-size: 30px; line-height: 1.12; }
+      .quote-text-multiline { font-size: 28px; gap: 10px; }
       .quote-kicker { font-size: 9px; }
       .quote-author {
         grid-template-columns: 24px auto 24px;

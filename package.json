@@ -12,6 +12,7 @@
     "launch:qa": "node scripts/launch-qa.js",
     "watch-feed:qa": "node scripts/watch-feed-qa.js",
     "channel:music": "node scripts/generate-channel-music.js",
+    "bwu:visuals": "node scripts/generate-build-with-us-visuals.js",
     "start": "node server.js",
     "dev": "node server.js",
     "dune:audio": "public/decks/dune/scripts/generate-elevenlabs-narration.sh",

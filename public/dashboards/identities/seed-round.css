@@ -1,0 +1,131 @@
+/* Final closer slide. Ultra simple, ultra aesthetic.
+   Just the amount and the label, centered, on black. */
+
+body[data-dashboard="seed-round"] {
+  background: #000 !important;
+}
+
+body[data-dashboard="seed-round"] .app {
+  background: #000 !important;
+  padding: 0 !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+body[data-dashboard="seed-round"] .topbar,
+body[data-dashboard="seed-round"] h1,
+body[data-dashboard="seed-round"] .small-multiples,
+body[data-dashboard="seed-round"] .stage-thesis,
+body[data-dashboard="seed-round"] .section-head,
+body[data-dashboard="seed-round"] .pulse-strip,
+body[data-dashboard="seed-round"] .metrics,
+body[data-dashboard="seed-round"] .rail,
+body[data-dashboard="seed-round"] .action-rail {
+  display: none !important;
+}
+
+body[data-dashboard="seed-round"] .workspace,
+body[data-dashboard="seed-round"] .main {
+  background: transparent !important;
+  padding: 0 !important;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+body[data-dashboard="seed-round"] .stage-wrap.cockpit {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+body[data-dashboard="seed-round"] .stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.sr-root {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: #f3f6f8;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+}
+
+.sr-stack {
+  display: grid;
+  justify-items: center;
+  gap: clamp(18px, 2.4vh, 32px);
+  text-align: center;
+  animation: sr-in 880ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.sr-amount {
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(120px, 22vw, 380px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+  color: rgba(243, 246, 248, 0.98);
+  text-shadow: 0 0 64px color-mix(in srgb, var(--accent, #00e87b) 14%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-rule {
+  width: clamp(80px, 8vw, 140px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent, #00e87b) 70%, white), transparent);
+  opacity: 0.7;
+  transform-origin: center;
+  animation: sr-rule-in 720ms cubic-bezier(0.22, 0.61, 0.36, 1) 240ms both;
+}
+
+.sr-label {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: clamp(11px, 1.2vw, 15px);
+  font-weight: 800;
+  letter-spacing: 0.5em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent, #00e87b) 60%, white);
+  /* Compensate for letter-spacing pushing visual center to the right. */
+  padding-left: 0.5em;
+}
+
+/* Optional kicker / contact line — kept minimal and quiet. */
+.sr-contact {
+  position: absolute;
+  bottom: clamp(20px, 4vh, 40px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: clamp(10px, 0.85vw, 12px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(243, 246, 248, 0.36);
+  opacity: 0;
+  animation: sr-fade-in 600ms ease 1000ms forwards;
+}
+
+@keyframes sr-in {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+}
+@keyframes sr-rule-in {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 0.7; transform: scaleX(1); }
+}
+@keyframes sr-fade-in {
+  to { opacity: 1; }
+}

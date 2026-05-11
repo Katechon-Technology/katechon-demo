@@ -3588,21 +3588,32 @@
         .join(" ");
     }
 
+    function quoteLinesHtml(text) {
+      return String(text || "").split(/\n+/).map((line) => line.trim()).filter(Boolean)
+        .map((line) => quoteWordsHtml(line))
+        .map((line) => `<span class="quote-line">${line}</span>`)
+        .join("");
+    }
+
     function stageQuoteHtml(quote) {
       const text = quote && typeof quote === "object" ? quote.text : "";
       if (!text) return "";
       const author = quote.author || "";
       const kicker = quote.kicker || config.kicker || "";
       const quoteMarks = quote.quoteMarks !== false;
+      const isMultiline = /\n/.test(text);
+      const multilineClass = isMultiline ? " quote-text-multiline" : "";
+      const lockupClass = isMultiline ? " quote-lockup-multiline" : "";
+      const quoteBody = isMultiline ? quoteLinesHtml(text) : quoteWordsHtml(text);
       const openQuote = quoteMarks ? "&ldquo;" : "";
       const closeQuote = quoteMarks ? "&rdquo;" : "";
       return `<div class="dense-scene quote-scene full" aria-label="${escapeHtml(`${text}${author ? ` ${author}` : ""}`)}">
         <span class="quote-field-line line-a"></span>
         <span class="quote-field-line line-b"></span>
         <span class="quote-field-line line-c"></span>
-        <figure class="quote-lockup">
+        <figure class="quote-lockup${lockupClass}">
           ${kicker ? `<div class="quote-kicker">${escapeHtml(kicker)}</div>` : ""}
-          <blockquote class="quote-text">${openQuote}${quoteWordsHtml(text)}${closeQuote}</blockquote>
+          <blockquote class="quote-text${multilineClass}">${openQuote}${quoteBody}${closeQuote}</blockquote>
           ${author ? `<figcaption class="quote-author">${escapeHtml(author)}</figcaption>` : ""}
         </figure>
       </div>`;

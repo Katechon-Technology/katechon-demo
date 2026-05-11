@@ -1,0 +1,190 @@
+#!/usr/bin/env node
+// Pre-generate the build-with-us channel-snapshot videos via Replicate
+// (default model: bytedance/seedance-2.0). Outputs MP4s to
+// public/videos/build-with-us/. Run once before the pitch.
+//
+//   REPLICATE_API_TOKEN=... node scripts/generate-build-with-us-visuals.js
+//   node scripts/generate-build-with-us-visuals.js --only=iran
+//   node scripts/generate-build-with-us-visuals.js --force
+
+const fs = require("fs");
+const path = require("path");
+const fetch = require("node-fetch");
+
+const root = path.resolve(__dirname, "..");
+const outDir = path.join(root, "public", "videos", "build-with-us");
+const MODEL = process.env.REPLICATE_MODEL || "bytedance/seedance-2.0";
+const POLL_INTERVAL_MS = 4000;
+const POLL_TIMEOUT_MS = 10 * 60 * 1000;
+
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const dryRun = args.includes("--dry-run");
+const onlyArg = args.find((a) => a.startsWith("--only="));
+const only = onlyArg ? onlyArg.split("=")[1].split(",").map((s) => s.trim()).filter(Boolean) : null;
+
+function loadEnvKeyFromFile(file, key) {
+  if (process.env[key] || !fs.existsSync(file)) return;
+  const prefix = `${key}=`;
+  const line = fs.readFileSync(file, "utf8").split(/\r?\n/).find((entry) => entry.startsWith(prefix));
+  if (!line) return;
+  process.env[key] = line.slice(prefix.length).trim().replace(/^['"]|['"]$/g, "");
+}
+
+[
+  path.join(root, ".env"),
+  path.join(root, ".env.local"),
+  path.join(root, "..", ".env"),
+  path.join(root, "..", ".env.local"),
+  path.join(root, "..", "katechon-pitch", ".env"),
+  path.join(root, "..", "katechon-pitch", ".env.local"),
+  path.join(root, "..", "katechon-app", ".env.local"),
+].forEach((file) => {
+  loadEnvKeyFromFile(file, "REPLICATE_API_TOKEN");
+  loadEnvKeyFromFile(file, "REPLICATE_API_KEY");
+});
+
+const apiKey = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY;
+
+const SHOTS = [
+  {
+    id: "iran",
+    file: "iran.mp4",
+    prompt:
+      "Cinematic aerial shot at night over the Iranian plateau, sparse city lights of Tehran in the deep distance, faint missile contrails rising slowly through a thin layer of cloud, dark sky with a cold blue-grey palette, slow forward dolly, photoreal, documentary news drone footage style, no text, no logos.",
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
+  {
+    id: "strait-of-hormuz",
+    file: "strait-of-hormuz.mp4",
+    prompt:
+      "Slow cinematic dolly over the Strait of Hormuz at golden hour, massive oil tanker silhouetted against shimmering water, distant refinery flare stack burning on the horizon, dark sea, warm amber sky bleeding into deep navy, photoreal satellite-to-aerial blend, documentary geopolitical news b-roll, no text, no logos.",
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
+  {
+    id: "tanker",
+    file: "tanker.mp4",
+    prompt:
+      "Slow cinematic top-down aerial dolly at sunrise over a single enormous crude oil supertanker cutting through dark blue water in the Strait of Hormuz, long white wake trailing behind, deck details visible — red pipes, white storage domes, crane silhouettes, distant Iranian coastline faintly on the horizon, warm amber and deep navy palette, photoreal documentary news drone footage, satellite-to-aerial blend, no text, no logos.",
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
+];
+
+function selected() {
+  if (!only) return SHOTS;
+  const wanted = new Set(only);
+  return SHOTS.filter((s) => wanted.has(s.id));
+}
+
+async function createPrediction(shot) {
+  const url = `https://api.replicate.com/v1/models/${MODEL}/predictions`;
+  const body = {
+    input: {
+      prompt: shot.prompt,
+      duration: shot.duration,
+      aspect_ratio: shot.aspect_ratio,
+      resolution: "1080p",
+    },
+  };
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Prefer: "wait=60",
+    },
+    body: JSON.stringify(body),
+  });
+  const text = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`replicate create ${resp.status}: ${text.slice(0, 500)}`);
+  }
+  return JSON.parse(text);
+}
+
+async function getPrediction(id) {
+  const resp = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`replicate poll ${resp.status}: ${text.slice(0, 500)}`);
+  }
+  return resp.json();
+}
+
+async function downloadTo(url, target) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`download ${resp.status} for ${url}`);
+  const buffer = await resp.buffer();
+  const tmp = `${target}.tmp`;
+  fs.writeFileSync(tmp, buffer);
+  fs.renameSync(tmp, target);
+}
+
+async function generate(shot) {
+  const target = path.join(outDir, shot.file);
+  if (fs.existsSync(target) && !force) {
+    console.log(`skip ${shot.id}: ${path.relative(root, target)} exists (use --force to regenerate)`);
+    return;
+  }
+
+  console.log(`${dryRun ? "plan" : "generating"} ${shot.id} via ${MODEL} -> ${path.relative(root, target)}`);
+  if (dryRun) {
+    console.log(`  prompt: ${shot.prompt}`);
+    return;
+  }
+
+  fs.mkdirSync(outDir, { recursive: true });
+
+  let prediction = await createPrediction(shot);
+  const startedAt = Date.now();
+  while (prediction.status === "starting" || prediction.status === "processing") {
+    if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+      throw new Error(`replicate timeout after ${POLL_TIMEOUT_MS}ms for ${shot.id}`);
+    }
+    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+    prediction = await getPrediction(prediction.id);
+    process.stdout.write(`.`);
+  }
+  process.stdout.write("\n");
+
+  if (prediction.status !== "succeeded") {
+    throw new Error(`replicate ${prediction.status} for ${shot.id}: ${JSON.stringify(prediction.error || prediction).slice(0, 500)}`);
+  }
+
+  const out = prediction.output;
+  const videoUrl = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : out?.video || out?.url);
+  if (!videoUrl) throw new Error(`no video url in prediction output: ${JSON.stringify(out).slice(0, 300)}`);
+
+  await downloadTo(videoUrl, target);
+  console.log(`wrote ${path.relative(root, target)}`);
+}
+
+async function main() {
+  if (!apiKey) {
+    console.error("REPLICATE_API_TOKEN (or REPLICATE_API_KEY) is not set. Add it to env or .env.");
+    process.exit(1);
+  }
+  const shots = selected();
+  if (!shots.length) {
+    console.error(`no shots matched --only=${only?.join(",")}`);
+    process.exit(1);
+  }
+  for (const shot of shots) {
+    try {
+      await generate(shot);
+    } catch (err) {
+      console.error(`FAILED ${shot.id}: ${err.message}`);
+      process.exitCode = 1;
+    }
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
