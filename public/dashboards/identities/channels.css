@@ -1,0 +1,295 @@
+.channel-concept {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(8px, 1.4vh, 14px);
+  padding: clamp(12px, 1.8vw, 24px);
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  overflow: hidden;
+}
+
+.channel-concept::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 22% 18%, color-mix(in srgb, var(--accent2) 18%, transparent), transparent 28%),
+    radial-gradient(circle at 78% 62%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,0.035), transparent 38%, rgba(0,0,0,0.16));
+  opacity: 0.82;
+}
+
+.cc-toolbar,
+.cc-viewport {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+.cc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cc-step-label {
+  min-width: 0;
+  color: rgba(243,246,248,0.92);
+  font-size: clamp(18px, 2.1vw, 30px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 18%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-controls {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cc-button {
+  width: 48px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.28);
+  color: rgba(243,246,248,0.88);
+  box-shadow: inset 0 0 18px rgba(255,255,255,0.025);
+}
+
+.cc-button:hover,
+.cc-button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 60%, rgba(255,255,255,0.2));
+  background: color-mix(in srgb, var(--accent) 12%, rgba(0,0,0,0.35));
+}
+
+.cc-button[data-cc-play] {
+  width: auto;
+  min-width: 86px;
+  padding: 0 14px;
+  gap: 8px;
+  grid-auto-flow: column;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.cc-arrow-icon {
+  font-size: 30px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.cc-play-icon {
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 10px solid currentColor;
+}
+
+.cc-button.is-playing .cc-play-icon {
+  width: 12px;
+  height: 12px;
+  border: 0;
+  background:
+    linear-gradient(90deg, currentColor 0 34%, transparent 34% 66%, currentColor 66% 100%);
+}
+
+.cc-count {
+  min-width: 52px;
+  color: rgba(243,246,248,0.66);
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-viewport {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cc-svg {
+  display: block;
+  width: min(100%, 1240px);
+  height: auto;
+  max-height: 100%;
+  overflow: visible;
+}
+
+.cc-svg text {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0;
+}
+
+.cc-th {
+  fill: currentColor;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.cc-ts {
+  fill: currentColor;
+  font-size: 15.5px;
+  font-weight: 650;
+}
+
+.cc-fill-data,
+.cc-fill-agent,
+.cc-fill-screen,
+.cc-fill-memory,
+.cc-fill-share,
+.cc-fill-action,
+.cc-fill-trade,
+.cc-fill-neutral {
+  color: var(--cc-fg);
+}
+
+.cc-fill-data rect,
+.cc-fill-agent rect,
+.cc-fill-screen rect,
+.cc-fill-memory rect,
+.cc-fill-share rect,
+.cc-fill-action rect,
+.cc-fill-trade rect,
+.cc-fill-neutral rect {
+  fill: color-mix(in srgb, var(--cc-accent) 12%, rgba(255,255,255,0.06));
+  stroke: color-mix(in srgb, var(--cc-accent) 72%, rgba(255,255,255,0.24));
+}
+
+.cc-fill-data { --cc-accent: var(--accent2); --cc-fg: #bdf7ff; }
+.cc-fill-agent { --cc-accent: #b993ff; --cc-fg: #ded5ff; }
+.cc-fill-screen { --cc-accent: #ff8a66; --cc-fg: #ffd8cb; }
+.cc-fill-memory { --cc-accent: #ff7bd5; --cc-fg: #ffd2f3; }
+.cc-fill-share { --cc-accent: var(--accent); --cc-fg: #c9ffe3; }
+.cc-fill-action { --cc-accent: var(--accent2); --cc-fg: #dcffd0; }
+.cc-fill-trade { --cc-accent: #ff7a4f; --cc-fg: #ffd8c9; }
+.cc-fill-neutral { --cc-accent: rgba(243,246,248,0.72); --cc-fg: rgba(243,246,248,0.9); }
+
+.cc-piece,
+.cc-card,
+.cc-action-card,
+.cc-friend-card,
+.cc-state-card {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.cc-arrow {
+  fill: none;
+  stroke: rgba(243,246,248,0.52);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cc-arrow-soft {
+  stroke: color-mix(in srgb, var(--accent2) 58%, rgba(243,246,248,0.2));
+  stroke-dasharray: 4 5;
+}
+
+.cc-center-ring {
+  fill: rgba(0,0,0,0.78);
+  stroke: color-mix(in srgb, var(--accent2) 62%, rgba(255,255,255,0.2));
+  stroke-width: 1.2;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent2) 26%, transparent));
+}
+
+.cc-map-land,
+.cc-strait-land {
+  fill: color-mix(in srgb, #b993ff 28%, rgba(255,255,255,0.04));
+  stroke: color-mix(in srgb, #b993ff 65%, rgba(255,255,255,0.16));
+  stroke-width: 1;
+}
+
+.cc-water-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent2) 74%, white);
+  stroke-width: 2;
+  opacity: 0.66;
+}
+
+.cc-dot,
+.cc-ship {
+  fill: color-mix(in srgb, #b993ff 74%, white);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, #b993ff 55%, transparent));
+}
+
+.cc-ship line,
+.cc-ship rect {
+  stroke: color-mix(in srgb, #b993ff 70%, white);
+}
+
+.cc-fill-action .cc-progress-bg,
+.cc-progress-bg {
+  fill: color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.12));
+  stroke: color-mix(in srgb, var(--accent) 55%, rgba(255,255,255,0.20));
+}
+
+.cc-fill-action .cc-progress-fill,
+.cc-progress-fill {
+  fill: color-mix(in srgb, var(--accent) 72%, white);
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+
+.cc-oil-line {
+  fill: none;
+  stroke: #ff7a4f;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 7px rgba(255,122,79,0.25));
+}
+
+@media (max-width: 760px) {
+  .channel-concept {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .cc-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cc-step-label {
+    white-space: normal;
+  }
+
+  .cc-controls {
+    justify-content: space-between;
+  }
+
+  .cc-button {
+    width: 44px;
+    height: 38px;
+  }
+
+  .cc-button[data-cc-play] {
+    min-width: 78px;
+    font-size: 12px;
+  }
+
+  .cc-count {
+    min-width: 46px;
+    font-size: 14px;
+  }
+}

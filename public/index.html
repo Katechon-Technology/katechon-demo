@@ -5371,8 +5371,23 @@
       return keys[event.code] ?? keys[event.key] ?? 0;
     }
 
+    function channelConceptDirectionForKey(event) {
+      const keys = {
+        ArrowRight: 1,
+        ArrowLeft: -1,
+      };
+      return keys[event.code] ?? keys[event.key] ?? 0;
+    }
+
     window.addEventListener('keydown', (event) => {
       if (dashboardOverlay.classList.contains('hidden')) return;
+      const channelConceptDirection = channelConceptDirectionForKey(event);
+      if (channelConceptDirection && currentDashboardId === 'channels') {
+        event.preventDefault();
+        stopDashboardKeyHold();
+        postWatchFrameMessage({ type: 'channel-concept-step', direction: channelConceptDirection });
+        return;
+      }
       const direction = dashboardDirectionForKey(event);
       if (!direction) return;
       event.preventDefault();

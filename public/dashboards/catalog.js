@@ -557,6 +557,11 @@
         ["share", "Every useful state can become a distribution object.", "graph"],
       ],
       caption: "Kat reads Channels as the core object model for generated software.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/channels.css",
+        script: "dashboards/identities/channels.js",
+      },
     },
     "attention-architecture": {
       palette: "katechon",
