@@ -351,7 +351,6 @@
     body.watch-mode #status,
     body.watch-mode #main-overlay,
     body.watch-mode #email-overlay,
-    body.watch-mode #kat-control-panel,
     body.watch-mode #startup-audio,
     body.watch-mode #dashboard-overlay .frame-bar {
       display: none !important;
@@ -373,7 +372,7 @@
         #030405;
     }
     body.watch-mode .dashboard-frame.active {
-      filter: brightness(0.58) saturate(0.78) contrast(1.05);
+      filter: brightness(1.04) saturate(1.05) contrast(1.02);
       transition: filter 260ms ease, opacity 180ms ease;
     }
     body.watch-mode.watch-playing .dashboard-frame.active {
@@ -409,190 +408,22 @@
       inset: 0;
       z-index: 44;
       pointer-events: none;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(250px, 22vw);
-      grid-template-rows: minmax(0, 1fr) auto;
-      gap: 18px;
-      padding: 28px 30px 24px;
+      display: block;
     }
     #watch-shell[hidden] {
       display: none;
     }
-    .watch-kat-panel {
-      pointer-events: all;
-      grid-column: 2;
-      align-self: end;
-      display: grid;
-      gap: 10px;
-      max-width: 360px;
-      justify-self: end;
-      padding: 12px;
-      border: 1px solid rgba(0,232,123,0.22);
-      border-radius: 8px;
-      background:
-        radial-gradient(ellipse at 16% 0%, rgba(125,232,255,0.13), transparent 42%),
-        radial-gradient(ellipse at 92% 98%, rgba(0,232,123,0.11), transparent 44%),
-        rgba(3, 6, 7, 0.72);
-      box-shadow: 0 20px 70px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06);
-      backdrop-filter: blur(16px) saturate(1.2);
-    }
-    .watch-kat-panel.is-dragging {
-      user-select: none;
-    }
-    .watch-kat-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 12px;
-      cursor: grab;
-      touch-action: none;
-      user-select: none;
-    }
-    .watch-kat-panel.is-dragging .watch-kat-head {
-      cursor: grabbing;
-    }
-    .watch-kat-controls {
-      display: grid;
-      gap: 7px;
-      justify-items: stretch;
-      width: 124px;
-    }
-    .watch-kicker {
-      color: var(--green);
-      font: 700 10px/1 monospace;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-    }
-    .watch-title {
-      margin-top: 5px;
-      color: rgba(242,244,247,0.94);
-      font-size: 18px;
-      font-weight: 760;
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-    .watch-read {
-      min-height: 38px;
-      color: rgba(242,244,247,0.68);
-      font-size: 13px;
-      line-height: 1.42;
-    }
-    .watch-play {
-      min-height: 44px;
-      border: 1px solid rgba(0,232,123,0.58);
-      border-radius: 999px;
-      background: rgba(0,232,123,0.92);
-      color: #031009;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 9px;
-      padding: 0 18px;
-      font: 800 12px/1 monospace;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      box-shadow: 0 0 28px rgba(0,232,123,0.22);
-      transition: transform 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
-    }
-    .watch-play:hover,
-    .watch-play:focus-visible {
-      transform: translateY(-1px);
-      box-shadow: 0 0 36px rgba(0,232,123,0.34);
-      outline: none;
-    }
-    .watch-play-icon {
-      width: 0;
-      height: 0;
-      border-top: 7px solid transparent;
-      border-bottom: 7px solid transparent;
-      border-left: 11px solid currentColor;
-    }
-    body.watch-playing .watch-play {
-      opacity: 0.72;
-      background: rgba(0,232,123,0.12);
-      color: rgba(242,244,247,0.86);
-    }
-    body.watch-mode:not(.watch-playing) #watch-music-toggle {
-      display: none;
-    }
-    .watch-music {
-      min-height: 30px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.055);
-      color: rgba(242,244,247,0.72);
-      cursor: pointer;
-      padding: 0 10px;
-      font: 800 10px/1 monospace;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
-    }
-    .watch-music:hover,
-    .watch-music:focus-visible {
-      border-color: rgba(0,232,123,0.48);
-      background: rgba(0,232,123,0.08);
-      color: rgba(242,244,247,0.92);
-      outline: none;
-    }
-    .watch-music.is-off {
-      color: rgba(242,244,247,0.42);
-      background: rgba(255,255,255,0.035);
-    }
-    .watch-music.is-blocked {
-      border-color: rgba(255,191,95,0.38);
-      color: rgba(255,220,139,0.84);
-    }
-    .watch-actions,
     .watch-stack {
       display: none;
     }
-    body.watch-playing .watch-actions {
-      display: grid;
-      gap: 8px;
-    }
-    .watch-action-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .watch-chip {
-      min-height: 34px;
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 999px;
-      background: rgba(255,255,255,0.055);
-      color: rgba(242,244,247,0.78);
-      cursor: pointer;
-      padding: 0 12px;
-      font: 700 10px/1.1 monospace;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
-    }
-    .watch-chip:hover,
-    .watch-chip:focus-visible {
-      border-color: rgba(125,232,255,0.52);
-      background: rgba(125,232,255,0.10);
-      color: rgba(242,244,247,0.94);
-      outline: none;
-    }
-    .watch-chip.primary {
-      border-color: rgba(0,232,123,0.45);
-      color: rgba(0,232,123,0.92);
-    }
-    .watch-chip.thesis {
-      border-color: rgba(255,191,95,0.45);
-      color: rgba(255,220,139,0.94);
-    }
     body.watch-has-stack .watch-stack {
-      pointer-events: all;
-      grid-column: 1;
-      grid-row: 2;
-      align-self: end;
+      pointer-events: none;
+      position: absolute;
+      left: 18px;
+      bottom: 18px;
       display: flex;
       gap: 10px;
-      max-width: 58vw;
+      max-width: min(58vw, calc(100vw - 36px));
       overflow: hidden;
     }
     .watch-stack-card {
@@ -1506,223 +1337,14 @@
       pointer-events: none;
     }
 
-    /* ── KAT CONTROL PANEL ── */
-    #kat-control-panel {
-      position: fixed;
-      right: 34px;
-      bottom: 11.1vh;
-      z-index: 58;
-      width: 252px;
-      padding: 10px;
-      border: 1px solid rgba(125,232,255,0.18);
-      border-radius: 14px;
-      background:
-        radial-gradient(ellipse at 18% 0%, rgba(125,232,255,0.12), transparent 44%),
-        radial-gradient(ellipse at 92% 92%, rgba(0,232,123,0.12), transparent 42%),
-        linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0) 58%),
-        rgba(5, 8, 10, 0.84);
-      box-shadow:
-        0 24px 80px rgba(0,0,0,0.42),
-        0 0 0 1px rgba(0,232,123,0.055),
-        inset 0 1px 0 rgba(255,255,255,0.08);
-      backdrop-filter: blur(16px) saturate(1.28);
-      pointer-events: all;
-      display: grid;
-      gap: 9px;
-    }
-    #kat-control-panel.is-dragging {
-      user-select: none;
-    }
-    #kat-control-panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      pointer-events: none;
-      background:
-        linear-gradient(90deg, transparent, rgba(125,232,255,0.22), rgba(0,232,123,0.18), transparent) top / 100% 1px no-repeat,
-        radial-gradient(ellipse at 50% -16%, rgba(0,232,123,0.18), transparent 52%);
-      opacity: 0.92;
-    }
-    .kat-control-head,
-    .kat-control-body {
-      position: relative;
-      z-index: 1;
-    }
-    .kat-control-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 1px 2px 0;
-      cursor: grab;
-      touch-action: none;
-      user-select: none;
-    }
-    #kat-control-panel.is-dragging .kat-control-head {
-      cursor: grabbing;
-    }
-    .kat-control-title {
-      display: grid;
-      gap: 3px;
-      min-width: 0;
-    }
-    .kat-control-kicker {
-      color: rgba(125,232,255,0.82);
-      font-family: monospace;
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      line-height: 1;
-      text-transform: uppercase;
-    }
-    .kat-control-name {
-      color: rgba(242,244,247,0.92);
-      font-size: 13px;
-      font-weight: 760;
-      line-height: 1.1;
-      letter-spacing: 0;
-    }
-    .kat-control-state {
-      flex: 0 0 auto;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: rgba(242,244,247,0.46);
-      font-family: monospace;
-      font-size: 9px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-    }
-    .kat-control-state::before {
-      content: "";
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 14px rgba(0,232,123,0.72);
-    }
-    .kat-control-body {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 78px;
-      gap: 9px;
-      align-items: stretch;
-    }
-    .kat-control-secondary {
-      display: grid;
-      gap: 7px;
-      min-width: 0;
-    }
-    .kat-control-chip {
-      width: 100%;
-      height: 34px;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      background: rgba(255,255,255,0.045);
-      color: rgba(242,244,247,0.74);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-family: monospace;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      transition: border-color 0.2s, color 0.2s, transform 0.15s, background 0.2s, box-shadow 0.2s;
-    }
-    .kat-control-chip:hover,
-    .kat-control-chip:focus-visible {
-      transform: translateY(-1px);
-      border-color: rgba(0,232,123,0.58);
-      background: rgba(0,232,123,0.075);
-      color: rgba(242,244,247,0.94);
-      box-shadow: inset 0 0 0 1px rgba(0,232,123,0.10);
-      outline: none;
-    }
-    .kat-control-chip:disabled {
-      cursor: wait;
-      opacity: 0.58;
-      transform: none;
-    }
-    .kat-chip-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: rgba(0,232,123,0.78);
-      box-shadow: 0 0 12px rgba(0,232,123,0.54);
-    }
-    #speech-btn {
-      position: relative;
-      z-index: 1;
-      width: 78px; height: 78px;
-      background:
-        radial-gradient(circle at 50% 26%, rgba(0,232,123,0.20), transparent 38%),
-        rgba(2, 5, 7, 0.86);
-      border: 1.5px solid rgba(0,232,123,0.32);
-      border-radius: 50%;
-      cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
-      box-shadow: 0 15px 38px rgba(0,0,0,0.34), inset 0 0 0 1px rgba(255,255,255,0.055), 0 0 22px rgba(0,232,123,0.12);
-      transition: border-color 0.2s, transform 0.15s, background 0.2s, box-shadow 0.2s;
-    }
-    #speech-btn:hover {
-      border-color: #00e87b;
-      transform: translateY(-1px) scale(1.045);
-      box-shadow: 0 18px 46px rgba(0,0,0,0.38), inset 0 0 0 1px rgba(0,232,123,0.18), 0 0 32px rgba(0,232,123,0.22);
-    }
-    #speech-btn.connecting,
-    #speech-btn.thinking {
-      border-color: rgba(125,232,255,0.72);
-      background: rgba(125,232,255,0.10);
-    }
-    #speech-btn.listening {
-      border-color: #ff4444;
-      background: rgba(255,68,68,0.15);
-      animation: mic-pulse 1s ease-in-out infinite;
-    }
-    @keyframes mic-pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.4); }
-      50%       { box-shadow: 0 0 0 14px rgba(255,68,68,0); }
-    }
-    #speech-btn svg { pointer-events: none; }
-    #speech-btn span {
-      font-family: monospace; font-size: 9px;
-      letter-spacing: 0.12em; color: rgba(242,244,247,0.48);
-      text-transform: uppercase; pointer-events: none;
-    }
-    #voice-mode-toggle {
-      padding: 0 10px;
-    }
-    #voice-mode-toggle.openai {
-      border-color: rgba(125,232,255,0.48);
-      color: var(--cyan);
-      background: rgba(125,232,255,0.09);
-    }
-    .voice-mode-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: rgba(242,244,247,0.38);
-      box-shadow: 0 0 0 transparent;
-    }
-    #voice-mode-toggle.openai .voice-mode-dot {
-      background: var(--cyan);
-      box-shadow: 0 0 12px rgba(125,232,255,0.62);
-    }
-    #voice-mode-toggle.degraded {
-      border-color: rgba(255,191,95,0.62);
-      color: #ffbf5f;
-      background: rgba(255,191,95,0.10);
-    }
-    #voice-mode-toggle.degraded .voice-mode-dot {
-      background: #ffbf5f;
-      box-shadow: 0 0 12px rgba(255,191,95,0.60);
+    .keyboard-voice-controls {
+      display: none !important;
     }
 
     /* ── TRANSCRIPT TOAST ── */
     #transcript {
-      position: fixed; bottom: 140px; right: 36px;
+      position: fixed; bottom: 24px; right: 24px;
+      z-index: 72;
       background: rgba(13,13,15,0.9); border: 1px solid rgba(255,255,255,0.1);
       border-radius: 6px; padding: 8px 14px;
       font-family: monospace; font-size: 12px; color: var(--text);
@@ -2425,11 +2047,6 @@
         width: 64px;
         height: 64px;
       }
-      #kat-control-panel {
-        right: 18px;
-        bottom: 18px;
-        width: min(274px, calc(100vw - 36px));
-      }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -2815,33 +2432,6 @@
   <div id="watch-input-layer" aria-hidden="true"></div>
   <section id="watch-shell" data-testid="watch-feed-shell" hidden>
     <div class="watch-stack" id="watch-stack" data-testid="watch-stack"></div>
-    <aside class="watch-kat-panel" aria-live="polite">
-      <div class="watch-kat-head">
-        <div>
-          <div class="watch-kicker">Kat live host</div>
-          <div class="watch-title" id="watch-title">Meme Coin</div>
-        </div>
-        <div class="watch-kat-controls">
-          <button id="watch-play" class="watch-play" type="button" data-testid="play-kat">
-            <span class="watch-play-icon" aria-hidden="true"></span>
-            <span>Play Kat</span>
-          </button>
-          <button id="watch-music-toggle" class="watch-music" type="button" title="Music on/off" aria-label="Music on/off" aria-pressed="true">
-            <span data-music-label>Music On</span>
-          </button>
-        </div>
-      </div>
-      <div class="watch-read" id="watch-read">The surface is already moving. Start Kat when you want the read.</div>
-      <div class="watch-actions" id="watch-actions">
-        <div class="watch-action-row">
-          <button class="watch-chip primary" type="button" data-watch-action="in-card">Why?</button>
-          <button class="watch-chip thesis" type="button" data-watch-action="thesis">Make board</button>
-          <button class="watch-chip" type="button" id="watch-share">Share</button>
-          <button class="watch-chip" type="button" id="watch-fork">Fork</button>
-        </div>
-        <button class="watch-chip" type="button" id="watch-ask">Hold to ask Kat</button>
-      </div>
-    </aside>
   </section>
 
   <div id="transcript"></div>
@@ -2897,36 +2487,14 @@
     </div>
   </div>
 
-  <!-- ── KAT CONTROL PANEL ── -->
-  <div id="kat-control-panel" role="region" aria-label="Kat control panel">
-    <div class="kat-control-head">
-      <div class="kat-control-title">
-        <span class="kat-control-kicker">Kat control</span>
-        <span class="kat-control-name">Voice link</span>
-      </div>
-      <span class="kat-control-state">online</span>
-    </div>
-    <div class="kat-control-body">
-      <div class="kat-control-secondary">
-        <button id="main-narration" class="kat-control-chip" type="button" title="Play Kat overview" aria-label="Play Kat overview">
-          <span class="kat-chip-dot" aria-hidden="true"></span>
-          <span>Kat</span>
-        </button>
-        <button id="voice-mode-toggle" class="kat-control-chip" type="button" aria-pressed="false" title="Switch voice mode">
-          <span class="voice-mode-dot" aria-hidden="true"></span>
-          <span id="voice-mode-label">legacy</span>
-        </button>
-      </div>
-      <button id="speech-btn" title="Push to talk" aria-label="Push to talk">
-        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#00e87b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="11" rx="3"/>
-          <path d="M5 10a7 7 0 0 0 14 0"/>
-          <line x1="12" y1="19" x2="12" y2="23"/>
-          <line x1="8" y1="23" x2="16" y2="23"/>
-        </svg>
-        <span>hold</span>
-      </button>
-    </div>
+  <div class="keyboard-voice-controls" aria-hidden="true">
+    <button id="main-narration" type="button" tabindex="-1">Kat</button>
+    <button id="voice-mode-toggle" type="button" aria-pressed="false" tabindex="-1">
+      <span id="voice-mode-label">legacy</span>
+    </button>
+    <button id="speech-btn" type="button" aria-label="Push to talk" tabindex="-1">
+      <span>hold</span>
+    </button>
   </div>
 
   <script src="dashboards/catalog.js"></script>
@@ -3570,10 +3138,6 @@
     const fullscreenButton = document.getElementById('dashboard-fullscreen');
     const startupAudioButton = document.getElementById('startup-audio');
     const mainNarrationButton = document.getElementById('main-narration');
-    const katControlPanel = document.getElementById('kat-control-panel');
-    const katControlPanelHandle = katControlPanel?.querySelector('.kat-control-head');
-    const watchKatPanel = document.querySelector('.watch-kat-panel');
-    const watchKatPanelHandle = watchKatPanel?.querySelector('.watch-kat-head');
     const browserAvatar = document.getElementById('browser-avatar');
     const katNarrator = document.getElementById('kat-narrator');
     const katChannel = document.getElementById('kat-channel');
@@ -3600,9 +3164,6 @@
       "This is Katechon Technology. On the left, you can see each of our channels. " +
       "These channels are generated in real time based on user input, data feeds, and real world events. " +
       "Channels cover geopolitical events, information flows, market structure, research signals, and agent workflows.";
-    const KAT_CONTROL_PANEL_STORAGE_KEY = 'katechon.katControlPanelPlacement.v1';
-    const WATCH_KAT_PANEL_STORAGE_KEY = 'katechon.watchKatPanelPlacement.v1';
-    const KAT_CONTROL_PANEL_MARGIN = 10;
 
     function loadDeferredFrame(frame) {
       const frameSrc = frame?.dataset?.src;
@@ -4251,114 +3812,6 @@
     if (AVATAR_DESKTOP_MEDIA.addEventListener) AVATAR_DESKTOP_MEDIA.addEventListener('change', applyAvatarPlacement);
     else AVATAR_DESKTOP_MEDIA.addListener?.(applyAvatarPlacement);
     applyAvatarPlacement();
-
-    function makeDraggableFloatingPanel({ panel, handle, storageKey, defaultWidth, defaultHeight }) {
-      if (!panel || !handle) return;
-      const interactiveSelector = 'button, a, input, textarea, select, [contenteditable=""], [contenteditable="true"]';
-      let position = loadPosition();
-      let drag = null;
-
-      function clampPosition(nextPosition) {
-        const rect = panel.getBoundingClientRect();
-        const savedWidth = Number(nextPosition?.w);
-        const width = rect.width || panel.offsetWidth || (Number.isFinite(savedWidth) ? savedWidth : defaultWidth);
-        const height = rect.height || panel.offsetHeight || defaultHeight;
-        const maxX = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerWidth - width - KAT_CONTROL_PANEL_MARGIN);
-        const maxY = Math.max(KAT_CONTROL_PANEL_MARGIN, window.innerHeight - height - KAT_CONTROL_PANEL_MARGIN);
-        const rawX = Number(nextPosition?.x);
-        const rawY = Number(nextPosition?.y);
-        return {
-          x: Math.min(Math.max(Number.isFinite(rawX) ? rawX : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxX),
-          y: Math.min(Math.max(Number.isFinite(rawY) ? rawY : KAT_CONTROL_PANEL_MARGIN, KAT_CONTROL_PANEL_MARGIN), maxY),
-        };
-      }
-
-      function loadPosition() {
-        try {
-          const saved = JSON.parse(localStorage.getItem(storageKey) || 'null');
-          if (!saved || typeof saved !== 'object') return null;
-          const x = Number(saved.x);
-          const y = Number(saved.y);
-          const w = Number(saved.w);
-          if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-          return Number.isFinite(w) ? { x, y, w } : { x, y };
-        } catch (_) {
-          return null;
-        }
-      }
-
-      function applyPosition(nextPosition, options = {}) {
-        const rect = panel.getBoundingClientRect();
-        const savedWidth = Number(nextPosition?.w);
-        const maxWidth = Math.max(1, window.innerWidth - KAT_CONTROL_PANEL_MARGIN * 2);
-        const width = Math.min(maxWidth, Math.max(1, rect.width || (Number.isFinite(savedWidth) ? savedWidth : defaultWidth)));
-        const clamped = clampPosition(nextPosition);
-        position = { ...clamped, w: width };
-        panel.style.position = 'fixed';
-        panel.style.left = `${clamped.x}px`;
-        panel.style.top = `${clamped.y}px`;
-        panel.style.right = 'auto';
-        panel.style.bottom = 'auto';
-        panel.style.width = `${width}px`;
-        if (options.persist) {
-          try { localStorage.setItem(storageKey, JSON.stringify(position)); } catch (_) {}
-        }
-      }
-
-      function finishDrag(event) {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        try { handle.releasePointerCapture(event.pointerId); } catch (_) {}
-        panel.classList.remove('is-dragging');
-        drag = null;
-        if (position) applyPosition(position, { persist: true });
-      }
-
-      if (position) requestAnimationFrame(() => applyPosition(position));
-      handle.addEventListener('pointerdown', (event) => {
-        if (event.button !== undefined && event.button !== 0) return;
-        if (event.target?.closest?.(interactiveSelector)) return;
-        event.preventDefault();
-        const rect = panel.getBoundingClientRect();
-        drag = {
-          pointerId: event.pointerId,
-          offsetX: event.clientX - rect.left,
-          offsetY: event.clientY - rect.top,
-        };
-        panel.classList.add('is-dragging');
-        try { handle.setPointerCapture(event.pointerId); } catch (_) {}
-        applyPosition({ x: rect.left, y: rect.top });
-      });
-      handle.addEventListener('pointermove', (event) => {
-        if (!drag || event.pointerId !== drag.pointerId) return;
-        event.preventDefault();
-        applyPosition({
-          x: event.clientX - drag.offsetX,
-          y: event.clientY - drag.offsetY,
-        });
-      });
-      handle.addEventListener('pointerup', finishDrag);
-      handle.addEventListener('pointercancel', finishDrag);
-      handle.addEventListener('lostpointercapture', finishDrag);
-      window.addEventListener('resize', () => {
-        if (!position) return;
-        requestAnimationFrame(() => applyPosition(position, { persist: true }));
-      });
-    }
-
-    makeDraggableFloatingPanel({
-      panel: katControlPanel,
-      handle: katControlPanelHandle,
-      storageKey: KAT_CONTROL_PANEL_STORAGE_KEY,
-      defaultWidth: 252,
-      defaultHeight: 112,
-    });
-    makeDraggableFloatingPanel({
-      panel: watchKatPanel,
-      handle: watchKatPanelHandle,
-      storageKey: WATCH_KAT_PANEL_STORAGE_KEY,
-      defaultWidth: 360,
-      defaultHeight: 220,
-    });
 
     function postDashboardTargetVoiceStatus(status, label = status) {
       if (!dashboardTargetVoice?.frame) return;
@@ -5911,9 +5364,10 @@
     function dashboardDirectionForKey(event) {
       const keys = {
         ArrowDown: 1,
+        ArrowRight: 1,
         PageDown: 1,
-        Space: 1,
         ArrowUp: -1,
+        ArrowLeft: -1,
         PageUp: -1,
       };
       return keys[event.code] ?? keys[event.key] ?? 0;
@@ -6608,6 +6062,10 @@
         ptt.pendingStop = false;
         return;
       }
+      if (watchMode.active && !watchMode.played) {
+        watchMode.played = true;
+        syncWatchChrome(currentDashboardId);
+      }
       // If the user already let go during the async init, tear down now.
       if (ptt.pendingStop && seq === ptt.startSeq) {
         ptt.pendingStop = false;
@@ -6952,18 +6410,21 @@
     window.addEventListener('blur', () => stopPushToTalk());
 
     // Space-bar PTT. Skip when the user is typing somewhere editable.
+    function pttSpaceKey(event) {
+      return event.code === 'Space' || event.key === ' ';
+    }
     function pttSpaceShouldIgnore(target) {
       if (!target || typeof target.matches !== 'function') return false;
       return target.matches('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
     }
     window.addEventListener('keydown', (e) => {
-      if (e.code !== 'Space' || e.repeat) return;
+      if (!pttSpaceKey(e) || e.repeat) return;
       if (pttSpaceShouldIgnore(e.target)) return;
       e.preventDefault();
       startPushToTalk().catch(() => {});
     });
     window.addEventListener('keyup', (e) => {
-      if (e.code !== 'Space') return;
+      if (!pttSpaceKey(e)) return;
       if (pttSpaceShouldIgnore(e.target)) return;
       e.preventDefault();
       stopPushToTalk();

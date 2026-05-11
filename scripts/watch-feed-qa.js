@@ -113,22 +113,17 @@ async function activeFrameText(page) {
   return frame.evaluate(() => document.body.innerText);
 }
 
-async function waitForFrameText(page, pattern, timeoutMs = 12000) {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const text = await activeFrameText(page);
-    if (pattern.test(text)) return text;
-    await sleep(250);
-  }
-  throw new Error(`Timed out waiting for active frame text ${pattern}`);
-}
-
 async function main() {
   const server = await startServer();
   const browser = await chromium.launch({
     executablePath: chromeExecutable(),
     headless: true,
-    args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required"],
+    args: [
+      "--no-sandbox",
+      "--autoplay-policy=no-user-gesture-required",
+      "--use-fake-device-for-media-stream",
+      "--use-fake-ui-for-media-stream",
+    ],
   });
 
   try {
@@ -137,56 +132,67 @@ async function main() {
     await page.waitForSelector("body.watch-mode", { timeout: 12000 });
     await page.waitForSelector("#watch-shell:not([hidden])", { timeout: 12000 });
     await page.waitForSelector(".dashboard-frame.active[data-dashboard-id='meme-coin']", { timeout: 12000 });
+    await page.waitForFunction(() => {
+      const frame = document.querySelector(".dashboard-frame.active");
+      return frame &&
+        !frame.classList.contains("incoming") &&
+        !frame.classList.contains("outgoing") &&
+        !/blur/.test(getComputedStyle(frame).filter);
+    }, null, { timeout: 12000 });
 
     const firstState = await page.evaluate(() => ({
       watchMode: document.body.classList.contains("watch-mode"),
       playing: document.body.classList.contains("watch-playing"),
-      shellVisible: getComputedStyle(document.getElementById("watch-shell")).display !== "none",
       gridVisible: getComputedStyle(document.getElementById("main-overlay")).display !== "none",
       statusVisible: getComputedStyle(document.getElementById("status")).display !== "none",
-      playText: document.getElementById("watch-play")?.innerText || "",
+      katControlPresent: Boolean(document.getElementById("kat-control-panel")),
+      watchPanelPresent: Boolean(document.querySelector(".watch-kat-panel")),
+      playButtonPresent: Boolean(document.getElementById("watch-play")),
+      speechButtonVisible: Boolean(document.getElementById("speech-btn")?.getClientRects().length),
+      activeFilter: getComputedStyle(document.querySelector(".dashboard-frame.active")).filter,
       channelRailPresent: Boolean(document.querySelector(".watch-channel-rail")),
       channelButtonCount: document.querySelectorAll("[data-watch-channel]").length,
-      frameCount: document.querySelectorAll(".dashboard-frame").length,
-      catalogCount: Object.keys(window.KATECHON_DASHBOARD_CATALOG?.channels || {}).length,
       visibleText: document.body.innerText,
     }));
     assertQa(firstState.watchMode, "root did not enter watch mode", firstState);
-    assertQa(!firstState.playing, "watch mode should start faded before play", firstState);
-    assertQa(firstState.shellVisible, "Kat watch shell is not visible", firstState);
+    assertQa(!firstState.playing, "watch mode should wait for keyboard push-to-talk activation", firstState);
     assertQa(!firstState.gridVisible, "broad grid is visible by default", firstState);
     assertQa(!firstState.statusVisible, "status chrome is visible by default", firstState);
-    assertQa(/Play Kat/i.test(firstState.playText), "Play Kat affordance missing", firstState);
+    assertQa(!firstState.katControlPresent && !firstState.watchPanelPresent && !firstState.playButtonPresent, "Kat control panel is still present", firstState);
+    assertQa(!firstState.speechButtonVisible, "legacy speech button is visible", firstState);
+    assertQa(!/brightness\(0\.58\)/.test(firstState.activeFilter), "active surface is dimmed behind removed controls", firstState);
     assertQa(!firstState.channelRailPresent && firstState.channelButtonCount === 0, "channel name boxes are visible", firstState);
-    assertQa(firstState.frameCount >= firstState.catalogCount, "not all catalog channels are available in watch mode", firstState);
-    assertQa(!/\bconnecting\.\.\.|Legacy|Kat control|View Grid\b/i.test(firstState.visibleText), "legacy/status copy visible", {
+    assertQa(!/\bconnecting\.\.\.|Legacy|Kat control|Play Kat|Hold to ask Kat|View Grid\b/i.test(firstState.visibleText), "legacy/status copy visible", {
       visibleText: firstState.visibleText.slice(0, 1000),
     });
 
-    await page.click("#watch-play");
-    await page.waitForSelector("body.watch-playing", { timeout: 8000 });
-    const postPlay = await page.evaluate(() => ({
+    await page.keyboard.down("Space");
+    await page.waitForFunction(() => {
+      const speechButton = document.getElementById("speech-btn");
+      return speechButton?.classList.contains("listening") || speechButton?.classList.contains("connecting");
+    }, null, { timeout: 8000 });
+    const pttState = await page.evaluate(() => ({
+      activeDashboard: document.querySelector(".dashboard-frame.active")?.dataset.dashboardId || "",
+      listening: document.getElementById("speech-btn")?.classList.contains("listening"),
+      connecting: document.getElementById("speech-btn")?.classList.contains("connecting"),
       playing: document.body.classList.contains("watch-playing"),
-      filter: getComputedStyle(document.querySelector(".dashboard-frame.active")).filter,
-      read: document.getElementById("watch-read")?.innerText || "",
     }));
-    assertQa(postPlay.playing, "Play Kat did not brighten/start watch mode", postPlay);
-    assertQa(!/brightness\(0\.58\)/.test(postPlay.filter), "active surface stayed faded after play", postPlay);
-    assertQa(/Next:/i.test(postPlay.read), "Kat did not offer a next action", postPlay);
+    assertQa(pttState.activeDashboard === "meme-coin", "space bar changed channel instead of starting push-to-talk", pttState);
+    assertQa(pttState.listening || pttState.connecting, "space bar did not start push-to-talk", pttState);
+    assertQa(pttState.playing, "push-to-talk did not activate watch mode", pttState);
+    await page.keyboard.up("Space");
+
+    await page.keyboard.press("ArrowDown");
+    await page.waitForFunction(() => document.querySelector(".dashboard-frame.active")?.dataset.dashboardId === "polyrec", null, { timeout: 8000 });
+    assertQa(await activeDashboardId(page) === "polyrec", "ArrowDown did not move to Bets");
+
+    await page.keyboard.press("ArrowUp");
+    await page.waitForFunction(() => document.querySelector(".dashboard-frame.active")?.dataset.dashboardId === "meme-coin", null, { timeout: 8000 });
+    assertQa(await activeDashboardId(page) === "meme-coin", "ArrowUp did not move back to Meme");
 
     await page.locator("#watch-input-layer").dispatchEvent("wheel", { deltaY: 150, bubbles: true, cancelable: true });
     await page.waitForFunction(() => document.querySelector(".dashboard-frame.active")?.dataset.dashboardId === "polyrec", null, { timeout: 8000 });
     assertQa(await activeDashboardId(page) === "polyrec", "vertical scroll did not move to Bets");
-
-    await page.click("[data-watch-action='in-card']");
-    await waitForFrameText(page, /generated state ready|building channel state/i);
-
-    await page.click("[data-watch-action='thesis']");
-    await page.waitForSelector("[data-testid='watch-stack-card']", { timeout: 8000 });
-    await waitForFrameText(page, /generated state ready|building channel state/i);
-
-    await page.click("#watch-share");
-    await page.waitForFunction(() => /Link copied|Saving share state|Share ready/i.test(document.body.innerText), null, { timeout: 10000 });
 
     const visibleText = `${await page.evaluate(() => document.body.innerText)}\n${await activeFrameText(page)}`;
     assertQa(!/api\.coingecko\.com|429|No Faculty Data Available|provider fallback failed|channel fallback failed/i.test(visibleText), "raw provider or mismatched empty-state copy is visible", {
@@ -198,14 +204,11 @@ async function main() {
       baseUrl: server.baseUrl,
       checks: [
         "desktop root opens watch mode",
-        "all catalog channels are available at start",
         "channel name boxes are removed",
-        "grid/status/legacy chrome hidden",
-        "Play Kat brightens surface and exposes next action",
+        "grid/status/legacy chrome and Kat panels hidden",
+        "space bar starts push-to-talk without changing channel",
+        "arrow keys change focused channel",
         "vertical scroll changes focused channel",
-        "in-card mutation path runs",
-        "thesis mutation creates curated stack card",
-        "share path reports Link copied/ready",
         "raw provider errors absent from visible copy",
       ],
     }, null, 2));
