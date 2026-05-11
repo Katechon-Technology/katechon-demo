@@ -112,6 +112,7 @@ requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag")
 requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
 requireContains("dist/deck/index.html", "dune-deck", "deck starts at dashboard 18");
 requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
+requireContains("dist/deck/index.html", "seed-round", "deck includes seed round closer");
 requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
 requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
 requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
@@ -129,6 +130,7 @@ requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/
 requireContains("dist/dashboards/dune-deck/index.html", "/dashboards/catalog.js", "Dune deck root prototype dashboard");
 requireContains("dist/dashboards/what-is-a-channel/index.html", "/dashboards/catalog.js", "What Is a Channel root prototype dashboard");
 requireContains("dist/dashboards/what-should-exist-next/index.html", "/dashboards/catalog.js", "What Should Exist Next root prototype dashboard");
+requireContains("dist/dashboards/seed-round/index.html", "/dashboards/catalog.js", "Seed Round root prototype dashboard");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");
 requireContains("dist/app/deck/index.html", '<base href="/app/">', "the /app deck base tag");
 requireContains("dist/app/deck/index.html", "DECK_CHANNEL_IDS", "app deck-mode dashboard subset");

@@ -43,6 +43,7 @@ const dashboardIds = [
   "attention-architecture",
   "reality-glix",
   "build-with-us",
+  "seed-round",
 ];
 
 function publicOrigin() {
