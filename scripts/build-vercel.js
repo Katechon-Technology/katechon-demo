@@ -37,6 +37,7 @@ const dashboardIds = [
   "three-internets",
   "every-age-thinks-its-the-last",
   "what-comes-after-the-feed",
+  "live-generated-states",
   "what-is-a-channel",
   "channels",
   "what-should-exist-next",

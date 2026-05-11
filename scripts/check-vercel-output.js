@@ -46,6 +46,7 @@ const requiredFiles = [
   "dist/dashboards/news/index.html",
   "dist/dashboards/dune-deck/index.html",
   "dist/dashboards/what-is-a-channel/index.html",
+  "dist/dashboards/live-generated-states/index.html",
   "dist/dashboards/what-should-exist-next/index.html",
   "dist/decks/dune/deck.json",
   "dist/app/index.html",
@@ -58,6 +59,7 @@ const requiredFiles = [
   "dist/app/dashboards/news/index.html",
   "dist/app/dashboards/dune-deck/index.html",
   "dist/app/dashboards/what-is-a-channel/index.html",
+  "dist/app/dashboards/live-generated-states/index.html",
   "dist/app/dashboards/what-should-exist-next/index.html",
   "dist/app/decks/dune/deck.json",
   "dist/app/decks/dune/assets/narration/dune-01-founder-v2.mp3",
@@ -129,6 +131,7 @@ requireContains("dist/share/spectre/index.html", "https://katechon.technology/sh
 requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/share/dune-deck", "Dune deck root share URL");
 requireContains("dist/dashboards/dune-deck/index.html", "/dashboards/catalog.js", "Dune deck root prototype dashboard");
 requireContains("dist/dashboards/what-is-a-channel/index.html", "/dashboards/catalog.js", "What Is a Channel root prototype dashboard");
+requireContains("dist/dashboards/live-generated-states/index.html", "/dashboards/catalog.js", "Live Generated States root prototype dashboard");
 requireContains("dist/dashboards/what-should-exist-next/index.html", "/dashboards/catalog.js", "What Should Exist Next root prototype dashboard");
 requireContains("dist/dashboards/seed-round/index.html", "/dashboards/catalog.js", "Seed Round root prototype dashboard");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");

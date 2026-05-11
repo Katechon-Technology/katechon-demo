@@ -1238,7 +1238,7 @@
       title: "// KATECHON - TECHNOLOGY CHANNEL",
       channel: "18 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       primaryPrompt: "Generate a slide on founder-market fit",
       commandPlaceholder: "Say generate a slide on founder-market fit, AI software inflection, state not pixels, live software channels, Kat agents, or discovery graph",
       promptPlaceholder: "Say generate a slide on founder-market fit, AI software inflection, state not pixels, live software channels, Kat agents, or discovery graph",
@@ -1267,7 +1267,7 @@
       title: "// KATECHON - THREE INTERNETS",
       channel: "19 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "19 / KATECHON",
@@ -1285,7 +1285,7 @@
       title: "// KATECHON - EVERY AGE THINKS IT'S THE LAST",
       channel: "20 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "20 / KATECHON",
@@ -1303,7 +1303,7 @@
       title: "// KATECHON - WHAT COMES AFTER THE FEED",
       channel: "21 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "21 / KATECHON",
@@ -1321,7 +1321,7 @@
       title: "// KATECHON - LIVE GENERATED STATES",
       channel: "22 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "22 / KATECHON",
@@ -1339,7 +1339,7 @@
       title: "// KATECHON - WHAT IS A CHANNEL",
       channel: "23 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "23 / KATECHON",
@@ -1357,7 +1357,7 @@
       title: "// KATECHON - CHANNELS",
       channel: "24 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "24 / KATECHON",
@@ -1375,7 +1375,7 @@
       title: "// KATECHON - GENERATING CONTENT IN REALTIME",
       channel: "25 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "25 / KATECHON",
@@ -1393,7 +1393,7 @@
       title: "// KATECHON - ATTENTION ARCHITECTURE",
       channel: "26 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "26 / KATECHON",
@@ -1411,7 +1411,7 @@
       title: "// KATECHON - REALITY GLITCH",
       channel: "27 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "27 / KATECHON",
