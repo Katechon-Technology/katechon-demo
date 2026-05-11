@@ -71,6 +71,34 @@ const DASHBOARD_SHARE_CATALOG = {
     label: "Katechon Technology",
     description: "Platform channel for the Katechon runtime: live software objects, Kat, specialist agents, mutable surfaces, and share/fork state.",
   },
+  "three-internets": {
+    label: "Three Internets",
+    description: "Katechon pitch dashboard for the shift from pages, to feeds, to live software channels.",
+  },
+  "every-age-thinks-its-the-last": {
+    label: "Every Age Thinks It's the Last",
+    description: "Katechon pitch dashboard framing every finished medium as the input to the next software container.",
+  },
+  "what-comes-after-the-feed": {
+    label: "What Comes After the Feed",
+    description: "Katechon pitch dashboard for replacing passive feeds with commandable, shareable software channels.",
+  },
+  channels: {
+    label: "Channels",
+    description: "Katechon pitch dashboard for the live software channel object: feed, agent, memory, surface, state, and share graph.",
+  },
+  "attention-architecture": {
+    label: "Attention Architecture",
+    description: "Katechon pitch dashboard for turning attention into routed intent, specialist agents, and stateful software surfaces.",
+  },
+  "reality-glix": {
+    label: "Reality Glix",
+    description: "Katechon pitch dashboard for the live reality layer where context becomes generated software state.",
+  },
+  "build-with-us": {
+    label: "Build With Us",
+    description: "Katechon pitch dashboard inviting collaborators to build channels, agents, surfaces, and the state graph.",
+  },
 };
 
 const DEFAULT_DASHBOARD_ID = "spectre";

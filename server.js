@@ -433,7 +433,53 @@ const PANELS = [
     label: "Katechon Technology",
     description: "Katechon platform channel summarizing the channel runtime, Kat, specialist agents, mutable surfaces, and share/fork state graph.",
   },
+  {
+    id: "three-internets",
+    label: "Three Internets",
+    description: "Katechon dashboard for the shift from pages, to feeds, to live software channels.",
+  },
+  {
+    id: "every-age-thinks-its-the-last",
+    label: "Every Age Thinks It's the Last",
+    description: "Katechon dashboard framing every finished medium as the input to the next software container.",
+  },
+  {
+    id: "what-comes-after-the-feed",
+    label: "What Comes After the Feed",
+    description: "Katechon dashboard for replacing passive feeds with commandable, shareable software channels.",
+  },
+  {
+    id: "channels",
+    label: "Channels",
+    description: "Katechon dashboard for the live software channel object: feed, agent, memory, surface, state, and share graph.",
+  },
+  {
+    id: "attention-architecture",
+    label: "Attention Architecture",
+    description: "Katechon dashboard for turning attention into routed intent, specialist agents, and stateful software surfaces.",
+  },
+  {
+    id: "reality-glix",
+    label: "Reality Glix",
+    description: "Katechon dashboard for the live reality layer where context becomes generated software state.",
+  },
+  {
+    id: "build-with-us",
+    label: "Build With Us",
+    description: "Katechon dashboard inviting collaborators to build channels, agents, surfaces, and the state graph.",
+  },
 ];
+
+const KATECHON_THESIS_DASHBOARD_IDS = new Set([
+  "dune-deck",
+  "three-internets",
+  "every-age-thinks-its-the-last",
+  "what-comes-after-the-feed",
+  "channels",
+  "attention-architecture",
+  "reality-glix",
+  "build-with-us",
+]);
 
 // Session IDs tracked at runtime — pre-seed known sessions
 const state = {
@@ -859,7 +905,7 @@ function domainForChannel(channel) {
       defaultTimeframes: ["now", "5m", "24h"],
     };
   }
-  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
     return {
       entities: ["channel runtime", "Kat", "specialist agents", "mutable surfaces", "share graph", "generated content"],
       vocabulary: ["live software object", "channel layer", "stateful surface", "watch", "command", "share", "fork", "specialist channel agents", "provenance"],
@@ -893,6 +939,13 @@ function channelBaseTopic(channel) {
     viral: "transmission risk and detection lag",
     "dark-forest": "the anomaly that refuses to disappear",
     "dune-deck": "the channel layer that turns generated software into live objects",
+    "three-internets": "the shift from pages to feeds to channels",
+    "every-age-thinks-its-the-last": "the historical frame for the next software container",
+    "what-comes-after-the-feed": "the software state that comes after passive feeds",
+    channels: "the live software object model",
+    "attention-architecture": "attention turning into routed software state",
+    "reality-glix": "live context turning into generated surfaces",
+    "build-with-us": "the builder invitation for the channel layer",
   };
   return topics[channel.id] || "the current channel signal";
 }
@@ -913,7 +966,7 @@ function openingPathsForChannel(channel) {
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
     return ["graduation watch", "fresh mint firehose", "largest trade tape", "creator sell pressure", "liquidity risk"];
   }
-  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
     return ["runtime architecture", "Kat and specialist agents", "share and fork loop", "generated surface grammar", "investor proof board"];
   }
   return ["overview", "events", "rankings", "entity detail", "relationship map"];
@@ -7884,7 +7937,7 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     return candidates;
   }
 
-  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
     if (/\b(agent|kat|specialist)\b/.test(`${intent.intent || ""} ${intent.topic || ""}`)) {
       addHeadlineCandidate(candidates, "Kat Routes the Work");
       addHeadlineCandidate(candidates, "Specialist Agents Take the Channel");
@@ -7913,6 +7966,13 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     viral: ["Detection Lag Widens", "R0 Refuses to Drop", "Contacts Cluster Fast"],
     "dark-forest": ["The Dimming Persists", "Catalog Anomaly Holds"],
     "dune-deck": ["Generated Software Gets a Channel", "Runtime Becomes the Product"],
+    "three-internets": ["The Third Internet Is State", "Pages Yield to Channels"],
+    "every-age-thinks-its-the-last": ["The Last Age Breaks", "A New Container Appears"],
+    "what-comes-after-the-feed": ["The Feed Becomes Software", "State Comes After Media"],
+    channels: ["The Channel Becomes the Object", "Software Gets a Container"],
+    "attention-architecture": ["Attention Routes the Work", "Intent Becomes Architecture"],
+    "reality-glix": ["Context Becomes Surface", "Reality Enters the Loop"],
+    "build-with-us": ["Build the Channel Layer", "The Builder Graph Opens"],
   }[channel.id] || [initialHeadlineHook(channel), "Signal Breaks Pattern"]).forEach((candidate) => addHeadlineCandidate(candidates, candidate));
   if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, `${leadLabel} Breaks Pattern`);
   return candidates;
@@ -8016,7 +8076,7 @@ function nextActionsForIntent(channel, intent) {
     if (intent.intent === "narrative_decay") return ["Find fresh spikes", "Compare liquidity risk", "Build viral but fragile board"];
     return ["Show what is about to graduate", "Find fresh mints under one minute", "Find the loudest buy"];
   }
-  if (channel.id === "dune-deck" || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
     if (intent.layout === "relationship_map") return ["Map Kat and specialist agents", "Show the share/fork graph", "Explain the runtime contract"];
     if (intent.layout === "investor") return ["Build investor proof board", "Show the moat map", "Turn this into content for Dune"];
     return ["Show channel runtime architecture", "Generate a deeper technology explainer", "Map Kat and specialist agents"];
@@ -10358,6 +10418,7 @@ app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
 app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
 app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
+app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|channels|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];

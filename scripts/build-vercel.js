@@ -34,6 +34,13 @@ const dashboardIds = [
   "viral",
   "dark-forest",
   "dune-deck",
+  "three-internets",
+  "every-age-thinks-its-the-last",
+  "what-comes-after-the-feed",
+  "channels",
+  "attention-architecture",
+  "reality-glix",
+  "build-with-us",
 ];
 
 function publicOrigin() {
