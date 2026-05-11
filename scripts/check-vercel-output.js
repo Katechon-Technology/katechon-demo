@@ -45,6 +45,8 @@ const requiredFiles = [
   "dist/dashboards/spectre/index.html",
   "dist/dashboards/news/index.html",
   "dist/dashboards/dune-deck/index.html",
+  "dist/dashboards/what-is-a-channel/index.html",
+  "dist/dashboards/what-should-exist-next/index.html",
   "dist/decks/dune/deck.json",
   "dist/app/index.html",
   "dist/app/deck/index.html",
@@ -55,6 +57,8 @@ const requiredFiles = [
   "dist/app/dashboards/spectre/index.html",
   "dist/app/dashboards/news/index.html",
   "dist/app/dashboards/dune-deck/index.html",
+  "dist/app/dashboards/what-is-a-channel/index.html",
+  "dist/app/dashboards/what-should-exist-next/index.html",
   "dist/app/decks/dune/deck.json",
   "dist/app/decks/dune/assets/narration/dune-01-founder-v2.mp3",
   "dist/app/decks/dune/assets/narration/dune-02-inflection-v2.mp3",
@@ -123,6 +127,8 @@ requireContains("dist/share/spectre/index.html", "https://katechon.technology/?d
 requireContains("dist/share/spectre/index.html", "https://katechon.technology/share-cards/spectre.jpg", "branded root share card");
 requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/share/dune-deck", "Dune deck root share URL");
 requireContains("dist/dashboards/dune-deck/index.html", "/dashboards/catalog.js", "Dune deck root prototype dashboard");
+requireContains("dist/dashboards/what-is-a-channel/index.html", "/dashboards/catalog.js", "What Is a Channel root prototype dashboard");
+requireContains("dist/dashboards/what-should-exist-next/index.html", "/dashboards/catalog.js", "What Should Exist Next root prototype dashboard");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");
 requireContains("dist/app/deck/index.html", '<base href="/app/">', "the /app deck base tag");
 requireContains("dist/app/deck/index.html", "DECK_CHANNEL_IDS", "app deck-mode dashboard subset");
@@ -135,6 +141,8 @@ requireContains("dist/app/share/spectre/index.html", "https://katechon.technolog
 requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share-cards/spectre.jpg", "branded /app share card");
 requireContains("dist/app/share/dune-deck/index.html", "https://katechon.technology/app/share/dune-deck", "Dune deck /app share URL");
 requireContains("dist/app/dashboards/dune-deck/index.html", "/app/dashboards/catalog.js", "Dune deck /app prototype dashboard");
+requireContains("dist/app/dashboards/what-is-a-channel/index.html", "/app/dashboards/catalog.js", "What Is a Channel /app prototype dashboard");
+requireContains("dist/app/dashboards/what-should-exist-next/index.html", "/app/dashboards/catalog.js", "What Should Exist Next /app prototype dashboard");
 requireContains("dist/app/decks/dune/deck.json", '"slides"', "Dune deck slides manifest");
 requireNotHtml("dist/dashboards/catalog.js");
 requireNotHtml("dist/dashboards/prototype.js");
