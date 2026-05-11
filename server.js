@@ -2875,6 +2875,9 @@ app.get(["/share/:dashboard", "/app/share/:dashboard"], sendDashboardSharePage);
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+app.get(/^\/deck\/?$/, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 app.get("/stream.m3u8", proxyHls);
 app.get(/^\/seg\d+\.ts$/, proxyHls);
@@ -10418,7 +10421,7 @@ app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
 app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
 app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
-app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|channels|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];

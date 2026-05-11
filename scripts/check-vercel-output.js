@@ -33,6 +33,7 @@ function requireNotHtml(file) {
 
 const requiredFiles = [
   "dist/index.html",
+  "dist/deck/index.html",
   "dist/data/index.html",
   "dist/pdf/index.html",
   "dist/katechon.pdf",
@@ -46,6 +47,7 @@ const requiredFiles = [
   "dist/dashboards/dune-deck/index.html",
   "dist/decks/dune/deck.json",
   "dist/app/index.html",
+  "dist/app/deck/index.html",
   "dist/app/brand/katechon-motion.gif",
   "dist/app/prototype-dashboard.html",
   "dist/app/dashboards/catalog.js",
@@ -102,6 +104,8 @@ for (const file of requiredFiles) {
 }
 
 requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
+requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
+requireContains("dist/deck/index.html", "three-internets", "deck starts at dashboard 19");
 requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
 requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
 requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
@@ -118,6 +122,8 @@ requireContains("dist/share/spectre/index.html", "https://katechon.technology/sh
 requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/share/dune-deck", "Dune deck root share URL");
 requireContains("dist/dashboards/dune-deck/index.html", "/dashboards/catalog.js", "Dune deck root prototype dashboard");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");
+requireContains("dist/app/deck/index.html", '<base href="/app/">', "the /app deck base tag");
+requireContains("dist/app/deck/index.html", "DECK_CHANNEL_IDS", "app deck-mode dashboard subset");
 requireContains("dist/app/index.html", "dashboard-build-effects", "app dashboard transition layer");
 requireContains("dist/app/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG", "dashboard catalog registration");
 requireContains("dist/app/dashboards/prototype.js", "function appUrl", "dashboard appUrl helper");

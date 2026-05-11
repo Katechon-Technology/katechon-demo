@@ -12,6 +12,13 @@
     dark: ["#b7c7ff", "#7dffdf", "#ff7b7b", "#020308", "#090b18"],
     meme: ["#ff4fd8", "#ffe66d", "#62ffbd", "#100409", "#1d0c18"],
     katechon: ["#00e87b", "#7de8ff", "#f4d35e", "#030506", "#10151b"],
+    pitchEra: ["#f4d35e", "#7de8ff", "#ff625f", "#050604", "#14110a"],
+    pitchFinal: ["#ffbf5f", "#65f0ff", "#00e87b", "#060507", "#151008"],
+    pitchFeed: ["#ff7bd5", "#65f0ff", "#f4d35e", "#08050b", "#160d17"],
+    pitchChannel: ["#30d5ff", "#62ffbd", "#ffbf5f", "#02070c", "#07181b"],
+    pitchAttention: ["#ff625f", "#f4d35e", "#7dffdf", "#090405", "#180d0c"],
+    pitchReality: ["#7dffb5", "#b993ff", "#ffbf5f", "#030806", "#0c1510"],
+    pitchBuild: ["#f9e66e", "#ff4fd8", "#62ffbd", "#070807", "#17120c"],
   };
 
   const dashboards = {
@@ -471,7 +478,7 @@
       caption: "Kat reads Katechon as the platform channel: what the technology is, how it works, and which artifact we should generate next.",
     },
     "three-internets": {
-      palette: "katechon",
+      palette: "pitchEra",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/three-internets.jpg",
@@ -497,7 +504,7 @@
       },
     },
     "every-age-thinks-its-the-last": {
-      palette: "katechon",
+      palette: "pitchFinal",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/every-age-thinks-its-the-last.jpg",
@@ -505,7 +512,12 @@
       title: "Every Age Thinks It's the Last",
       subtitle: "A dashboard surface for the pitch frame that every finished medium becomes the input to the next one.",
       visualLabel: "historical transition frame",
-      visualCopy: "A normal Katechon dashboard holds the thesis, signal rail, metrics, and transition state in one live surface.",
+      visualCopy: "Each finished medium feels complete until the next software container changes what can exist.",
+      stageQuote: {
+        text: "Each age believes itself to be the final age.",
+        author: "Hegel",
+        kicker: "historical frame",
+      },
       feedLabel: "frame rail",
       lens: "media transition",
       tabs: ["Frame", "Signal", "Shift", "Next"],
@@ -517,7 +529,7 @@
       caption: "Kat reads this as the historical opening: each medium feels final until the next distribution object arrives.",
     },
     "what-comes-after-the-feed": {
-      palette: "katechon",
+      palette: "pitchFeed",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/what-comes-after-the-feed.jpg",
@@ -542,8 +554,33 @@
         script: "dashboards/identities/feed-substitution.js",
       },
     },
+    "what-is-a-channel": {
+      palette: "pitchChannel",
+      scene: "katechon-system",
+      api: null,
+      asset: "share-thumbnails/channels.jpg",
+      kicker: "katechon technology / channel definition",
+      title: "What is a channel?",
+      subtitle: "A quiet transition from the post-feed thesis into the channel object.",
+      visualLabel: "channel definition",
+      visualCopy: "A channel is a live software object with a feed, an agent, memory, a mutable surface, and a shareable state.",
+      stageQuote: {
+        text: "A channel is a live software object with a feed, an agent, memory, a mutable surface, and a shareable state.",
+        kicker: "definition",
+        quoteMarks: false,
+      },
+      feedLabel: "definition rail",
+      lens: "channel definition",
+      tabs: ["Object", "Feed", "Agent", "State"],
+      metrics: [["Object", "channel", "unit"], ["State", "live", "mutable"], ["Share", "state", "portable"]],
+      feed: [
+        ["object", "The channel is the container that keeps generated software alive.", "definition"],
+        ["state", "The surface can change without losing memory or provenance.", "runtime"],
+      ],
+      caption: "Kat defines the channel before the demo shows how it works.",
+    },
     channels: {
-      palette: "katechon",
+      palette: "pitchChannel",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/channels.jpg",
@@ -568,8 +605,33 @@
         script: "dashboards/identities/channels.js",
       },
     },
+    "what-should-exist-next": {
+      palette: "pitchAttention",
+      scene: "katechon-system",
+      api: null,
+      asset: "share-thumbnails/attention-architecture.jpg",
+      kicker: "katechon technology / platform transition",
+      title: "What should exist next?",
+      subtitle: "A quiet transition from the channel object to the platform-level attention system.",
+      visualLabel: "platform transition",
+      visualCopy: "Once the unit is a channel state, the platform's job is to choose what should exist next.",
+      stageQuote: {
+        text: "Once the unit is a channel state, the platform's job is to choose what should exist next.",
+        kicker: "platform transition",
+        quoteMarks: false,
+      },
+      feedLabel: "state rail",
+      lens: "state selection",
+      tabs: ["Signals", "States", "Rank", "Render"],
+      metrics: [["Unit", "state", "generated"], ["Choice", "ranked", "future"], ["Surface", "live", "rendered"]],
+      feed: [
+        ["state", "Channels turn attention into generated software states.", "unit"],
+        ["rank", "The platform chooses among possible states, not only existing posts.", "attention"],
+      ],
+      caption: "Kat frames the jump from a single channel to the platform that selects live software states.",
+    },
     "attention-architecture": {
-      palette: "katechon",
+      palette: "pitchAttention",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/attention-architecture.jpg",
@@ -595,7 +657,7 @@
       },
     },
     "reality-glix": {
-      palette: "katechon",
+      palette: "pitchReality",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/reality-glix.jpg",
@@ -616,7 +678,7 @@
       caption: "Kat reads Reality Glix as the layer where live context becomes editable software state.",
     },
     "build-with-us": {
-      palette: "katechon",
+      palette: "pitchBuild",
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/build-with-us.jpg",
@@ -847,7 +909,9 @@
     "three-internets",
     "every-age-thinks-its-the-last",
     "what-comes-after-the-feed",
+    "what-is-a-channel",
     "channels",
+    "what-should-exist-next",
     "attention-architecture",
     "reality-glix",
     "build-with-us",
@@ -1188,15 +1252,33 @@
         },
       },
     },
-    channels: {
-      label: "Channels",
-      title: "// KATECHON - CHANNELS",
+    "what-is-a-channel": {
+      label: "What Is a Channel",
+      title: "// KATECHON - WHAT IS A CHANNEL",
       channel: "22 / KATECHON",
       route: "prototype",
       narration: true,
       tile: {
         group: "dashboard",
         kicker: "22 / KATECHON",
+        previewTitle: "what is a channel",
+        media: {
+          type: "image",
+          src: "share-thumbnails/channels.jpg",
+          fallbackSrc: "share-thumbnails/dune-deck.jpg",
+          ariaLabel: "What Is a Channel",
+        },
+      },
+    },
+    channels: {
+      label: "Channels",
+      title: "// KATECHON - CHANNELS",
+      channel: "23 / KATECHON",
+      route: "prototype",
+      narration: true,
+      tile: {
+        group: "dashboard",
+        kicker: "23 / KATECHON",
         previewTitle: "channels",
         media: {
           type: "image",
@@ -1206,15 +1288,33 @@
         },
       },
     },
-    "attention-architecture": {
-      label: "Attention Architecture",
-      title: "// KATECHON - ATTENTION ARCHITECTURE",
-      channel: "23 / KATECHON",
+    "what-should-exist-next": {
+      label: "What Should Exist Next",
+      title: "// KATECHON - WHAT SHOULD EXIST NEXT",
+      channel: "24 / KATECHON",
       route: "prototype",
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "23 / KATECHON",
+        kicker: "24 / KATECHON",
+        previewTitle: "what exists next",
+        media: {
+          type: "image",
+          src: "share-thumbnails/attention-architecture.jpg",
+          fallbackSrc: "share-thumbnails/dune-deck.jpg",
+          ariaLabel: "What Should Exist Next",
+        },
+      },
+    },
+    "attention-architecture": {
+      label: "Attention Architecture",
+      title: "// KATECHON - ATTENTION ARCHITECTURE",
+      channel: "25 / KATECHON",
+      route: "prototype",
+      narration: true,
+      tile: {
+        group: "dashboard",
+        kicker: "25 / KATECHON",
         previewTitle: "attention architecture",
         media: {
           type: "image",
@@ -1227,12 +1327,12 @@
     "reality-glix": {
       label: "Reality Glix",
       title: "// KATECHON - REALITY GLIX",
-      channel: "24 / KATECHON",
+      channel: "26 / KATECHON",
       route: "prototype",
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "24 / KATECHON",
+        kicker: "26 / KATECHON",
         previewTitle: "reality glix",
         media: {
           type: "image",
@@ -1245,12 +1345,12 @@
     "build-with-us": {
       label: "Build With Us",
       title: "// KATECHON - BUILD WITH US",
-      channel: "25 / KATECHON",
+      channel: "27 / KATECHON",
       route: "prototype",
       narration: true,
       tile: {
         group: "dashboard",
-        kicker: "25 / KATECHON",
+        kicker: "27 / KATECHON",
         previewTitle: "build with us",
         media: {
           type: "image",
@@ -1391,11 +1491,23 @@
       durationMs: 120000,
       prompt: `${musicStyle} Tailor it for a post-feed software channel thesis with confident product momentum.`,
     },
+    "what-is-a-channel": {
+      title: "Channel Definition Loop",
+      src: "music/channels/dune-deck.mp3",
+      durationMs: 120000,
+      prompt: `${musicStyle} Tailor it for a quiet Katechon transition that defines a channel as a live software object.`,
+    },
     channels: {
       title: "Channel Object Loop",
       src: "music/channels/dune-deck.mp3",
       durationMs: 120000,
       prompt: `${musicStyle} Tailor it for the Katechon channel object model: feed, agent, state, surface, memory, and share graph.`,
+    },
+    "what-should-exist-next": {
+      title: "State Selection Loop",
+      src: "music/channels/dune-deck.mp3",
+      durationMs: 120000,
+      prompt: `${musicStyle} Tailor it for a quiet Katechon transition from channel state to platform attention architecture.`,
     },
     "attention-architecture": {
       title: "Attention Architecture Loop",

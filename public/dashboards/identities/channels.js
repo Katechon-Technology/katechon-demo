@@ -1,8 +1,8 @@
 (function () {
   const steps = [
     {
-      label: "A channel is one living thing",
-      caption: "Live data, a smart helper, a screen, memory of what you've asked, and a way to share - packaged as one thing you can talk to.",
+      label: "A channel is three layers, packaged as one thing",
+      caption: "Live data and your prompt flow into a specialist agent. A surface rebuilds in response and keeps mutating as the world changes - the whole thing is one live object.",
     },
     {
       label: "Ask, and it zooms in",
@@ -40,31 +40,78 @@
       </defs>
 
       <g data-cc-scene="0">
-        <g class="cc-piece cc-fill-data" data-cc-piece data-x="100" data-y="120">
-          <rect x="40" y="100" width="120" height="48" rx="24"></rect>
-          <text class="cc-th" x="100" y="124" text-anchor="middle" dominant-baseline="central">Live data</text>
+        <g class="cc-an-layer cc-an-input" data-cc-an-layer="input">
+          <rect class="cc-an-shell" x="40" y="40" width="600" height="92" rx="14"></rect>
+          <text class="cc-an-tag" x="60" y="62" dominant-baseline="central">INPUT</text>
+          <g class="cc-an-pill">
+            <rect x="80" y="80" width="240" height="40" rx="20"></rect>
+            <circle class="cc-an-dot cc-an-pulse cc-an-pulse-mint" cx="148" cy="100" r="4"></circle>
+            <text class="cc-th" x="164" y="101" dominant-baseline="central" style="font-size:17px;">Live data</text>
+          </g>
+          <g class="cc-an-pill">
+            <rect x="360" y="80" width="240" height="40" rx="20"></rect>
+            <text class="cc-th" x="480" y="101" text-anchor="middle" dominant-baseline="central" style="font-size:17px;font-style:italic;">"what's happening?"</text>
+          </g>
         </g>
-        <g class="cc-piece cc-fill-agent" data-cc-piece data-x="340" data-y="80">
-          <rect x="250" y="56" width="180" height="48" rx="24"></rect>
-          <text class="cc-th" x="340" y="80" text-anchor="middle" dominant-baseline="central">Smart helper</text>
+
+        <g class="cc-an-connector" data-cc-an-connector="1">
+          <line x1="340" y1="146" x2="340" y2="172" marker-end="url(#${markerId})"></line>
         </g>
-        <g class="cc-piece cc-fill-screen" data-cc-piece data-x="580" data-y="120">
-          <rect x="520" y="100" width="120" height="48" rx="24"></rect>
-          <text class="cc-th" x="580" y="124" text-anchor="middle" dominant-baseline="central">Screen</text>
+
+        <g class="cc-an-layer cc-an-agent" data-cc-an-layer="agent">
+          <rect class="cc-an-shell" x="40" y="180" width="600" height="80" rx="14"></rect>
+          <text class="cc-an-tag" x="60" y="202" dominant-baseline="central">AGENT</text>
+          <g class="cc-an-pill">
+            <rect x="60" y="216" width="560" height="36" rx="18"></rect>
+            <circle class="cc-an-dot" cx="80" cy="234" r="4"></circle>
+            <text class="cc-ts" x="94" y="235" dominant-baseline="central">Specialist · picks what to query and how to show it</text>
+          </g>
         </g>
-        <g class="cc-piece cc-fill-memory" data-cc-piece data-x="220" data-y="304">
-          <rect x="140" y="280" width="160" height="48" rx="24"></rect>
-          <text class="cc-th" x="220" y="304" text-anchor="middle" dominant-baseline="central">Memory</text>
+
+        <g class="cc-an-connector" data-cc-an-connector="2">
+          <line x1="340" y1="274" x2="340" y2="300" marker-end="url(#${markerId})"></line>
         </g>
-        <g class="cc-piece cc-fill-share" data-cc-piece data-x="460" data-y="304">
-          <rect x="376" y="280" width="168" height="48" rx="24"></rect>
-          <text class="cc-th" x="460" y="304" text-anchor="middle" dominant-baseline="central">Share graph</text>
+
+        <g class="cc-an-layer cc-an-surface" data-cc-an-layer="surface">
+          <rect class="cc-an-shell" x="40" y="308" width="600" height="116" rx="14"></rect>
+          <text class="cc-an-tag" x="60" y="330" dominant-baseline="central">SURFACE</text>
+
+          <g transform="translate(584,322)">
+            <circle class="cc-an-pulse cc-an-pulse-amber" cx="0" cy="0" r="3.2"></circle>
+            <text class="cc-an-live-text" x="9" y="0" dominant-baseline="central">LIVE</text>
+          </g>
+
+          <g class="cc-an-pill">
+            <rect x="60" y="342" width="140" height="70" rx="10"></rect>
+            <text class="cc-an-metric" data-cc-an-metric x="74" y="372" dominant-baseline="central">$103.2k</text>
+            <text class="cc-an-delta"  data-cc-an-delta  x="74" y="394" dominant-baseline="central">+2.4%</text>
+          </g>
+
+          <g class="cc-an-pill">
+            <rect x="216" y="342" width="224" height="70" rx="10"></rect>
+            <line class="cc-an-axis" x1="230" y1="404" x2="426" y2="404"></line>
+            <polygon class="cc-an-fill" data-cc-an-spark-fill points=""></polygon>
+            <polyline class="cc-an-line" data-cc-an-spark points=""></polyline>
+            <circle class="cc-an-cursor" data-cc-an-spark-cursor cx="426" cy="376" r="3"></circle>
+          </g>
+
+          <g class="cc-an-pill">
+            <rect x="456" y="342" width="164" height="70" rx="10"></rect>
+            <line class="cc-an-row" x1="470" y1="360" x2="606" y2="360"></line>
+            <line class="cc-an-row" x1="470" y1="378" x2="606" y2="378"></line>
+            <line class="cc-an-row" x1="470" y1="396" x2="606" y2="396"></line>
+            <circle class="cc-an-bullet" cx="476" cy="360" r="2.2"></circle>
+            <circle class="cc-an-bullet" cx="476" cy="378" r="2.2"></circle>
+            <circle class="cc-an-bullet" cx="476" cy="396" r="2.2"></circle>
+            <text class="cc-an-rail-time" data-cc-an-row="1" x="602" y="360" text-anchor="end" dominant-baseline="central">3s</text>
+            <text class="cc-an-rail-time" data-cc-an-row="2" x="602" y="378" text-anchor="end" dominant-baseline="central">12s</text>
+            <text class="cc-an-rail-time" data-cc-an-row="3" x="602" y="396" text-anchor="end" dominant-baseline="central">31s</text>
+          </g>
         </g>
-        <g data-cc-center opacity="0">
-          <circle class="cc-center-ring" cx="340" cy="210" r="108"></circle>
-          <text class="cc-th" x="340" y="198" text-anchor="middle" dominant-baseline="central" style="font-size:24px;">Iran channel</text>
-          <text class="cc-ts" x="340" y="225" text-anchor="middle" dominant-baseline="central" style="font-size:14px;">one living</text>
-          <text class="cc-ts" x="340" y="244" text-anchor="middle" dominant-baseline="central" style="font-size:14px;">software object</text>
+
+        <g class="cc-an-bracket" data-cc-an-bracket>
+          <path d="M648 44 Q660 44 660 64 L660 224 Q660 232 670 232 Q660 232 660 240 L660 420 Q660 428 648 428"></path>
+          <text x="672" y="232" text-anchor="middle" dominant-baseline="central" style="writing-mode:vertical-rl; transform: rotate(180deg); transform-origin:672px 232px;">one channel</text>
         </g>
       </g>
 
@@ -239,6 +286,7 @@
     let playTimer = null;
     let activeInstances = [];
     let activeTimers = [];
+    let activeIntervals = [];
 
     function track(instance) {
       if (instance) activeInstances.push(instance);
@@ -251,11 +299,19 @@
       return timer;
     }
 
+    function tickEvery(fn, delay) {
+      const id = window.setInterval(fn, delay);
+      activeIntervals.push(id);
+      return id;
+    }
+
     function clearMotion() {
       activeInstances.forEach(cancelInstance);
       activeInstances = [];
       activeTimers.forEach((timer) => window.clearTimeout(timer));
       activeTimers = [];
+      activeIntervals.forEach((id) => window.clearInterval(id));
+      activeIntervals = [];
     }
 
     function animate(target, params) {
@@ -317,36 +373,98 @@
     }
 
     function animateScene1(scene) {
-      const pieces = scene.querySelectorAll("[data-cc-piece]");
-      const center = scene.querySelector("[data-cc-center]");
-      resetTransforms(pieces);
-      setOpacity(pieces, 1);
-      if (center) center.setAttribute("opacity", "0");
-      if (!canAnimateNow()) {
-        setOpacity(pieces, 0);
-        if (center) center.setAttribute("opacity", "1");
-        return;
-      }
-      later(() => {
-        animate(pieces, {
-          translateX: (el) => 340 - Number(el.dataset.x || 340),
-          translateY: (el) => 210 - Number(el.dataset.y || 210),
-          scale: [1, 0.44],
-          opacity: [1, 0.04],
-          delay: stagger(90),
-          duration: 1050,
-          ease: "inOut(3)",
+      const inputLayer   = scene.querySelector('[data-cc-an-layer="input"]');
+      const agentLayer   = scene.querySelector('[data-cc-an-layer="agent"]');
+      const surfaceLayer = scene.querySelector('[data-cc-an-layer="surface"]');
+      const connector1   = scene.querySelector('[data-cc-an-connector="1"]');
+      const connector2   = scene.querySelector('[data-cc-an-connector="2"]');
+      const bracket      = scene.querySelector('[data-cc-an-bracket]');
+      const stages = [inputLayer, connector1, agentLayer, connector2, surfaceLayer, bracket];
+
+      stages.forEach((el) => el && el.classList.remove("in"));
+
+      if (reduceMotion || !canAnimateNow()) {
+        stages.forEach((el) => el && el.classList.add("in"));
+      } else {
+        const delays = [200, 900, 1200, 2000, 2300, 3200];
+        stages.forEach((el, i) => {
+          if (!el) return;
+          later(() => el.classList.add("in"), delays[i]);
         });
-        if (center) {
-          animate(center, {
-            opacity: [0, 1],
-            scale: [0.78, 1],
-            duration: 620,
-            delay: 720,
-            ease: "out(3)",
-          });
+      }
+
+      hydrateSurface(scene);
+    }
+
+    function hydrateSurface(scene) {
+      const metricEl = scene.querySelector("[data-cc-an-metric]");
+      const deltaEl  = scene.querySelector("[data-cc-an-delta]");
+      const sparkEl  = scene.querySelector("[data-cc-an-spark]");
+      const fillEl   = scene.querySelector("[data-cc-an-spark-fill]");
+      const cursorEl = scene.querySelector("[data-cc-an-spark-cursor]");
+      const rowEls = [
+        scene.querySelector('[data-cc-an-row="1"]'),
+        scene.querySelector('[data-cc-an-row="2"]'),
+        scene.querySelector('[data-cc-an-row="3"]'),
+      ];
+
+      let metricVal = 103.2;
+      let deltaVal = 2.4;
+      if (metricEl) metricEl.textContent = `$${metricVal.toFixed(1)}k`;
+      if (deltaEl)  deltaEl.textContent  = `+${deltaVal.toFixed(1)}%`;
+
+      const SPARK_X0 = 230, SPARK_X1 = 426, SPARK_Y_BASE = 376, SPARK_AMP = 22, BASELINE_Y = 404, N = 36;
+      const vals = [];
+      let v = 0;
+      for (let i = 0; i < N; i++) {
+        v += (Math.random() - 0.5) * 9;
+        v = Math.max(-SPARK_AMP, Math.min(SPARK_AMP, v));
+        vals.push(v);
+      }
+      function drawSpark() {
+        if (!sparkEl) return;
+        const step = (SPARK_X1 - SPARK_X0) / (N - 1);
+        const pts = vals.map((y, i) => `${SPARK_X0 + i * step},${SPARK_Y_BASE - y}`);
+        sparkEl.setAttribute("points", pts.join(" "));
+        if (fillEl) {
+          const fillPts = [`${SPARK_X0},${BASELINE_Y}`, ...pts, `${SPARK_X1},${BASELINE_Y}`];
+          fillEl.setAttribute("points", fillPts.join(" "));
         }
-      }, 520);
+        if (cursorEl) {
+          cursorEl.setAttribute("cy", SPARK_Y_BASE - vals[vals.length - 1]);
+        }
+      }
+      drawSpark();
+
+      const times = [3, 12, 31];
+      function fmt(s) { return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m`; }
+      rowEls.forEach((el, i) => { if (el) el.textContent = fmt(times[i]); });
+
+      if (reduceMotion) return;
+
+      tickEvery(() => {
+        metricVal += (Math.random() - 0.48) * 0.35;
+        deltaVal  += (Math.random() - 0.50) * 0.18;
+        if (metricEl) metricEl.textContent = `$${metricVal.toFixed(1)}k`;
+        if (deltaEl)  deltaEl.textContent  = `${deltaVal >= 0 ? "+" : ""}${deltaVal.toFixed(1)}%`;
+      }, 900);
+
+      tickEvery(() => {
+        vals.shift();
+        const last = vals[vals.length - 1];
+        const drift = -last * 0.04;
+        let next = last + drift + (Math.random() - 0.5) * 11;
+        next = Math.max(-SPARK_AMP, Math.min(SPARK_AMP, next));
+        vals.push(next);
+        drawSpark();
+      }, 200);
+
+      tickEvery(() => {
+        for (let i = 0; i < 3; i++) {
+          times[i] += 1;
+          if (rowEls[i]) rowEls[i].textContent = fmt(times[i]);
+        }
+      }, 1000);
     }
 
     function animateScene2(scene) {

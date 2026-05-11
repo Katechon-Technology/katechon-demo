@@ -87,6 +87,12 @@ function materializeDashboardRoutes(targetRoot, prototypeDashboard) {
   }
 }
 
+function materializeDeckEntrypoint(targetRoot, indexFile) {
+  const deckDir = path.join(targetRoot, "deck");
+  fs.mkdirSync(deckDir, { recursive: true });
+  fs.copyFileSync(indexFile, path.join(deckDir, "index.html"));
+}
+
 fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(siteSource, output, { recursive: true });
 fs.cpSync(appSource, output, { recursive: true, force: true });
@@ -96,6 +102,7 @@ fs.cpSync(path.join(appSource, "share-cards"), path.join(output, "share-cards"),
 
 const rootPrototypeDashboard = path.join(output, "prototype-dashboard.html");
 materializeDashboardRoutes(output, rootPrototypeDashboard);
+materializeDeckEntrypoint(output, path.join(output, "index.html"));
 setHtmlBase(path.join(output, "decks", "dune", "index.html"), "/decks/dune/");
 
 const appIndex = path.join(appOutput, "index.html");
@@ -104,6 +111,7 @@ fs.writeFileSync(appIndex, appIndexHtml.replace("<head>", '<head>\n  <base href=
 const appPrototypeDashboard = path.join(appOutput, "prototype-dashboard.html");
 rewriteAppPrototypeScripts(appPrototypeDashboard);
 materializeDashboardRoutes(appOutput, appPrototypeDashboard);
+materializeDeckEntrypoint(appOutput, appIndex);
 
 setHtmlBase(path.join(appOutput, "decks", "dune", "index.html"), "/app/decks/dune/");
 

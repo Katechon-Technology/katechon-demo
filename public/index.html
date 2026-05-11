@@ -2515,9 +2515,21 @@
     if (dashboardTransitionsEnabled) document.documentElement.classList.add('dashboard-motion');
     const AUTO_WELCOME_NARRATION_ENABLED = false;
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
+    const DECK_CHANNEL_IDS = [
+      'three-internets',
+      'every-age-thinks-its-the-last',
+      'what-comes-after-the-feed',
+      'what-is-a-channel',
+      'channels',
+      'what-should-exist-next',
+      'attention-architecture',
+    ];
+    const isDeckRoute =
+      /^\/(?:app\/)?deck(?:\/|$)/.test(window.location.pathname) ||
+      truthyPageParam('deck');
 
     function hasSharedDashboardLaunch() {
-      return Boolean(pageParams.get('dashboard') || pageParams.get('channel') || pageParams.get('watch'));
+      return Boolean(isDeckRoute || pageParams.get('dashboard') || pageParams.get('channel') || pageParams.get('watch'));
     }
 
     function isMobileGated() {
@@ -3199,7 +3211,9 @@
 
     const DASHBOARD_CATALOG = window.KATECHON_DASHBOARD_CATALOG || {};
     const CHANNELS = DASHBOARD_CATALOG.channels || {};
-    const CHANNEL_ORDER = Array.isArray(DASHBOARD_CATALOG.channelOrder)
+    const CHANNEL_ORDER = isDeckRoute
+      ? DECK_CHANNEL_IDS
+      : Array.isArray(DASHBOARD_CATALOG.channelOrder)
       ? DASHBOARD_CATALOG.channelOrder
       : Object.keys(CHANNELS);
 
@@ -3395,6 +3409,7 @@
         const id = String(pageParams.get(key) || '').toLowerCase().replace(/[^\w-]/g, '');
         if (id && DASHBOARDS[id]) return id;
       }
+      if (isDeckRoute) return DECK_CHANNEL_IDS.find(id => DASHBOARDS[id]) || null;
       return null;
     }
 
@@ -3524,9 +3539,10 @@
       if (!dashboardId) return;
       hideEntryGateForDashboardLaunch();
       openDashboard(dashboardId, {
-        fullscreen: paramEnabled('fullscreen') || paramEnabled('autoplay'),
+        fullscreen: isDeckRoute || paramEnabled('fullscreen') || paramEnabled('autoplay'),
         autoplayAudio: paramEnabled('audio') || paramEnabled('autoplay'),
         sharedLaunch: true,
+        source: isDeckRoute ? 'deck' : 'launch',
       }).then(result => {
         if (result?.blocked) showToast('desktop viewport required', '#6b6b78');
       });

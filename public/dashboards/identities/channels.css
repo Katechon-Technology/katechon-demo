@@ -1,4 +1,7 @@
 .channel-concept {
+  --cc-bg-panel: rgba(1, 7, 9, 0.76);
+  --cc-text: rgba(243,246,248,0.92);
+  --cc-muted: rgba(243,246,248,0.66);
   position: relative;
   height: 100%;
   min-height: 0;
@@ -17,10 +20,13 @@
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 22% 18%, color-mix(in srgb, var(--accent2) 18%, transparent), transparent 28%),
-    radial-gradient(circle at 78% 62%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 32%),
-    linear-gradient(180deg, rgba(255,255,255,0.035), transparent 38%, rgba(0,0,0,0.16));
-  opacity: 0.82;
+    linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px),
+    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--accent2) 10%, transparent), transparent 30%),
+    radial-gradient(circle at 82% 66%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.024), transparent 42%, rgba(0,0,0,0.22));
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+  opacity: 0.9;
 }
 
 .cc-toolbar,
@@ -39,12 +45,12 @@
 
 .cc-step-label {
   min-width: 0;
-  color: rgba(243,246,248,0.92);
+  color: var(--cc-text);
   font-size: clamp(18px, 2.1vw, 30px);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: 0;
-  text-shadow: 0 0 22px color-mix(in srgb, var(--accent) 18%, transparent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--accent2) 16%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -63,17 +69,18 @@
   display: inline-grid;
   place-items: center;
   padding: 0;
-  border: 1px solid rgba(255,255,255,0.16);
-  border-radius: 8px;
-  background: rgba(0,0,0,0.28);
-  color: rgba(243,246,248,0.88);
-  box-shadow: inset 0 0 18px rgba(255,255,255,0.025);
+  border: 1px solid color-mix(in srgb, var(--accent2) 22%, rgba(255,255,255,0.08));
+  border-radius: 7px;
+  background: rgba(0,0,0,0.38);
+  color: var(--cc-text);
+  box-shadow: inset 0 0 18px rgba(255,255,255,0.018);
 }
 
 .cc-button:hover,
 .cc-button:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 60%, rgba(255,255,255,0.2));
-  background: color-mix(in srgb, var(--accent) 12%, rgba(0,0,0,0.35));
+  border-color: color-mix(in srgb, var(--accent2) 54%, rgba(255,255,255,0.18));
+  background: color-mix(in srgb, var(--accent2) 10%, rgba(0,0,0,0.48));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent2) 12%, transparent);
 }
 
 .cc-button[data-cc-play] {
@@ -111,7 +118,7 @@
 
 .cc-count {
   min-width: 52px;
-  color: rgba(243,246,248,0.66);
+  color: var(--cc-muted);
   font-size: 17px;
   font-weight: 800;
   line-height: 1;
@@ -170,18 +177,20 @@
 .cc-fill-action rect,
 .cc-fill-trade rect,
 .cc-fill-neutral rect {
-  fill: color-mix(in srgb, var(--cc-accent) 12%, rgba(255,255,255,0.06));
-  stroke: color-mix(in srgb, var(--cc-accent) 72%, rgba(255,255,255,0.24));
+  fill: color-mix(in srgb, var(--cc-accent) 8%, var(--cc-bg-panel));
+  stroke: color-mix(in srgb, var(--cc-accent) 46%, rgba(255,255,255,0.1));
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--cc-accent) 10%, transparent));
 }
 
-.cc-fill-data { --cc-accent: var(--accent2); --cc-fg: #bdf7ff; }
-.cc-fill-agent { --cc-accent: #b993ff; --cc-fg: #ded5ff; }
-.cc-fill-screen { --cc-accent: #ff8a66; --cc-fg: #ffd8cb; }
-.cc-fill-memory { --cc-accent: #ff7bd5; --cc-fg: #ffd2f3; }
-.cc-fill-share { --cc-accent: var(--accent); --cc-fg: #c9ffe3; }
-.cc-fill-action { --cc-accent: var(--accent2); --cc-fg: #dcffd0; }
-.cc-fill-trade { --cc-accent: #ff7a4f; --cc-fg: #ffd8c9; }
-.cc-fill-neutral { --cc-accent: rgba(243,246,248,0.72); --cc-fg: rgba(243,246,248,0.9); }
+.cc-fill-data { --cc-accent: var(--accent); --cc-fg: rgba(232,255,244,0.94); }
+.cc-fill-agent { --cc-accent: var(--accent2); --cc-fg: rgba(230,250,255,0.94); }
+.cc-fill-screen { --cc-accent: var(--accent); --cc-fg: rgba(232,255,244,0.92); }
+.cc-fill-memory { --cc-accent: var(--accent3); --cc-fg: rgba(255,247,213,0.94); }
+.cc-fill-share { --cc-accent: var(--accent2); --cc-fg: rgba(230,255,245,0.96); }
+.cc-fill-action { --cc-accent: var(--accent2); --cc-fg: rgba(232,255,244,0.96); }
+.cc-fill-trade { --cc-accent: var(--accent3); --cc-fg: rgba(255,247,213,0.96); }
+.cc-fill-neutral { --cc-accent: rgba(243,246,248,0.5); --cc-fg: var(--cc-text); }
 
 .cc-piece,
 .cc-card,
@@ -194,69 +203,162 @@
 
 .cc-arrow {
   fill: none;
-  stroke: rgba(243,246,248,0.52);
+  stroke: rgba(243,246,248,0.48);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .cc-arrow-soft {
-  stroke: color-mix(in srgb, var(--accent2) 58%, rgba(243,246,248,0.2));
+  stroke: color-mix(in srgb, var(--accent2) 46%, rgba(243,246,248,0.16));
   stroke-dasharray: 4 5;
 }
 
 .cc-center-ring {
-  fill: rgba(0,0,0,0.78);
-  stroke: color-mix(in srgb, var(--accent2) 62%, rgba(255,255,255,0.2));
+  fill: rgba(0,0,0,0.84);
+  stroke: color-mix(in srgb, var(--accent2) 54%, rgba(255,255,255,0.14));
   stroke-width: 1.2;
-  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent2) 26%, transparent));
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--accent2) 18%, transparent));
 }
 
 .cc-map-land,
 .cc-strait-land {
-  fill: color-mix(in srgb, #b993ff 28%, rgba(255,255,255,0.04));
-  stroke: color-mix(in srgb, #b993ff 65%, rgba(255,255,255,0.16));
+  fill: color-mix(in srgb, var(--accent2) 16%, rgba(255,255,255,0.035));
+  stroke: color-mix(in srgb, var(--accent2) 44%, rgba(255,255,255,0.12));
   stroke-width: 1;
 }
 
 .cc-water-line {
   fill: none;
-  stroke: color-mix(in srgb, var(--accent2) 74%, white);
+  stroke: color-mix(in srgb, var(--accent) 58%, white);
   stroke-width: 2;
-  opacity: 0.66;
+  opacity: 0.54;
 }
 
 .cc-dot,
 .cc-ship {
-  fill: color-mix(in srgb, #b993ff 74%, white);
-  filter: drop-shadow(0 0 7px color-mix(in srgb, #b993ff 55%, transparent));
+  fill: color-mix(in srgb, var(--accent2) 70%, white);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent2) 38%, transparent));
 }
 
 .cc-ship line,
 .cc-ship rect {
-  stroke: color-mix(in srgb, #b993ff 70%, white);
+  stroke: color-mix(in srgb, var(--accent2) 66%, white);
 }
 
 .cc-fill-action .cc-progress-bg,
 .cc-progress-bg {
-  fill: color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.12));
-  stroke: color-mix(in srgb, var(--accent) 55%, rgba(255,255,255,0.20));
+  fill: color-mix(in srgb, var(--accent2) 15%, rgba(255,255,255,0.09));
+  stroke: color-mix(in srgb, var(--accent2) 42%, rgba(255,255,255,0.16));
 }
 
 .cc-fill-action .cc-progress-fill,
 .cc-progress-fill {
-  fill: color-mix(in srgb, var(--accent) 72%, white);
+  fill: color-mix(in srgb, var(--accent2) 70%, white);
   transform-box: fill-box;
   transform-origin: left center;
 }
 
 .cc-oil-line {
   fill: none;
-  stroke: #ff7a4f;
+  stroke: var(--accent3);
   stroke-width: 2.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 0 7px rgba(255,122,79,0.25));
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent3) 22%, transparent));
+}
+
+/* ---- channel anatomy (scene 0): three-layer stack -------------------- */
+.cc-an-layer {
+  opacity: 0;
+  transform: translateY(8px);
+  transform-box: fill-box;
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(.4,0,.2,1);
+}
+.cc-an-layer.in { opacity: 1; transform: translateY(0); }
+
+.cc-an-shell {
+  fill: rgba(0,0,0,0.32);
+  stroke-width: 1.1;
+}
+.cc-an-input    .cc-an-shell { stroke: color-mix(in srgb, var(--accent)  46%, rgba(255,255,255,0.1)); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent)  10%, transparent)); }
+.cc-an-agent    .cc-an-shell { stroke: color-mix(in srgb, var(--accent2) 46%, rgba(255,255,255,0.1)); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent2) 10%, transparent)); }
+.cc-an-surface  .cc-an-shell { stroke: color-mix(in srgb, var(--accent3) 46%, rgba(255,255,255,0.1)); filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent3) 10%, transparent)); }
+
+.cc-an-tag {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.cc-an-input   .cc-an-tag { fill: var(--accent);  }
+.cc-an-agent   .cc-an-tag { fill: var(--accent2); }
+.cc-an-surface .cc-an-tag { fill: var(--accent3); }
+
+.cc-an-pill rect {
+  fill: color-mix(in srgb, var(--pill-accent, var(--accent)) 8%, var(--cc-bg-panel));
+  stroke: color-mix(in srgb, var(--pill-accent, var(--accent)) 46%, rgba(255,255,255,0.1));
+  stroke-width: 1.1;
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--pill-accent, var(--accent)) 10%, transparent));
+}
+.cc-an-pill .cc-an-dot { fill: var(--pill-accent, var(--accent)); }
+.cc-an-input   .cc-an-pill { --pill-accent: var(--accent);  }
+.cc-an-agent   .cc-an-pill { --pill-accent: var(--accent2); }
+.cc-an-surface .cc-an-pill { --pill-accent: var(--accent3); }
+
+.cc-an-connector { opacity: 0; transition: opacity 0.4s ease; }
+.cc-an-connector.in { opacity: 1; }
+.cc-an-connector line {
+  stroke: color-mix(in srgb, var(--accent2) 50%, rgba(243,246,248,0.18));
+  stroke-width: 1.4;
+  stroke-dasharray: 4 5;
+  stroke-linecap: round;
+}
+
+.cc-an-bracket { opacity: 0; transition: opacity 0.7s ease; }
+.cc-an-bracket.in { opacity: 1; }
+.cc-an-bracket path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent2) 56%, rgba(255,255,255,0.14));
+  stroke-width: 1.2;
+}
+.cc-an-bracket text {
+  fill: var(--cc-text);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.cc-an-metric { fill: var(--cc-text); font-size: 22px; font-weight: 800; }
+.cc-an-delta  { fill: var(--accent2); font-size: 12px; font-weight: 800; }
+.cc-an-axis   { stroke: color-mix(in srgb, var(--accent3) 40%, transparent); stroke-width: 0.5; }
+.cc-an-line   {
+  fill: none;
+  stroke: var(--accent3);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent3) 60%, transparent));
+}
+.cc-an-fill   { fill: color-mix(in srgb, var(--accent3) 22%, transparent); stroke: none; }
+.cc-an-cursor { fill: var(--accent3); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent3) 75%, transparent)); }
+.cc-an-row    { stroke: color-mix(in srgb, var(--accent3) 35%, transparent); stroke-width: 0.5; }
+.cc-an-bullet { fill: var(--accent3); }
+.cc-an-rail-time { font-size: 9.5px; font-weight: 600; fill: var(--cc-muted); }
+.cc-an-live-text { font-size: 9.5px; font-weight: 800; letter-spacing: 0.18em; text-transform: uppercase; fill: var(--accent3); }
+
+.cc-an-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cc-an-pulse 1400ms ease-in-out infinite;
+}
+.cc-an-pulse.cc-an-pulse-mint,
+.cc-an-pill .cc-an-dot.cc-an-pulse-mint  { fill: var(--accent2); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent2) 60%, transparent)); }
+.cc-an-pulse.cc-an-pulse-amber { fill: var(--accent3); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent3) 70%, transparent)); }
+@keyframes cc-an-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.72); }
 }
 
 @media (max-width: 760px) {

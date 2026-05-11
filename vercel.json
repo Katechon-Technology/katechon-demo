@@ -57,19 +57,17 @@
       "source": "/app",
       "destination": "/app/",
       "permanent": false
-    },
-    {
-      "source": "/deck",
-      "destination": "/dashboards/dune-deck/",
-      "permanent": false
-    },
-    {
-      "source": "/deck/",
-      "destination": "/dashboards/dune-deck/",
-      "permanent": false
     }
   ],
   "rewrites": [
+    {
+      "source": "/deck",
+      "destination": "/deck/index.html"
+    },
+    {
+      "source": "/deck/",
+      "destination": "/deck/index.html"
+    },
     {
       "source": "/api/:path*",
       "destination": "http://176.57.184.142:4040/api/:path*"

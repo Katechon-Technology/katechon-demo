@@ -182,11 +182,11 @@
       if (target && (target.isContentEditable ||
           target.tagName === "INPUT" || target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT")) return;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " ") {
+      if (e.key === "ArrowRight") {
         e.preventDefault();
         e.stopPropagation();
         next();
-      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      } else if (e.key === "ArrowLeft") {
         e.preventDefault();
         e.stopPropagation();
         prev();

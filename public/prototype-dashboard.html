@@ -3338,6 +3338,108 @@
       gap: 6px;
       overflow: hidden;
     }
+    .quote-scene {
+      place-items: center;
+      padding: 18px;
+      overflow: hidden;
+    }
+    .quote-scene::before,
+    .quote-scene::after {
+      content: "";
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      height: 1px;
+      z-index: 1;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent2) 54%, white), color-mix(in srgb, var(--accent) 46%, white), transparent);
+      opacity: 0.42;
+      box-shadow: 0 0 26px color-mix(in srgb, var(--accent2) 24%, transparent);
+    }
+    .quote-scene::before { top: 19%; }
+    .quote-scene::after { bottom: 19%; }
+    .quote-field-line {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      z-index: 1;
+      height: 1px;
+      transform-origin: center;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 50%, transparent), transparent);
+      opacity: 0.24;
+    }
+    .quote-field-line.line-a { top: 33%; }
+    .quote-field-line.line-b {
+      top: 50%;
+      left: 3%;
+      right: 3%;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent3) 34%, white), transparent);
+    }
+    .quote-field-line.line-c { top: 67%; }
+    .quote-lockup {
+      position: relative;
+      z-index: 3;
+      width: min(920px, 100%);
+      margin: 0;
+      padding: 40px 46px;
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      text-align: center;
+      isolation: isolate;
+    }
+    .quote-lockup::before {
+      content: "";
+      position: absolute;
+      inset: -28px -44px;
+      z-index: -1;
+      background:
+        linear-gradient(90deg, transparent, rgba(0,0,0,0.64) 15%, rgba(0,0,0,0.66) 85%, transparent),
+        linear-gradient(180deg, transparent, color-mix(in srgb, var(--accent) 5%, transparent) 46%, transparent);
+      backdrop-filter: blur(3px);
+      opacity: 0.96;
+    }
+    .quote-kicker {
+      color: var(--accent);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 10px;
+      font-weight: 720;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    .quote-text {
+      margin: 0;
+      max-width: 860px;
+      color: #f5fbf7;
+      font-size: 56px;
+      line-height: 1.06;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-wrap: balance;
+      text-shadow: 0 18px 42px rgba(0,0,0,0.72), 0 0 34px color-mix(in srgb, var(--accent2) 14%, transparent);
+    }
+    .quote-word {
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .quote-author {
+      display: inline-grid;
+      grid-template-columns: 42px auto 42px;
+      align-items: center;
+      gap: 14px;
+      margin: 0;
+      color: rgba(243,246,248,0.78);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .quote-author::before,
+    .quote-author::after {
+      content: "";
+      height: 1px;
+      background: color-mix(in srgb, var(--accent2) 48%, rgba(255,255,255,0.20));
+    }
 
     /* Ranked rows: name + bar + delta + spark + source */
     .rank-list {
@@ -4067,11 +4169,26 @@
       .stage-thesis .thesis-figure { text-align: left; }
       .small-multiples { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
       .dense-scene.with-aside { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+      .quote-lockup { padding: 30px 20px; }
+      .quote-lockup::before { inset: -20px -18px; }
+      .quote-text { font-size: 38px; line-height: 1.08; }
+      .quote-author { grid-template-columns: 32px auto 32px; }
       .match-lanes { grid-template-columns: 1fr; grid-template-rows: 1fr 12px 1fr; }
       .topbar-meta { flex-direction: column; align-items: stretch; }
       .narration-ticker { flex: 1 1 auto; }
       .action-rail { grid-template-columns: 1fr; }
       .action-rail-share { justify-self: stretch; text-align: center; }
+    }
+
+    @media (max-width: 520px) {
+      .quote-scene { padding: 10px; }
+      .quote-text { font-size: 30px; line-height: 1.12; }
+      .quote-kicker { font-size: 9px; }
+      .quote-author {
+        grid-template-columns: 24px auto 24px;
+        gap: 10px;
+        font-size: 10px;
+      }
     }
 
     html.blank-dashboard-root,

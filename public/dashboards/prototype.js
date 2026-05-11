@@ -3584,13 +3584,16 @@
       if (!text) return "";
       const author = quote.author || "";
       const kicker = quote.kicker || config.kicker || "";
+      const quoteMarks = quote.quoteMarks !== false;
+      const openQuote = quoteMarks ? "&ldquo;" : "";
+      const closeQuote = quoteMarks ? "&rdquo;" : "";
       return `<div class="dense-scene quote-scene full" aria-label="${escapeHtml(`${text}${author ? ` ${author}` : ""}`)}">
         <span class="quote-field-line line-a"></span>
         <span class="quote-field-line line-b"></span>
         <span class="quote-field-line line-c"></span>
         <figure class="quote-lockup">
           ${kicker ? `<div class="quote-kicker">${escapeHtml(kicker)}</div>` : ""}
-          <blockquote class="quote-text">&ldquo;${quoteWordsHtml(text)}&rdquo;</blockquote>
+          <blockquote class="quote-text">${openQuote}${quoteWordsHtml(text)}${closeQuote}</blockquote>
           ${author ? `<figcaption class="quote-author">${escapeHtml(author)}</figcaption>` : ""}
         </figure>
       </div>`;
