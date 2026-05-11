@@ -104,8 +104,10 @@ for (const file of requiredFiles) {
 }
 
 requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
+requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag");
 requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
-requireContains("dist/deck/index.html", "three-internets", "deck starts at dashboard 19");
+requireContains("dist/deck/index.html", "dune-deck", "deck starts at dashboard 18");
+requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
 requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
 requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
 requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
