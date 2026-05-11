@@ -83,6 +83,10 @@ const DASHBOARD_SHARE_CATALOG = {
     label: "What Comes After the Feed",
     description: "Katechon pitch dashboard for replacing passive feeds with commandable, shareable software channels.",
   },
+  "live-generated-states": {
+    label: "Live Generated States",
+    description: "Katechon pitch dashboard answering the post-feed question with live generated states.",
+  },
   channels: {
     label: "Channels",
     description: "Katechon pitch dashboard for the live software channel object: feed, agent, memory, surface, state, and share graph.",
@@ -92,8 +96,8 @@ const DASHBOARD_SHARE_CATALOG = {
     description: "Katechon pitch dashboard for turning attention into routed intent, specialist agents, and stateful software surfaces.",
   },
   "reality-glix": {
-    label: "Reality Glix",
-    description: "Katechon pitch dashboard for the live reality layer where context becomes generated software state.",
+    label: "Reality Glitch",
+    description: "Katechon pitch dashboard for the software discovery engine that chooses what to build for each user.",
   },
   "build-with-us": {
     label: "Build With Us",

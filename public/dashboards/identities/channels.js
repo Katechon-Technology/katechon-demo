@@ -1,11 +1,11 @@
 (function () {
   const steps = [
     {
-      label: "Three input layers, packaged as a single interactive surface",
-      caption: "Live data and your prompt flow into a specialist agent. A surface rebuilds in response and keeps mutating as the world changes - the whole thing is one live object.",
+      label: "A channel is software that stays alive",
+      caption: "It watches live data, remembers state, lets Kat reshape the surface, and can be shared or forked.",
     },
     {
-      label: "Ask, and it zooms in",
+      label: "Command it, and the surface changes",
       caption: "Start with the big picture. Ask a follow-up and the channel reshapes itself: region, strait, then individual tanker positions.",
     },
     {
@@ -45,12 +45,12 @@
         <g class="cc-an-layer cc-an-story" data-cc-an-story>
           <rect class="cc-an-story-shell" x="0" y="38" width="196" height="382" rx="18"></rect>
           <text class="cc-an-story-kicker" x="20" y="68" dominant-baseline="central">CHANNEL OBJECT</text>
-          <text class="cc-an-story-title" x="20" y="108">One live</text>
-          <text class="cc-an-story-title" x="20" y="140">software state</text>
+          <text class="cc-an-story-title" x="20" y="108">Software</text>
+          <text class="cc-an-story-title" x="20" y="140">that stays alive</text>
           <text class="cc-an-story-copy" x="20" y="178">
-            <tspan x="20" dy="0">Signals, intent, and</tspan>
-            <tspan x="20" dy="17">user context stay inside</tspan>
-            <tspan x="20" dy="17">one mutable surface.</tspan>
+            <tspan x="20" dy="0">Live data, memory, and</tspan>
+            <tspan x="20" dy="17">intent stay inside one</tspan>
+            <tspan x="20" dy="17">mutable surface.</tspan>
           </text>
           <g class="cc-an-story-step" transform="translate(20 244)">
             <rect width="156" height="42" rx="11"></rect>

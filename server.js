@@ -449,9 +449,24 @@ const PANELS = [
     description: "Katechon dashboard for replacing passive feeds with commandable, shareable software channels.",
   },
   {
+    id: "live-generated-states",
+    label: "Live Generated States",
+    description: "Katechon dashboard answering the post-feed question with live generated states.",
+  },
+  {
+    id: "what-is-a-channel",
+    label: "What Is a Channel",
+    description: "Katechon dashboard defining a channel as software that stays alive after the prompt.",
+  },
+  {
     id: "channels",
     label: "Channels",
     description: "Katechon dashboard for the live software channel object: feed, agent, memory, surface, state, and share graph.",
+  },
+  {
+    id: "what-should-exist-next",
+    label: "Generating Content in Realtime",
+    description: "Katechon dashboard for ranking possible software states instead of existing posts.",
   },
   {
     id: "attention-architecture",
@@ -460,8 +475,8 @@ const PANELS = [
   },
   {
     id: "reality-glix",
-    label: "Reality Glix",
-    description: "Katechon dashboard for the live reality layer where context becomes generated software state.",
+    label: "Reality Glitch",
+    description: "Katechon dashboard for the software discovery engine that chooses what to build for each user.",
   },
   {
     id: "build-with-us",
@@ -475,7 +490,10 @@ const KATECHON_THESIS_DASHBOARD_IDS = new Set([
   "three-internets",
   "every-age-thinks-its-the-last",
   "what-comes-after-the-feed",
+  "live-generated-states",
+  "what-is-a-channel",
   "channels",
+  "what-should-exist-next",
   "attention-architecture",
   "reality-glix",
   "build-with-us",
@@ -942,9 +960,12 @@ function channelBaseTopic(channel) {
     "three-internets": "the shift from pages to feeds to channels",
     "every-age-thinks-its-the-last": "the historical frame for the next software container",
     "what-comes-after-the-feed": "the software state that comes after passive feeds",
+    "live-generated-states": "live generated states replacing passive post feeds",
+    "what-is-a-channel": "software that stays alive after the prompt",
     channels: "the live software object model",
+    "what-should-exist-next": "generating content in realtime by choosing the next useful state",
     "attention-architecture": "attention turning into routed software state",
-    "reality-glix": "live context turning into generated surfaces",
+    "reality-glix": "software discovery choosing what to build next",
     "build-with-us": "the builder invitation for the channel layer",
   };
   return topics[channel.id] || "the current channel signal";
@@ -7972,9 +7993,12 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     "three-internets": ["The Third Internet Is State", "Pages Yield to Channels"],
     "every-age-thinks-its-the-last": ["The Last Age Breaks", "A New Container Appears"],
     "what-comes-after-the-feed": ["The Feed Becomes Software", "State Comes After Media"],
+    "live-generated-states": ["Live Generated States", "The Feed Becomes State"],
+    "what-is-a-channel": ["Software Stays Alive", "The Channel Keeps State"],
     channels: ["The Channel Becomes the Object", "Software Gets a Container"],
+    "what-should-exist-next": ["Generating Content in Realtime", "The Next State Wins"],
     "attention-architecture": ["Attention Routes the Work", "Intent Becomes Architecture"],
-    "reality-glix": ["Context Becomes Surface", "Reality Enters the Loop"],
+    "reality-glix": ["Software Gets Discovered", "Katechon Builds The Next State"],
     "build-with-us": ["Build the Channel Layer", "The Builder Graph Opens"],
   }[channel.id] || [initialHeadlineHook(channel), "Signal Breaks Pattern"]).forEach((candidate) => addHeadlineCandidate(candidates, candidate));
   if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, `${leadLabel} Breaks Pattern`);
@@ -10421,7 +10445,7 @@ app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
 app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
 app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
 app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
-app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
