@@ -1,0 +1,369 @@
+/* Final slide: a single "channel broadcasting" box centered in the
+   dashboard overlay, with everything else blacked out. A 5-row cap
+   table forms inside: lead lands, "your row" highlights, then a hard
+   cut to a single line of contact. */
+
+body[data-dashboard="build-with-us"] {
+  background: #000 !important;
+}
+
+body[data-dashboard="build-with-us"] .app {
+  background: #000 !important;
+  padding: 0 !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+}
+
+body[data-dashboard="build-with-us"] .topbar,
+body[data-dashboard="build-with-us"] h1 {
+  display: none !important;
+}
+
+body[data-dashboard="build-with-us"] .workspace,
+body[data-dashboard="build-with-us"] .main {
+  background: transparent !important;
+  padding: 0 !important;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+body[data-dashboard="build-with-us"] .stage-wrap.cockpit {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+body[data-dashboard="build-with-us"] .stage {
+  position: relative;
+  width: 75%;
+  height: 75%;
+  max-width: 100%;
+  max-height: 100%;
+  align-self: center;
+  justify-self: center;
+  border: 1px solid color-mix(in srgb, var(--accent, #00e87b) 52%, rgba(255,255,255,0.18));
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 22% 14%, color-mix(in srgb, var(--accent2, #7de8ff) 10%, transparent), transparent 36%),
+    radial-gradient(circle at 76% 82%, color-mix(in srgb, var(--accent, #00e87b) 8%, transparent), transparent 38%),
+    rgba(4, 7, 9, 0.92);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.68),
+    0 0 36px color-mix(in srgb, var(--accent, #00e87b) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  transition: box-shadow 420ms ease, filter 420ms ease;
+}
+
+body[data-dashboard="build-with-us"] .small-multiples,
+body[data-dashboard="build-with-us"] .stage-thesis,
+body[data-dashboard="build-with-us"] .section-head,
+body[data-dashboard="build-with-us"] .pulse-strip,
+body[data-dashboard="build-with-us"] .metrics,
+body[data-dashboard="build-with-us"] .rail,
+body[data-dashboard="build-with-us"] .action-rail {
+  display: none !important;
+}
+
+/* ---- cap-table scene ------------------------------------------------- */
+
+.bwu-root {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(14px, 1.6vh, 22px);
+  padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+  color: rgba(243, 246, 248, 0.92);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  transition: filter 260ms ease, opacity 260ms ease;
+}
+
+/* "Live channel" badge in upper-left */
+.bwu-root::before {
+  content: "Live channel";
+  position: absolute;
+  top: 10px;
+  left: 28px;
+  font: 800 10px/1 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent, #00e87b) 72%, white);
+  z-index: 2;
+  pointer-events: none;
+}
+.bwu-root::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #00e87b);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #00e87b) 60%, transparent);
+  animation: bwu-pulse 1400ms ease-in-out infinite;
+  z-index: 2;
+}
+
+.bwu-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: clamp(6px, 0.8vh, 12px);
+  border-bottom: 1px solid rgba(243, 246, 248, 0.08);
+  padding-bottom: clamp(10px, 1.2vh, 16px);
+}
+
+.bwu-head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bwu-channel {
+  color: rgba(243, 246, 248, 0.95);
+}
+
+.bwu-status {
+  color: var(--accent, #00e87b);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.24em;
+}
+
+.bwu-head-right {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bwu-amount {
+  font-size: clamp(26px, 3.2vw, 42px);
+  font-weight: 800;
+  color: rgba(243, 246, 248, 0.98);
+  letter-spacing: 0.01em;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  text-shadow: 0 0 20px color-mix(in srgb, var(--accent, #00e87b) 18%, transparent);
+}
+
+.bwu-amount-label {
+  color: rgba(243, 246, 248, 0.5);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.24em;
+}
+
+.bwu-table {
+  display: grid;
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: clamp(8px, 1vh, 14px);
+  min-height: 0;
+}
+
+.bwu-row {
+  display: grid;
+  grid-template-columns: 48px 96px minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: clamp(14px, 1.6vw, 22px);
+  padding: 0 clamp(16px, 1.6vw, 22px);
+  border: 1px solid rgba(243, 246, 248, 0.07);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.36);
+  letter-spacing: 0.12em;
+  opacity: 0.78;
+  transition:
+    border-color 360ms ease,
+    background 360ms ease,
+    box-shadow 360ms ease,
+    opacity 360ms ease,
+    transform 360ms ease;
+}
+
+.bwu-row-num {
+  color: rgba(243, 246, 248, 0.32);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.24em;
+}
+
+.bwu-row-tag {
+  color: rgba(243, 246, 248, 0.46);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.24em;
+  font-weight: 800;
+}
+
+.bwu-row-name {
+  color: rgba(243, 246, 248, 0.66);
+  font-size: clamp(13px, 1.3vw, 17px);
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bwu-row-status {
+  color: rgba(243, 246, 248, 0.46);
+  font-size: clamp(10px, 0.8vw, 11px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bwu-row-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, #00e87b) 28%, rgba(243, 246, 248, 0.14));
+  justify-self: end;
+  animation: bwu-row-dot-pulse 2200ms ease-in-out infinite;
+  transition: background 280ms ease, box-shadow 280ms ease;
+}
+
+/* Lead row when committed (added at t=1.5s) */
+.bwu-row.is-committed {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent, #00e87b) 58%, rgba(255, 255, 255, 0.16));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent, #00e87b) 14%, transparent), transparent 60%),
+    rgba(2, 12, 8, 0.86);
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--accent, #00e87b) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateY(0);
+}
+
+.bwu-row.is-committed .bwu-row-tag {
+  color: var(--accent, #00e87b);
+}
+
+.bwu-row.is-committed .bwu-row-name {
+  color: rgba(232, 255, 244, 0.98);
+}
+
+.bwu-row.is-committed .bwu-row-status {
+  color: color-mix(in srgb, var(--accent, #00e87b) 70%, white);
+}
+
+.bwu-row.is-committed .bwu-row-dot {
+  background: var(--accent, #00e87b);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent, #00e87b) 76%, transparent);
+  animation: bwu-row-dot-pulse 1400ms ease-in-out infinite;
+}
+
+/* Your row when highlighted (added at t=7s) */
+.bwu-row.is-yours {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent2, #7de8ff) 62%, rgba(255, 255, 255, 0.2));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--accent2, #7de8ff) 14%, transparent), transparent 60%),
+    rgba(4, 12, 16, 0.86);
+  box-shadow:
+    0 0 30px color-mix(in srgb, var(--accent2, #7de8ff) 26%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.bwu-row.is-yours .bwu-row-tag {
+  color: var(--accent2, #7de8ff);
+}
+
+.bwu-row.is-yours .bwu-row-name {
+  color: rgba(230, 250, 255, 0.98);
+}
+
+.bwu-row.is-yours .bwu-row-status {
+  color: color-mix(in srgb, var(--accent2, #7de8ff) 70%, white);
+}
+
+.bwu-row.is-yours .bwu-row-dot {
+  background: var(--accent2, #7de8ff);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent2, #7de8ff) 78%, transparent);
+  animation: bwu-row-dot-pulse 1100ms ease-in-out infinite;
+}
+
+@keyframes bwu-row-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+
+@keyframes bwu-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.7); }
+}
+
+/* Counter strip at the bottom */
+.bwu-counter {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding-top: clamp(8px, 1vh, 14px);
+  border-top: 1px solid rgba(243, 246, 248, 0.08);
+}
+
+.bwu-counter-num {
+  font-size: clamp(22px, 2.6vw, 30px);
+  font-weight: 800;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  color: rgba(243, 246, 248, 0.96);
+  letter-spacing: 0.02em;
+  transition: color 360ms ease;
+}
+
+.bwu-counter-label {
+  font-size: clamp(10px, 0.85vw, 11px);
+  letter-spacing: 0.24em;
+  color: rgba(243, 246, 248, 0.56);
+  text-transform: uppercase;
+}
+
+.bwu-counter.is-yours .bwu-counter-num {
+  color: var(--accent2, #7de8ff);
+}
+
+/* Glow peak right before the cut */
+.bwu-root.is-peak .bwu-row.is-committed,
+.bwu-root.is-peak .bwu-row.is-yours {
+  filter: brightness(1.08);
+}
+body[data-dashboard="build-with-us"] .bwu-root.is-peak ~ * .stage,
+body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.68),
+    0 0 56px color-mix(in srgb, var(--accent, #00e87b) 30%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent2, #7de8ff) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Hard-cut overlay: black + single contact line */
+.bwu-cut {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #000;
+  color: var(--accent, #00e87b);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: clamp(15px, 1.6vw, 22px);
+  letter-spacing: 0.24em;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 60ms linear;
+}
+.bwu-cut-line {
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent, #00e87b) 60%, transparent);
+}
+
+.bwu-root.is-cut .bwu-cut {
+  opacity: 1;
+}
