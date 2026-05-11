@@ -390,6 +390,54 @@
       display: none !important;
     }
 
+    /* Final slide: tuck Kat into the lower-right corner of the
+       centered 3/4-sized "live channel" box. The box is rendered by
+       the iframe's identity CSS; the avatar is parent-positioned so it
+       lines up over the box's lower-right corner.
+       Geometry: #dashboard-overlay sits at left:3.1%, width:68.75% and
+       top:7.4%, height:81.5% of the viewport. The box is 75% of that,
+       centered. So box right edge ≈ 36.75% from right, box bottom edge
+       ≈ 21.29% from bottom. */
+    body[data-current-dashboard="build-with-us"] #browser-avatar-wrap {
+      right: 33% !important;
+      bottom: 14% !important;
+      width: clamp(260px, calc(20vw + 30px), 420px) !important;
+      height: 56svh !important;
+      z-index: 24;
+      opacity: 1;
+      transition: opacity 80ms linear;
+    }
+    body[data-current-dashboard="build-with-us"] #kat-narrator {
+      display: none !important;
+    }
+    body[data-current-dashboard="build-with-us"] #dashboard-overlay .frame-bar {
+      display: none !important;
+    }
+    body[data-current-dashboard="build-with-us"] #status {
+      display: none !important;
+    }
+    body[data-current-dashboard="build-with-us"].dashboard-fullscreen #browser-avatar-wrap {
+      right: 14% !important;
+      bottom: 14% !important;
+      width: clamp(280px, calc(22vw + 30px), 460px) !important;
+      height: 60svh !important;
+    }
+    /* Hard-cut state: black out everything except the contact line
+       (which is rendered fixed-fullscreen by the identity script). */
+    body.seed-channel-cut #browser-avatar-wrap {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    body.seed-channel-cut #dashboard-overlay {
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      border-color: transparent !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+    }
+
     #watch-input-layer {
       position: fixed;
       inset: 0;
@@ -3572,6 +3620,37 @@
     let landingCaptureTimer = null;
     let landingSwitchRunId = 0;
     let currentDashboardId = null;
+    let seedChannelAudioCache = null;
+    let seedChannelAudioFetching = false;
+    function preloadSeedChannelAudio() {
+      if (seedChannelAudioCache || seedChannelAudioFetching) return;
+      seedChannelAudioFetching = true;
+      const text = 'One of these is yours.';
+      const id = `seed-channel-${Date.now()}`;
+      fetch(appUrl('/api/speak'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, id }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(payload => {
+          if (payload && payload.audio) seedChannelAudioCache = payload;
+        })
+        .catch(err => console.warn('seed-channel preload failed:', err))
+        .finally(() => { seedChannelAudioFetching = false; });
+    }
+
+    function setCurrentDashboardAttr(id) {
+      const value = String(id || '').toLowerCase().replace(/[^\w-]/g, '');
+      if (value) document.body.dataset.currentDashboard = value;
+      else delete document.body.dataset.currentDashboard;
+      if (value !== 'build-with-us') {
+        document.body.classList.remove('seed-channel-cut');
+        seedChannelAudioCache = null;
+      } else {
+        preloadSeedChannelAudio();
+      }
+    }
     let dashboardWheelDelta = 0;
     let dashboardFrameAnimationTimer = null;
     let dashboardBuildStatusTimer = null;
@@ -3925,6 +4004,42 @@
       }
       if (event.data.type === 'kat-target-voice-stop') {
         stopDashboardTargetVoice(event);
+        return;
+      }
+      if (event.data.type === 'seed-channel-init') {
+        if (event.origin !== window.location.origin) return;
+        if (currentDashboardId !== 'build-with-us') return;
+        document.body.classList.remove('seed-channel-cut');
+        if (!channelMusicEnabled) setChannelMusicEnabled(true, { userGesture: true });
+        startChannelMusic('build-with-us', { userGesture: true }).catch(err => {
+          console.warn('seed-channel music start failed:', err);
+        });
+        return;
+      }
+      if (event.data.type === 'seed-channel-speak') {
+        if (event.origin !== window.location.origin) return;
+        if (currentDashboardId !== 'build-with-us') return;
+        const text = String(event.data.text || '').trim();
+        if (!text) return;
+        const id = String(event.data.id || `seed-${Date.now()}`);
+        const cached = seedChannelAudioCache;
+        const payload = cached?.audio
+          ? { id: cached.id || id, text: cached.text || text, audio: cached.audio, muted: false }
+          : { id, text, muted: true };
+        // Route through the avatar iframe (no preferParentAudio) so Kat
+        // lip-syncs on the closing line. If audio isn't available the
+        // avatar pipeline falls back to browser speech synthesis.
+        playAvatarSpeech(payload).catch(err => {
+          console.warn('seed-channel speech failed:', err);
+        });
+        return;
+      }
+      if (event.data.type === 'seed-channel-cut') {
+        if (event.origin !== window.location.origin) return;
+        if (currentDashboardId !== 'build-with-us') return;
+        document.body.classList.add('seed-channel-cut');
+        stopChannelMusic(false);
+        stopBrowserAvatarAudio();
         return;
       }
     });
@@ -5195,6 +5310,7 @@
         setDashboardFullscreen(false);
         dashboardOverlay.classList.add('hidden');
         currentDashboardId = null;
+        setCurrentDashboardAttr(null);
         updateDashboardPosition();
         hideMainOverlay();
         return fetch(appUrl(`/api/switch/${workspace}`), { method: 'POST' }).catch(() => {});
@@ -5208,6 +5324,7 @@
       landingSwitchRunId++;
       if (!currentDashboardId) captureLandingFrame();
       currentDashboardId = workspace;
+      setCurrentDashboardAttr(workspace);
       clearHomeTransitionMask();
       unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url(options);
@@ -6131,6 +6248,7 @@
       setDashboardFullscreen(false);
       dashboardOverlay.classList.add('hidden');
       currentDashboardId = null;
+      setCurrentDashboardAttr(null);
       updateDashboardPosition();
       clearDashboardNavigationTimers();
       hideKatNarrator();

@@ -676,9 +676,9 @@
       tabs: ["Feeds", "Build", "State", "Graph"],
       metrics: [["Feeds", "show", "posts"], ["Katechon", "builds", "states"], ["Graph", "learns", "actions"]],
       feed: [
-        ["feeds", "Existing feeds rank what already exists.", "attention"],
-        ["build", "Katechon ranks possible software states.", "generation"],
-        ["graph", "Every action teaches the graph what should exist next.", "memory"],
+        ["feeds", "The old algorithm ranks inventory that already exists.", "attention"],
+        ["build", "Katechon generates the live software state most worth the user's attention.", "engine"],
+        ["graph", "Watch, command, share, fork, and act teach what to build next.", "discovery"],
       ],
       caption: "Kat reads Reality Glix as the software discovery slide: the attention engine decides what software should exist next.",
     },
@@ -687,11 +687,11 @@
       scene: "katechon-system",
       api: null,
       asset: "share-thumbnails/build-with-us.jpg",
-      kicker: "katechon technology / invitation",
+      kicker: "katechon technology / live channel",
       title: "Build With Us",
-      subtitle: "A closing dashboard for collaborators who want to build the channel layer for generated software.",
-      visualLabel: "builder invitation",
-      visualCopy: "The pitch closes by moving from thesis to participation: build channels, agents, surfaces, and the state graph.",
+      subtitle: "The final slide: a live channel actually running, with Kat broadcasting from inside it.",
+      visualLabel: "live channel broadcasting",
+      visualCopy: "Everything else fades. The closing surface is a single channel, live, with Kat in the corner.",
       feedLabel: "builder rail",
       lens: "collaboration",
       tabs: ["Build", "Agents", "Channels", "Graph"],
@@ -701,7 +701,12 @@
         ["next", "Turn each useful generated state into a shareable object.", "graph"],
         ["with", "Bring domain expertise, distribution, data, or capital.", "collaboration"],
       ],
-      caption: "Kat reads Build With Us as the closing action: join the construction of the channel layer.",
+      caption: "Kat closes the deck from inside a live channel.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/build-with-us.css",
+        script: "dashboards/identities/build-with-us.js",
+      },
     },
   };
 
@@ -1352,7 +1357,7 @@
       title: "// KATECHON - BUILD WITH US",
       channel: "27 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "27 / KATECHON",
@@ -1369,168 +1374,15 @@
 
   const musicStyle = "Instrumental only, no lyrics, no singing, no spoken words, no vocal samples. Create a seamless 120 second loop with futuristic high-energy dark midnight coding vibes: driving cyberpunk drums, tight sidechain synth bass, luminous arpeggios, neon control-room texture, serious focus, premium late-night software demo energy, no fade out.";
 
+  // Music is intentionally restricted to the final seed-round channel so
+  // the entire deck plays silent and the closer is the only thing the
+  // viewer hears.
   const channelMusic = {
-    spectre: {
-      title: "Signal Room Pulse",
-      src: "music/channels/spectre.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for an OSINT event room: covert scanner pings, encrypted-map pulses, industrial tension, precise analyst focus, and a fast tactical build that stays loopable.`,
-    },
-    news: {
-      title: "Editorial Current",
-      src: "music/channels/news.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a generative newsroom: urgent source-wall momentum, glitchy broadcast ticks, crisp breakbeat edits, dark editorial pressure, and clean control-desk polish.`,
-    },
-    dashboard123: {
-      title: "Market Mesh Drive",
-      src: "music/channels/dashboard123.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a macro market desk: minimal techno drive, ticker percussion, sharp high hats, liquidity-pressure stabs, tense financial confidence, and no commercial jingle feel.`,
-    },
-    "world-monitor": {
-      title: "Global Risk Drift",
-      src: "music/channels/world-monitor.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a geopolitical watch floor: map-grid pulses, satellite-sweep synths, low cinematic drums, broad global scale, restrained suspense, and operational urgency.`,
-    },
-    arena: {
-      title: "Agent Match Circuit",
+    "build-with-us": {
+      title: "Seed Round Closer",
       src: "music/channels/arena.mp3",
       durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for an AI model arena: cyber-sports synthwave, rapid benchmark arpeggios, punchy machine drums, call-and-response bass motifs, and competitive score-screen tension.`,
-    },
-    glance: {
-      title: "Morning Source Flow",
-      src: "music/channels/glance.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for an all-day source wall: fast but sustainable scan rhythm, crisp notification percussion, glassy data-flow chords, source triage momentum, and calm focus under the drive.`,
-    },
-    "crypto-trading": {
-      title: "Range Pressure",
-      src: "music/channels/crypto-trading.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for BTC range watching: liquid minimal techno, order-book arpeggios, tick percussion, tense sub pressure, breakout anticipation, and focused night-trading mood.`,
-    },
-    polyrec: {
-      title: "Probability Oddity",
-      src: "music/channels/polyrec.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for prediction-market discovery: clever electro movement, plucked FM probability motifs, odd accents that still groove, glitch percussion, and weird-money curiosity.`,
-    },
-    biotech: {
-      title: "Wet Lab Signal",
-      src: "music/channels/biotech.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a biotech research feed: microscope IDM clicks, pulsing lab-machine rhythm, molecular shimmer, synthetic-organic bass movement, and rigorous discovery energy.`,
-    },
-    space: {
-      title: "Long Baseline",
-      src: "music/channels/space.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a deep space observatory: cosmic pulse, fast analog starfield arpeggios, sub-orbital drones, precise signal-watching, and awe without losing momentum.`,
-    },
-    iran: {
-      title: "Pressure Corridor",
-      src: "music/channels/iran.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a measured regional signal tracker: nocturnal plucked-string accents, brushed frame percussion blended with cyber drums, satellite sweeps, and disciplined pressure without alarmism.`,
-    },
-    "meme-coin": {
-      title: "Liquidity Carnival",
-      src: "music/channels/meme-coin.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a meme coin launchpad: chaotic electro-trap bounce, rubber bass, arcade blips, glitch confetti, hard sidechain pump, degen velocity, and analytical control under the chaos.`,
-    },
-    quantum: {
-      title: "Coherence Field",
-      src: "music/channels/quantum.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a quantum states board: phase-shifting arpeggios, granular bells, precise clicks, deep synthetic room tone, elegant uncertainty, and a fast coherence pulse.`,
-    },
-    "deep-sea": {
-      title: "Abyssal Current",
-      src: "music/channels/deep-sea.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for an abyssal sensor network: sonar synth pings, metallic water percussion, pressure-wave sub bass, bioluminescent shimmer, immense depth, and faster undersea telemetry motion.`,
-    },
-    "power-grid": {
-      title: "Grid Frequency",
-      src: "music/channels/power-grid.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for power-grid operations: motorik electronic rhythm, electrical hums, relay-click percussion, high-voltage synth pulses, resilient infrastructure focus, and steady grid confidence.`,
-    },
-    viral: {
-      title: "Transmission Curve",
-      src: "music/channels/viral.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for an epidemiology model: nervous marimba-grid pattern, tight trip-hop and cyber drums, pulsing synth graph lines, analytical containment tension, and no alarmism.`,
-    },
-    "dark-forest": {
-      title: "Silent Catalog",
-      src: "music/channels/dark-forest.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a dark forest astronomy monitor: sparse prepared-piano hits, distant radio-texture synths without voices, deep anomaly drones, stealthy drive, and patient cosmic suspense.`,
-    },
-    "dune-deck": {
-      title: "Katechon Thesis Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for the Katechon Technology pitch channel: premium generative software score, confident pulsing synths, elegant bass movement, cinematic product momentum, and founder-demo intensity.`,
-    },
-    "three-internets": {
-      title: "Three Internets Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a Katechon dashboard about pages, feeds, and live software channels.`,
-    },
-    "every-age-thinks-its-the-last": {
-      title: "Final Age Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a historical pitch frame about media transitions and the next software container.`,
-    },
-    "what-comes-after-the-feed": {
-      title: "After the Feed Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a post-feed software channel thesis with confident product momentum.`,
-    },
-    "what-is-a-channel": {
-      title: "Channel Definition Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a quiet Katechon transition that defines a channel as a live software object.`,
-    },
-    channels: {
-      title: "Channel Object Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for the Katechon channel object model: feed, agent, state, surface, memory, and share graph.`,
-    },
-    "what-should-exist-next": {
-      title: "State Selection Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a quiet Katechon transition from channel state to platform attention architecture.`,
-    },
-    "attention-architecture": {
-      title: "Attention Architecture Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for attention routing, specialist agents, and live software state.`,
-    },
-    "reality-glix": {
-      title: "Reality Glix Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for software discovery: generated channel states, learned attention, and what should exist next.`,
-    },
-    "build-with-us": {
-      title: "Build With Us Loop",
-      src: "music/channels/dune-deck.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a closing builder invitation with confident, forward product energy.`,
+      prompt: `${musicStyle} Tailor it for a final seed-round close: competitive score-screen tension, cap-table-locking-in synth stabs, taut percussion, escalating pressure for a 15-second crescendo that ends on a hard cut.`,
     },
   };
 
