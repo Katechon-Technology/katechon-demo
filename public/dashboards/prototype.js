@@ -3030,6 +3030,15 @@
     function renderBlankStage() {
       const stage = $("stage");
       if (!stage) return;
+      if (dashboardId === "dune-deck") {
+        stage.innerHTML = `
+          <div class="blank-brand-lockup" aria-label="Katechon">
+            <span class="blank-brand-ring blank-brand-ring-a" aria-hidden="true"></span>
+            <span class="blank-brand-ring blank-brand-ring-b" aria-hidden="true"></span>
+            <img class="blank-brand-wordmark" src="${escapeHtml(appUrl("brand/katechon-wordmark.svg"))}" alt="Katechon">
+          </div>`;
+        return;
+      }
       stage.innerHTML = "";
     }
 
