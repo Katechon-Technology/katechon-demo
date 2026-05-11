@@ -111,7 +111,7 @@
       position: fixed;
       right: 0;
       bottom: 0;
-      width: clamp(620px, 36vw, 860px);
+      width: clamp(650px, calc(36vw + 30px), 890px);
       height: 100svh;
       z-index: 18;
       pointer-events: none;
@@ -337,7 +337,7 @@
     body.dashboard-fullscreen #browser-avatar-wrap {
       right: max(8px, env(safe-area-inset-right)) !important;
       bottom: -8svh !important;
-      width: clamp(260px, 20vw, 430px) !important;
+      width: clamp(290px, calc(20vw + 30px), 460px) !important;
       height: 58svh !important;
       opacity: 1;
     }
@@ -382,8 +382,8 @@
       z-index: 42;
       right: -1vw !important;
       bottom: -9svh !important;
-      width: clamp(340px, 24vw, 520px) !important;
-      height: 66svh !important;
+      width: clamp(370px, calc(24vw + 30px), 550px) !important;
+      height: calc(66svh + 30px) !important;
       opacity: 1;
     }
     body.watch-mode #kat-narrator {
