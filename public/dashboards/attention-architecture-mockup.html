@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Attention Architecture — Mockup</title>
+<style>
+  :root {
+    --bg: #050608;
+    --bg-soft: #07090C;
+    --text: #F2F4F7;
+    --muted: rgba(242,244,247,0.58);
+    --soft: rgba(242,244,247,0.30);
+    --line: rgba(255,255,255,0.08);
+    --grid: rgba(255,255,255,0.05);
+    --cold-blue: #65f0ff;
+    --cold-green: #62ffbd;
+    --cold-red: #ff625f;
+    --candidate: rgba(255,255,255,0.16);
+    --gold-dim: rgba(247,201,92,0.20);
+    --gold: #F7C95C;
+    --gold-core: #FFF2A8;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { height:100%; background: var(--bg); color: var(--text);
+    font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  body {
+    background:
+      radial-gradient(ellipse at 18% 12%, rgba(101,240,255,0.04), transparent 32%),
+      radial-gradient(ellipse at 82% 78%, rgba(247,201,92,0.035), transparent 38%),
+      var(--bg);
+    min-height: 100vh;
+    padding: 28px 24px 56px;
+  }
+
+  .page-head {
+    max-width: 1680px; margin: 0 auto 22px;
+    display:flex; justify-content:space-between; align-items:baseline;
+    gap: 24px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 11px;
+  }
+  .page-head .title { color: var(--gold); text-shadow: 0 0 18px rgba(247,201,92,0.28); }
+  .page-head .meta { color: var(--muted); }
+  .page-head .meta b { color: var(--gold); font-weight: 500; }
+
+  .stage-wrap {
+    max-width: 1680px; margin: 0 auto;
+    position: relative;
+    aspect-ratio: 16 / 8.6;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.012), rgba(0,0,0,0.20)),
+      var(--bg-soft);
+    overflow: hidden;
+  }
+  .stage-wrap svg { width: 100%; height: 100%; display:block; }
+
+  .stage-grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 64px 64px, 64px 64px;
+    mask-image: radial-gradient(ellipse at center, black 55%, transparent 92%);
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  /* status badge */
+  .status {
+    position: absolute; top: 18px; right: 22px;
+    display:flex; gap:10px; align-items:center;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .status .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--gold); box-shadow: 0 0 10px rgba(247,201,92,0.85);
+    animation: pulse-dot 1400ms ease-in-out infinite;
+  }
+  .status b { color: var(--gold-core); font-weight: 500; }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%     { opacity: 0.45; transform: scale(0.7); }
+  }
+
+  /* phase chip on bottom-left */
+  .phase {
+    position: absolute; left: 22px; bottom: 18px;
+    pointer-events: none;
+  }
+  .phase .num {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--gold); opacity: 0.85;
+  }
+  .phase .name {
+    font-size: 18px; letter-spacing: -0.01em; color: var(--text); margin-top: 2px;
+    text-shadow: 0 1px 14px rgba(0,0,0,0.6);
+  }
+
+  /* controls (hidden by default; toggle with H) */
+  .controls {
+    position: absolute; right: 22px; bottom: 18px;
+    display:flex; gap:8px;
+    opacity: 0.0; transition: opacity 200ms;
+  }
+  .controls.is-shown { opacity: 0.85; }
+  .controls button {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: var(--text);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font: 11px "SFMono-Regular", Consolas, monospace;
+    letter-spacing: 0.10em; text-transform: uppercase;
+  }
+  .controls button:hover { background: rgba(255,255,255,0.07); }
+
+  /* shared SVG styles */
+  .band-label {
+    font: 10px "SFMono-Regular", Consolas, monospace;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    fill: var(--muted);
+  }
+  .band-rule { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
+  .mono { font: 11px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.06em; }
+
+  /* left band -------------------------------------- */
+  .strip-row { fill: rgba(255,255,255,0.04); }
+  .tick      { fill: var(--cold-blue); opacity: 0.7; }
+  .tick.g    { fill: var(--cold-green); }
+  .tick.r    { fill: var(--cold-red); }
+
+  .pref-bar-bg { fill: rgba(255,255,255,0.06); }
+  .pref-bar    { fill: rgba(125,232,255,0.55); transition: width 460ms cubic-bezier(.4,.7,.4,1); }
+
+  /* world bars — multi-color, each a distinct live signal */
+  #world-1 { fill: var(--cold-blue);  opacity: 0.85; filter: drop-shadow(0 0 4px rgba(101,240,255,0.35)); }
+  #world-2 { fill: var(--cold-green); opacity: 0.85; filter: drop-shadow(0 0 4px rgba(98,255,189,0.35)); }
+  #world-3 { fill: var(--cold-red);   opacity: 0.80; filter: drop-shadow(0 0 4px rgba(255,98,95,0.35)); }
+  #world-4 { fill: var(--gold);       opacity: 0.75; filter: drop-shadow(0 0 4px rgba(247,201,92,0.35)); }
+
+  .chip {
+    fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.10);
+  }
+  .chip-text { fill: var(--muted); font: 10px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.10em; }
+
+  /* center band ------------------------------------ */
+  .cand-bg { fill: rgba(255,255,255,0.025); stroke: rgba(255,255,255,0.10); }
+  .cand-title { fill: var(--text); font: 12px "Inter", sans-serif; font-weight: 500; }
+  .bar-bg   { fill: rgba(255,255,255,0.06); }
+  .bar-fill { fill: rgba(255,255,255,0.45); transition: width 320ms ease; }
+  .score-text { fill: var(--soft); font: 10px "SFMono-Regular", Consolas, monospace; }
+
+  /* candidate video thumbnails */
+  .cand-thumb video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.10);
+    opacity: 0.55;
+    filter: saturate(0.55) brightness(0.65) contrast(1.05);
+    transition: opacity 360ms ease, filter 360ms ease, border-color 360ms ease, box-shadow 360ms ease;
+  }
+  .cand-row.is-winner .cand-thumb video {
+    opacity: 1;
+    filter: saturate(1.0) brightness(1.0);
+    border-color: var(--gold);
+    box-shadow: 0 0 14px rgba(247,201,92,0.45);
+  }
+
+  .cand-row.is-winner .cand-bg {
+    fill: rgba(247,201,92,0.07);
+    stroke: var(--gold);
+    filter: drop-shadow(0 0 12px rgba(247,201,92,0.30));
+  }
+  .cand-row.is-winner .cand-title { fill: var(--gold-core); }
+  .cand-row.is-winner .bar-fill   { fill: var(--gold-core); }
+  .cand-row.is-winner .score-text { fill: var(--gold); }
+
+  /* right band — code panel ----------------------- */
+  .code-panel-frame {
+    fill: rgba(0,0,0,0.30); stroke: rgba(255,255,255,0.08);
+  }
+  .code-line {
+    font: 12px "SFMono-Regular", Consolas, monospace;
+    letter-spacing: 0.02em;
+  }
+  .tok-key     { fill: #7de8ff; }
+  .tok-str     { fill: #F7C95C; }
+  .tok-tag     { fill: #62ffbd; }
+  .tok-prop    { fill: #c8b6ff; }
+  .tok-punct   { fill: rgba(242,244,247,0.55); }
+  .tok-comment { fill: rgba(98,255,189,0.45); font-style: italic; }
+  .tok-text    { fill: rgba(242,244,247,0.78); }
+
+  .caret {
+    fill: var(--gold-core);
+    animation: caret-blink 900ms steps(2,start) infinite;
+  }
+  @keyframes caret-blink {
+    50% { opacity: 0; }
+  }
+
+  /* right band — surface preview ------------------ */
+  .surface-frame {
+    fill: rgba(247,201,92,0.04);
+    stroke: var(--gold); stroke-width: 1.4;
+    filter: drop-shadow(0 0 18px rgba(247,201,92,0.28));
+  }
+  .surface-title { fill: var(--gold-core); font: 16px "Inter", sans-serif; font-weight: 500; letter-spacing: -0.01em; }
+  .surface-kicker { fill: var(--gold); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; text-transform: uppercase; }
+  .surface-text { fill: var(--text); font: 11px "Inter", sans-serif; }
+  .surface-meta { fill: var(--soft); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.12em; }
+  .surface-rule { stroke: rgba(247,201,92,0.30); stroke-width: 1; }
+
+  .surface-rail-row { fill: rgba(255,255,255,0.03); stroke: rgba(247,201,92,0.22); }
+  .surface-rail-dot { fill: var(--gold); }
+
+  /* bet box (next action) ------------------------- */
+  .surface-bet-frame {
+    fill: rgba(247,201,92,0.06);
+    stroke: var(--gold); stroke-width: 1.4;
+    filter: drop-shadow(0 0 18px rgba(247,201,92,0.32));
+  }
+  .bet-kicker   { fill: var(--gold); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; text-transform: uppercase; }
+  .bet-volume   { fill: var(--soft); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.10em; text-transform: uppercase; }
+  .bet-question { fill: var(--text); font: 14px "Inter", sans-serif; font-weight: 500; letter-spacing: -0.005em; }
+
+  .bet-yes-btn {
+    fill: rgba(247,201,92,0.22); stroke: var(--gold); stroke-width: 1.4;
+    animation: bet-pulse 2200ms ease-in-out infinite;
+  }
+  @keyframes bet-pulse {
+    0%, 100% { filter: drop-shadow(0 0 6px rgba(247,201,92,0.4)); }
+    50%      { filter: drop-shadow(0 0 16px rgba(247,201,92,0.78)); }
+  }
+  .bet-yes-label { fill: var(--gold-core); font: 12px "Inter", sans-serif; font-weight: 700; letter-spacing: 0.16em; }
+  .bet-yes-price { fill: var(--gold-core); font: 14px "SFMono-Regular", Consolas, monospace; font-weight: 700; }
+
+  .bet-no-btn    { fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.20); stroke-width: 1; }
+  .bet-no-label  { fill: var(--muted); font: 12px "Inter", sans-serif; font-weight: 600; letter-spacing: 0.16em; }
+  .bet-no-price  { fill: var(--soft);  font: 13px "SFMono-Regular", Consolas, monospace; }
+
+  /* live-channel stage : video + overlays --------- */
+  .surface-video-frame {
+    fill: rgba(0,0,0,0.45);
+    stroke: rgba(247,201,92,0.45);
+    stroke-width: 1;
+  }
+  .surface-video video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    filter: contrast(1.05) saturate(1.12) brightness(0.96);
+  }
+
+  .live-pill { fill: rgba(255,98,95,0.18); stroke: var(--cold-red); }
+  .live-dot  { fill: var(--cold-red); animation: live-pulse 1100ms ease-in-out infinite; }
+  @keyframes live-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .live-text { fill: var(--cold-red); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; }
+
+  .ticker-card   { fill: rgba(0,0,0,0.70); stroke: var(--gold); stroke-width: 1; }
+  .ticker-symbol { fill: var(--gold-core); font: 13px "Inter", sans-serif; font-weight: 600; letter-spacing: 0.02em; }
+  .ticker-price  { fill: var(--text);      font: 11px "SFMono-Regular", Consolas, monospace; }
+  .ticker-change { fill: var(--cold-green); font: 11px "SFMono-Regular", Consolas, monospace; font-weight: 600; filter: drop-shadow(0 0 6px rgba(98,255,189,0.4)); }
+
+  .spark-bg   { fill: rgba(0,0,0,0.60); stroke: rgba(247,201,92,0.30); }
+  .spark-line { fill: none; stroke: var(--gold-core); stroke-width: 1.5;
+                filter: drop-shadow(0 0 4px rgba(247,201,92,0.55)); }
+  .spark-area { fill: rgba(247,201,92,0.18); }
+
+  .mini-stat-label { fill: var(--soft); font: 8px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.20em; text-transform: uppercase; }
+  .mini-stat-value { fill: var(--gold-core); font: 14px "Inter", sans-serif; font-weight: 600; }
+
+  /* materialization staging — opacity only; SVG transforms must come from
+     the `transform` attribute, not CSS, or they'll be overridden. */
+  .stage-elem { opacity: 0; transition: opacity 520ms ease; }
+  .stage-elem.is-on { opacity: 1; }
+
+  /* gold beam connecting ranker → generator */
+  .gold-beam {
+    fill: none; stroke: var(--gold); stroke-width: 1.6;
+    filter: drop-shadow(0 0 8px rgba(247,201,92,0.55));
+  }
+  .gold-beam.core { stroke: var(--gold-core); stroke-width: 0.8; }
+  .gold-beam.live { stroke-dasharray: 6 6; animation: dash-flow 1400ms linear infinite; }
+  @keyframes dash-flow { to { stroke-dashoffset: -120; } }
+
+  /* feedback arc */
+  .feedback-arc {
+    fill: none; stroke: var(--gold);
+    stroke-width: 1; stroke-dasharray: 3 4;
+    opacity: 0; transition: opacity 600ms ease;
+  }
+  .feedback-arc.is-on { opacity: 0.65; }
+
+  /* per-phase active highlight on left/center band labels */
+  .phase-active { fill: var(--gold); }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <span class="title">Attention Architecture</span>
+  <span class="meta">live ranker → channel generation · <b data-now>—</b></span>
+</header>
+
+<div class="stage-wrap" id="stage">
+  <div class="stage-grid"></div>
+
+  <div class="status">
+    <span class="dot"></span>
+    <span data-status>generating · <b>state_meme_001</b></span>
+  </div>
+
+  <div class="phase">
+    <div class="num" data-phase-num>PHASE 01</div>
+    <div class="name" data-phase-name>read</div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button data-replay>Replay</button>
+    <button data-pause>Pause</button>
+  </div>
+
+  <svg viewBox="0 0 1680 900" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <radialGradient id="goldGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"   stop-color="#FFF2A8" stop-opacity="0.30"/>
+        <stop offset="65%"  stop-color="#F7C95C" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#F7C95C" stop-opacity="0"/>
+      </radialGradient>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5"
+              markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="#F7C95C" stroke-width="1.5" stroke-linecap="round"/>
+      </marker>
+    </defs>
+
+    <!-- band dividers -->
+    <line x1="380"  y1="60" x2="380"  y2="840" class="band-rule"/>
+    <line x1="780"  y1="60" x2="780"  y2="840" class="band-rule"/>
+
+    <!-- ============================================================ -->
+    <!-- LEFT BAND :  inputs                                            -->
+    <!-- ============================================================ -->
+    <text class="band-label" x="50" y="80" data-band="read">read · inputs</text>
+
+    <!-- world signals -->
+    <g transform="translate(50,108)">
+      <rect class="cand-bg" x="0" y="0" width="300" height="120" rx="6"/>
+      <text class="chip-text" x="14" y="22">world</text>
+
+      <g transform="translate(14,42)">
+        <rect class="pref-bar-bg" x="0" y="0"  width="272" height="6"/>
+        <rect class="pref-bar"    x="0" y="0"  width="0" height="6" id="world-1"/>
+        <rect class="pref-bar-bg" x="0" y="22" width="272" height="6"/>
+        <rect class="pref-bar"    x="0" y="22" width="0" height="6" id="world-2"/>
+        <rect class="pref-bar-bg" x="0" y="44" width="272" height="6"/>
+        <rect class="pref-bar"    x="0" y="44" width="0" height="6" id="world-3"/>
+        <rect class="pref-bar-bg" x="0" y="66" width="272" height="6"/>
+        <rect class="pref-bar"    x="0" y="66" width="0" height="6" id="world-4"/>
+      </g>
+    </g>
+
+    <!-- user / you -->
+    <g transform="translate(50,256)">
+      <rect class="cand-bg" x="0" y="0" width="300" height="240" rx="6"/>
+      <text class="chip-text" x="14" y="22">you</text>
+
+      <g transform="translate(14,42)">
+        <rect class="pref-bar-bg" x="0"   y="0" width="272" height="6"/>
+        <rect class="pref-bar"    x="0"   y="0" width="190" height="6" id="pref-1"/>
+        <rect class="pref-bar-bg" x="0"   y="22" width="272" height="6"/>
+        <rect class="pref-bar"    x="0"   y="22" width="148" height="6" id="pref-2"/>
+        <rect class="pref-bar-bg" x="0"   y="44" width="272" height="6"/>
+        <rect class="pref-bar"    x="0"   y="44" width="102" height="6" id="pref-3"/>
+        <rect class="pref-bar-bg" x="0"   y="66" width="272" height="6"/>
+        <rect class="pref-bar"    x="0"   y="66" width="220" height="6" id="pref-4"/>
+      </g>
+
+      <line x1="14" y1="138" x2="286" y2="138" class="band-rule"/>
+
+      <g transform="translate(14,156)">
+        <rect class="chip" x="0"   y="0"  width="84" height="22" rx="11"/>
+        <text class="chip-text" x="14" y="15">meme</text>
+        <rect class="chip" x="92"  y="0"  width="92" height="22" rx="11"/>
+        <text class="chip-text" x="106" y="15">crypto</text>
+        <rect class="chip" x="192" y="0"  width="80" height="22" rx="11"/>
+        <text class="chip-text" x="208" y="15">forks</text>
+
+        <rect class="chip" x="0"   y="32" width="120" height="22" rx="11"/>
+        <text class="chip-text" x="14" y="47">risk-radar</text>
+        <rect class="chip" x="128" y="32" width="86" height="22" rx="11"/>
+        <text class="chip-text" x="142" y="47">board</text>
+      </g>
+    </g>
+
+    <!-- agents -->
+    <g transform="translate(50,524)">
+      <rect class="cand-bg" x="0" y="0" width="300" height="200" rx="6"/>
+      <text class="chip-text" x="14" y="22">agents</text>
+
+      <g transform="translate(14,38)">
+        <rect class="strip-row" x="0"  y="0"  width="272" height="28" rx="4"/>
+        <text class="chip-text" x="14" y="18">crypto</text>
+        <rect class="strip-row" x="0"  y="36" width="272" height="28" rx="4"/>
+        <text class="chip-text" x="14" y="54">meme</text>
+        <rect class="strip-row" x="0"  y="72" width="272" height="28" rx="4"/>
+        <text class="chip-text" x="14" y="90">polyrec</text>
+        <rect class="strip-row" x="0"  y="108" width="272" height="28" rx="4"/>
+        <text class="chip-text" x="14" y="126">spectre</text>
+      </g>
+    </g>
+
+    <!-- ============================================================ -->
+    <!-- CENTER BAND :  ranker                                          -->
+    <!-- ============================================================ -->
+    <text class="band-label" x="412" y="80" data-band="rank">rank · candidates</text>
+
+    <!-- 5 candidate rows · each carries a looping silent video preview -->
+    <g class="cand-row" data-cand="1" transform="translate(412,108)">
+      <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
+      <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
+        <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/crypto-trading.mp4" autoplay muted loop playsinline></video>
+      </foreignObject>
+      <text class="cand-title" x="96" y="28">BTC liquidity</text>
+      <g transform="translate(96,40)">
+        <rect class="bar-bg" x="0"   y="0" width="200" height="6"/>
+        <rect class="bar-fill" id="cand-bar-1" x="0" y="0" width="0" height="6"/>
+      </g>
+      <text class="score-text" x="304" y="46" data-score="1">—</text>
+    </g>
+
+    <g class="cand-row" data-cand="2" transform="translate(412,196)">
+      <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
+      <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
+        <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/meme-coin.mp4" autoplay muted loop playsinline></video>
+      </foreignObject>
+      <text class="cand-title" x="96" y="28">Pump.fun graduation</text>
+      <g transform="translate(96,40)">
+        <rect class="bar-bg" x="0"   y="0" width="200" height="6"/>
+        <rect class="bar-fill" id="cand-bar-2" x="0" y="0" width="0" height="6"/>
+      </g>
+      <text class="score-text" x="304" y="46" data-score="2">—</text>
+    </g>
+
+    <g class="cand-row" data-cand="3" data-winner="true" transform="translate(412,284)">
+      <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
+      <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
+        <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/iran.mp4" autoplay muted loop playsinline></video>
+      </foreignObject>
+      <text class="cand-title" x="96" y="28">Hormuz tanker risk</text>
+      <g transform="translate(96,40)">
+        <rect class="bar-bg" x="0"   y="0" width="200" height="6"/>
+        <rect class="bar-fill" id="cand-bar-3" x="0" y="0" width="0" height="6"/>
+      </g>
+      <text class="score-text" x="304" y="46" data-score="3">—</text>
+    </g>
+
+    <g class="cand-row" data-cand="4" transform="translate(412,372)">
+      <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
+      <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
+        <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/polyrec.mp4" autoplay muted loop playsinline></video>
+      </foreignObject>
+      <text class="cand-title" x="96" y="28">Polymarket close odds</text>
+      <g transform="translate(96,40)">
+        <rect class="bar-bg" x="0"   y="0" width="200" height="6"/>
+        <rect class="bar-fill" id="cand-bar-4" x="0" y="0" width="0" height="6"/>
+      </g>
+      <text class="score-text" x="304" y="46" data-score="4">—</text>
+    </g>
+
+    <g class="cand-row" data-cand="5" transform="translate(412,460)">
+      <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
+      <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
+        <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/spectre.mp4" autoplay muted loop playsinline></video>
+      </foreignObject>
+      <text class="cand-title" x="96" y="28">SPECTRE cluster</text>
+      <g transform="translate(96,40)">
+        <rect class="bar-bg" x="0"   y="0" width="200" height="6"/>
+        <rect class="bar-fill" id="cand-bar-5" x="0" y="0" width="0" height="6"/>
+      </g>
+      <text class="score-text" x="304" y="46" data-score="5">—</text>
+    </g>
+
+    <!-- gold beam from winner -> generator -->
+    <g id="beamGroup" opacity="0">
+      <path class="gold-beam"      d="M760,322 C 800,322 820,330 850,360"/>
+      <path class="gold-beam core" d="M760,322 C 800,322 820,330 850,360"/>
+      <path class="gold-beam live" d="M760,322 C 800,322 820,330 850,360"/>
+    </g>
+
+    <!-- ============================================================ -->
+    <!-- RIGHT BAND :  realtime generation                              -->
+    <!-- ============================================================ -->
+    <text class="band-label" x="812" y="80" data-band="generate">generate</text>
+
+    <!-- glow behind generation theatre -->
+    <ellipse cx="1230" cy="450" rx="500" ry="380" fill="url(#goldGlow)" opacity="0.7"/>
+
+    <!-- CODE EDITOR PANEL  (left half of right band) -->
+    <g transform="translate(812,100)">
+      <rect class="code-panel-frame" x="0" y="0" width="360" height="700" rx="10"/>
+
+      <!-- editor chrome -->
+      <g transform="translate(14,14)">
+        <circle cx="6"  cy="6" r="4" fill="rgba(255,255,255,0.18)"/>
+        <circle cx="22" cy="6" r="4" fill="rgba(255,255,255,0.18)"/>
+        <circle cx="38" cy="6" r="4" fill="rgba(255,255,255,0.18)"/>
+        <text x="60" y="10" class="surface-meta">channel.tsx</text>
+      </g>
+      <line x1="0" y1="34" x2="360" y2="34" stroke="rgba(255,255,255,0.06)"/>
+
+      <!-- code lines container -->
+      <g id="codeLines" transform="translate(20,60)"></g>
+      <!-- blinking caret -->
+      <rect id="codeCaret" class="caret" x="0" y="0" width="7" height="14"/>
+    </g>
+
+    <!-- SURFACE PREVIEW (right half of right band) -->
+    <g id="surface" transform="translate(1200,100)">
+      <rect id="s-frame" class="surface-frame stage-elem" x="0" y="0" width="460" height="700" rx="12"/>
+
+      <g id="s-title-group" class="stage-elem">
+        <text class="surface-kicker" x="24" y="44">live channel · iran-monitor</text>
+        <text id="s-title" class="surface-title" x="24" y="76">Strait of Hormuz tensions escalate</text>
+        <line x1="24" y1="92" x2="436" y2="92" class="surface-rule"/>
+      </g>
+
+      <!-- stage : live video channel + overlays -->
+      <g id="s-stage" class="stage-elem">
+        <rect class="surface-video-frame" x="20" y="108" width="420" height="294" rx="10"/>
+        <foreignObject class="surface-video" x="22" y="110" width="416" height="290">
+          <video xmlns="http://www.w3.org/1999/xhtml" src="../videos/iran.mp4" autoplay muted loop playsinline></video>
+        </foreignObject>
+
+        <!-- LIVE pill -->
+        <g transform="translate(36,122)">
+          <rect class="live-pill" x="0" y="0" width="64" height="22" rx="11"/>
+          <circle class="live-dot" cx="14" cy="11" r="3.5"/>
+          <text class="live-text" x="26" y="15">LIVE</text>
+        </g>
+
+        <!-- oil price ticker -->
+        <g transform="translate(294,118)">
+          <rect class="ticker-card" x="0" y="0" width="132" height="52" rx="6"/>
+          <text class="ticker-symbol" x="12" y="20" id="tickerSymbol">BRENT</text>
+          <text class="ticker-price"  x="12" y="40" id="tickerPrice">87.42</text>
+          <text class="ticker-change" x="120" y="40" id="tickerChange" text-anchor="end">↑ 4.2%</text>
+        </g>
+
+        <!-- sparkline overlay -->
+        <g transform="translate(36,346)">
+          <rect class="spark-bg" x="0" y="0" width="184" height="44" rx="6"/>
+          <polyline id="sparkLine" class="spark-line" points=""/>
+        </g>
+
+        <!-- mini stats -->
+        <g transform="translate(236,358)">
+          <text class="mini-stat-label" x="0"   y="0">tankers</text>
+          <text class="mini-stat-value" x="0"   y="22" id="statHolders">184</text>
+          <text class="mini-stat-label" x="100" y="0">transit</text>
+          <text class="mini-stat-value" x="100" y="22" id="statVol">24/d</text>
+        </g>
+      </g>
+
+      <line id="s-rule-1" class="surface-rule stage-elem" x1="24" y1="414" x2="436" y2="414"/>
+
+      <!-- rail rows -->
+      <g id="s-rail-1" class="stage-elem" transform="translate(24,422)">
+        <rect class="surface-rail-row" x="0" y="0" width="412" height="40" rx="6"/>
+        <circle class="surface-rail-dot" cx="16" cy="20" r="3"/>
+        <text class="surface-text" x="32" y="25">Maxar</text>
+        <text class="surface-meta" x="384" y="25" id="rail-time-1">3s</text>
+      </g>
+      <g id="s-rail-2" class="stage-elem" transform="translate(24,470)">
+        <rect class="surface-rail-row" x="0" y="0" width="412" height="40" rx="6"/>
+        <circle class="surface-rail-dot" cx="16" cy="20" r="3"/>
+        <text class="surface-text" x="32" y="25">MarineTraffic</text>
+        <text class="surface-meta" x="384" y="25" id="rail-time-2">12s</text>
+      </g>
+      <g id="s-rail-3" class="stage-elem" transform="translate(24,518)">
+        <rect class="surface-rail-row" x="0" y="0" width="412" height="40" rx="6"/>
+        <circle class="surface-rail-dot" cx="16" cy="20" r="3"/>
+        <text class="surface-text" x="32" y="25">Reuters</text>
+        <text class="surface-meta" x="384" y="25" id="rail-time-3">31s</text>
+      </g>
+
+      <!-- bet box -->
+      <g id="s-next" class="stage-elem" transform="translate(24,560)">
+        <rect class="surface-bet-frame" x="0" y="0" width="412" height="100" rx="12"/>
+
+        <circle cx="22" cy="16" r="3.2" class="live-dot"/>
+        <text class="bet-kicker"  x="32"  y="20">polymarket · live odds</text>
+        <text class="bet-volume"  x="398" y="20" text-anchor="end" id="betVolume">vol $184k</text>
+
+        <text class="bet-question" x="14" y="46">Will Hormuz transit halt by EOM?</text>
+
+        <g transform="translate(14,54)">
+          <rect class="bet-yes-btn" x="0" y="0" width="190" height="34" rx="6"/>
+          <text class="bet-yes-label" x="22"  y="22">YES</text>
+          <text class="bet-yes-price" x="178" y="22" text-anchor="end" id="betYes">$0.34</text>
+        </g>
+
+        <g transform="translate(212,54)">
+          <rect class="bet-no-btn" x="0" y="0" width="186" height="34" rx="6"/>
+          <text class="bet-no-label" x="22"  y="22">NO</text>
+          <text class="bet-no-price" x="174" y="22" text-anchor="end" id="betNo">$0.66</text>
+        </g>
+      </g>
+    </g>
+
+    <!-- feedback arc, returns from surface across the whole canvas -->
+    <path id="feedback" class="feedback-arc"
+          d="M1430,820 C 1000,870 540,870 220,820 C 80,790 30,640 80,500"
+          marker-end="url(#arrow)"/>
+  </svg>
+</div>
+
+<script>
+// =========================================================
+// REALTIME GENERATION LOOP
+// =========================================================
+// Phases:
+//   01 read     — signals tick, profile bars settle
+//   02 rank     — candidate score bars fill, winner glows, beam fires
+//   03 generate — code streams; surface assembles in lockstep
+//   04 hold     — full state visible, feedback arc returns
+// then fade and restart.
+
+const CODE_PLAN = [
+  // [type, text, hookId]
+  [["comment", "// generate channel state for launch-abc"], null],
+  [["blank"], null],
+  [["key","const "],["text","state "],["punct","= {"], null],
+  [["indent"],["prop","channelId: "],["str",'"iran-monitor"'],["punct",","], null],
+  [["indent"],["prop","layout: "],["str",'"hormuz_board"'],["punct",","], "s-frame"],
+  [["indent"],["prop","thesis: "],["punct","{"], null],
+  [["indent2"],["prop","title: "],["str",'"Hormuz tensions escalate"'],["punct",","], "s-title-group"],
+  [["indent"],["punct","},"], null],
+  [["indent"],["prop","stage: "],["tag","<HormuzBoard />"],["punct",","], "s-stage"],
+  [["indent"],["prop","rail: ["], "s-rule-1"],
+  [["indent2"],["tag","<Source "],["prop","name"],["punct","="],["str",'"Maxar"'],["tag"," />"],["punct",","], "s-rail-1"],
+  [["indent2"],["tag","<Source "],["prop","name"],["punct","="],["str",'"MarineTraffic"'],["tag"," />"],["punct",","], "s-rail-2"],
+  [["indent2"],["tag","<Source "],["prop","name"],["punct","="],["str",'"Reuters"'],["tag"," />"], "s-rail-3"],
+  [["indent"],["punct","],"], null],
+  [["indent"],["prop","bet: "],["str",'"YES · Hormuz halt by EOM"'], "s-next"],
+  [["punct","}"], null],
+];
+
+const PREF_FINAL  = [190, 148, 102, 220];
+const WORLD_BASE  = [220, 168, 188, 132];
+const WORLD_JITTER_AMP = [60, 70, 80, 50];     // per-bar oscillation amplitude
+const WORLD_PERIOD     = [520, 680, 600, 760]; // per-bar tick period
+const SCORES = [0.71, 0.78, 0.84, 0.62, 0.54];      // composites for the 5 rows
+const BAR_WIDTH = 200;
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const codeLayer = document.getElementById("codeLines");
+const codeCaret = document.getElementById("codeCaret");
+const beamGroup = document.getElementById("beamGroup");
+const feedback  = document.getElementById("feedback");
+const stage     = document.getElementById("stage");
+const phaseNum  = document.querySelector("[data-phase-num]");
+const phaseName = document.querySelector("[data-phase-name]");
+const nowEl     = document.querySelector("[data-now]");
+const statusEl  = document.querySelector("[data-status]");
+
+let timeouts = [];
+function later(fn, ms) { const t = setTimeout(fn, ms); timeouts.push(t); return t; }
+function clearAll() { timeouts.forEach(clearTimeout); timeouts = []; }
+
+function setPhase(n, name) {
+  phaseNum.textContent = "PHASE 0" + n;
+  phaseName.textContent = name;
+  document.querySelectorAll("[data-band]").forEach(b => b.classList.remove("phase-active"));
+  const map = { 1: "read", 2: "rank", 3: "generate", 4: "generate" };
+  const el = document.querySelector(`[data-band="${map[n]}"]`);
+  if (el) el.classList.add("phase-active");
+}
+
+function setStatus(text) { statusEl.innerHTML = text; }
+
+function tickClock() {
+  const t = new Date();
+  const pad = v => String(v).padStart(2, "0");
+  nowEl.textContent = `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+}
+setInterval(tickClock, 1000); tickClock();
+
+// ----- live-channel overlays : sparkline + price ticker + rail timestamps -----
+const SPARK_W = 184, SPARK_H = 44, SPARK_PAD = 4, SPARK_N = 36;
+const sparkLine = document.getElementById("sparkLine");
+let sparkValues = [];
+function initSpark() {
+  sparkValues = [];
+  let v = SPARK_H / 2;
+  for (let i = 0; i < SPARK_N; i++) {
+    v += (Math.random() - 0.5) * 6;
+    v = Math.max(SPARK_PAD, Math.min(SPARK_H - SPARK_PAD, v));
+    sparkValues.push(v);
+  }
+  drawSpark();
+}
+function tickSpark() {
+  sparkValues.shift();
+  const last = sparkValues[sparkValues.length - 1] || SPARK_H / 2;
+  // bias slightly downward when high, upward when low (mean-reverting), plus jitter
+  const drift = (SPARK_H / 2 - last) * 0.03 + (Math.random() - 0.42) * 5;
+  let v = last + drift;
+  v = Math.max(SPARK_PAD, Math.min(SPARK_H - SPARK_PAD, v));
+  sparkValues.push(v);
+  drawSpark();
+}
+function drawSpark() {
+  if (!sparkLine) return;
+  const step = (SPARK_W - 8) / (SPARK_N - 1);
+  const pts = sparkValues.map((y, i) => `${4 + i * step},${y}`).join(" ");
+  sparkLine.setAttribute("points", pts);
+}
+initSpark();
+setInterval(tickSpark, 320);
+
+// ----- Brent oil ticker -----
+const tickerPriceEl  = document.getElementById("tickerPrice");
+const tickerChangeEl = document.getElementById("tickerChange");
+const statVolEl      = document.getElementById("statVol");
+const statHoldersEl  = document.getElementById("statHolders");
+let pBase = 87.42;       // brent crude $/bbl
+let chBase = 4.2;        // % change
+let tankersBase = 184;   // tanker count
+let transitBase = 24;    // transits per day
+setInterval(() => {
+  pBase += (Math.random() - 0.46) * 0.18;
+  if (tickerPriceEl) tickerPriceEl.textContent = pBase.toFixed(2);
+}, 280);
+setInterval(() => {
+  chBase += (Math.random() - 0.45) * 0.35;
+  if (tickerChangeEl) tickerChangeEl.textContent = `↑ ${chBase.toFixed(1)}%`;
+}, 900);
+setInterval(() => {
+  tankersBase += Math.round((Math.random() - 0.45) * 3);
+  transitBase += Math.round((Math.random() - 0.55) * 2);
+  if (statHoldersEl) statHoldersEl.textContent = `${tankersBase}`;
+  if (statVolEl)     statVolEl.textContent     = `${transitBase}/d`;
+}, 1400);
+
+// ----- Polymarket bet odds (YES drifts up as tensions escalate) -----
+const betYesEl    = document.getElementById("betYes");
+const betNoEl     = document.getElementById("betNo");
+const betVolumeEl = document.getElementById("betVolume");
+let yesBase = 0.34;
+let betVol  = 184;
+setInterval(() => {
+  yesBase += (Math.random() - 0.42) * 0.014;
+  yesBase = Math.max(0.18, Math.min(0.58, yesBase));
+  if (betYesEl) betYesEl.textContent = `$${yesBase.toFixed(2)}`;
+  if (betNoEl)  betNoEl.textContent  = `$${(1 - yesBase).toFixed(2)}`;
+}, 1100);
+setInterval(() => {
+  betVol += Math.round(Math.random() * 4);
+  if (betVolumeEl) betVolumeEl.textContent = `vol $${betVol}k`;
+}, 1700);
+
+// ----- rail timestamps tick up so the feed feels live -----
+const railTimes = [3, 12, 31];
+const railEls = [
+  document.getElementById("rail-time-1"),
+  document.getElementById("rail-time-2"),
+  document.getElementById("rail-time-3"),
+];
+function formatRail(s) { return s < 60 ? `${s}s` : `${Math.floor(s/60)}m`; }
+setInterval(() => {
+  for (let i = 0; i < 3; i++) {
+    railTimes[i] += 1;
+    if (railEls[i]) railEls[i].textContent = formatRail(railTimes[i]);
+  }
+}, 1000);
+function resetRailTimes() {
+  railTimes[0] = 3; railTimes[1] = 12; railTimes[2] = 31;
+  railEls.forEach((el, i) => { if (el) el.textContent = formatRail(railTimes[i]); });
+}
+
+// ----- world jitter (continuous live-signal pulsing) -----
+const worldIntervals = [];
+function startWorldJitter() {
+  if (worldIntervals.length) return;
+  WORLD_BASE.forEach((base, i) => {
+    const id = setInterval(() => {
+      const delta = (Math.random() - 0.5) * WORLD_JITTER_AMP[i];
+      const w = Math.max(50, Math.min(272, base + delta));
+      const el = document.getElementById(`world-${i+1}`);
+      if (el) el.setAttribute("width", w);
+    }, WORLD_PERIOD[i]);
+    worldIntervals.push(id);
+  });
+}
+function stopWorldJitter() {
+  worldIntervals.forEach(clearInterval);
+  worldIntervals.length = 0;
+}
+
+// ===== Phase 01 : read =====
+function phaseRead(done) {
+  setPhase(1, "read inputs");
+  setStatus("reading <b>world + you</b>");
+  stopWorldJitter();
+  // animate world + pref bars from 0 -> final
+  WORLD_BASE.forEach((w, i) => {
+    const el = document.getElementById(`world-${i+1}`);
+    el.setAttribute("width", "0");
+    later(() => el.setAttribute("width", w), 80 + i * 100);
+  });
+  PREF_FINAL.forEach((w, i) => {
+    const el = document.getElementById(`pref-${i+1}`);
+    el.setAttribute("width", "0");
+    later(() => el.setAttribute("width", w), 280 + i * 100);
+  });
+  // once world bars have settled, hand control to the jitter loop
+  later(startWorldJitter, 700);
+  later(done, 1400);
+}
+
+// ===== Phase 02 : rank =====
+function phaseRank(done) {
+  setPhase(2, "rank candidates");
+  setStatus("ranking · <b>5 candidates</b>");
+  // reset
+  for (let i = 1; i <= 5; i++) {
+    document.getElementById(`cand-bar-${i}`).setAttribute("width", "0");
+    document.querySelector(`[data-score="${i}"]`).textContent = "—";
+    document.querySelector(`[data-cand="${i}"]`).classList.remove("is-winner");
+  }
+  beamGroup.style.opacity = "0";
+
+  // fill bars in staggered order
+  const order = [0, 1, 3, 4, 2]; // winner last so it lands as the apex
+  order.forEach((idx, i) => {
+    const score = SCORES[idx];
+    later(() => {
+      const bar = document.getElementById(`cand-bar-${idx+1}`);
+      bar.setAttribute("width", Math.round(BAR_WIDTH * score));
+      document.querySelector(`[data-score="${idx+1}"]`).textContent = score.toFixed(2);
+      if (idx === 2) {
+        document.querySelector(`[data-cand="3"]`).classList.add("is-winner");
+      }
+    }, 100 + i * 320);
+  });
+
+  // beam fires after winner
+  later(() => { beamGroup.style.opacity = "1"; }, 100 + 5 * 320 + 220);
+  later(done, 100 + 5 * 320 + 700);
+}
+
+// ===== Phase 03 : generate =====
+function phaseGenerate(done) {
+  setPhase(3, "generate state");
+  setStatus("generating · <b>state_meme_001</b>");
+
+  // reset surface
+  ["s-frame","s-title-group","s-stage","s-rule-1","s-rail-1","s-rail-2","s-rail-3","s-next"].forEach(id => {
+    document.getElementById(id).classList.remove("is-on");
+  });
+  codeLayer.innerHTML = "";
+  feedback.classList.remove("is-on");
+  resetRailTimes();
+
+  // type out CODE_PLAN line by line; trigger surface elements on hooks
+  const LINE_H = 20;
+  let y = 0;
+  CODE_PLAN.forEach((entry, idx) => {
+    const tokens = entry.slice(0, -1);
+    const hook = entry[entry.length - 1];
+    later(() => {
+      // skip if it's a blank
+      if (tokens.length === 1 && tokens[0][0] === "blank") { y += LINE_H * 0.6; positionCaret(0, y); return; }
+      const line = document.createElementNS(SVGNS, "text");
+      line.setAttribute("class", "code-line");
+      line.setAttribute("x", "0");
+      line.setAttribute("y", y);
+      let xCursor = 0;
+      tokens.forEach(([type, text]) => {
+        if (type === "indent")  { xCursor += 14; return; }
+        if (type === "indent2") { xCursor += 28; return; }
+        if (type === "blank")   { return; }
+        const t = document.createElementNS(SVGNS, "tspan");
+        t.setAttribute("class", "tok-" + type);
+        t.setAttribute("x", xCursor);
+        t.setAttribute("y", y);
+        t.textContent = text;
+        line.appendChild(t);
+        // advance cursor by approximate char width
+        xCursor += text.length * 7.0;
+      });
+      codeLayer.appendChild(line);
+      positionCaret(approxLineEnd(tokens), y);
+      if (hook) {
+        const el = document.getElementById(hook);
+        if (el) el.classList.add("is-on");
+      }
+      y += LINE_H;
+    }, 100 + idx * 230);
+  });
+
+  const totalMs = 100 + CODE_PLAN.length * 230 + 200;
+  later(done, totalMs);
+}
+
+function approxLineEnd(tokens) {
+  let x = 0;
+  tokens.forEach(([type, text]) => {
+    if (type === "indent")  { x += 14; return; }
+    if (type === "indent2") { x += 28; return; }
+    if (type === "blank")   { return; }
+    x += (text || "").length * 7.0;
+  });
+  return x;
+}
+function positionCaret(x, y) {
+  codeCaret.setAttribute("x", 832 + x);  // 812 (group origin) + 20 (inner)
+  codeCaret.setAttribute("y", 160 + y);  // 100 (group) + 60 (inner) + offset
+}
+
+// ===== Phase 04 : hold + feedback =====
+function phaseHold(done) {
+  setPhase(4, "live · learning");
+  setStatus("live · <b>watch · share · fork</b>");
+  feedback.classList.add("is-on");
+  later(done, 3200);
+}
+
+// ===== Orchestrator =====
+const PHASES = [
+  { name: "read",     fn: phaseRead },
+  { name: "rank",     fn: phaseRank },
+  { name: "generate", fn: phaseGenerate },
+  { name: "hold",     fn: phaseHold },
+];
+let phaseIdx = 0;
+let paused = false;
+
+function runPhase(idx, onComplete) {
+  phaseIdx = ((idx % PHASES.length) + PHASES.length) % PHASES.length;
+  clearAll();
+  PHASES[phaseIdx].fn(onComplete || (() => {}));
+}
+
+function runLoop() {
+  if (paused) return;
+  runPhase(phaseIdx, () => {
+    if (paused) return;
+    phaseIdx = (phaseIdx + 1) % PHASES.length;
+    later(runLoop, 600);
+  });
+}
+
+// Manual step (arrow keys / external nav). Pauses autoplay.
+function stepPhase(delta) {
+  paused = true;
+  if (pauseBtn) pauseBtn.textContent = "Resume";
+  runPhase(phaseIdx + delta);
+}
+
+const controls = document.getElementById("controls");
+const pauseBtn = document.querySelector("[data-pause]");
+function setPaused(v) {
+  paused = v;
+  if (pauseBtn) pauseBtn.textContent = paused ? "Resume" : "Pause";
+  if (!paused) runLoop();
+}
+
+document.addEventListener("keydown", (e) => {
+  const tag = e.target && e.target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+  if (e.key === "ArrowRight") {
+    e.preventDefault(); stepPhase(1);
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault(); stepPhase(-1);
+  } else if (e.key === " ") {
+    e.preventDefault(); setPaused(!paused);
+  } else if (e.key === "h" || e.key === "H") {
+    if (controls) controls.classList.toggle("is-shown");
+  } else if (e.key === "r" || e.key === "R") {
+    phaseIdx = 0; setPaused(false);
+  }
+});
+
+if (pauseBtn) pauseBtn.addEventListener("click", () => setPaused(!paused));
+const replayBtn = document.querySelector("[data-replay]");
+if (replayBtn) replayBtn.addEventListener("click", () => { phaseIdx = 0; setPaused(false); });
+
+runLoop();
+</script>
+</body>
+</html>

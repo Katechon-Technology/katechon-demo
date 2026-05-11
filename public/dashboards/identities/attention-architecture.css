@@ -1,0 +1,236 @@
+/* Attention Architecture — live ranker + channel generation scene. */
+
+.aa-root {
+  --aa-bg: #050608;
+  --aa-bg-soft: #07090C;
+  --aa-text: #F2F4F7;
+  --aa-muted: rgba(242,244,247,0.58);
+  --aa-soft: rgba(242,244,247,0.30);
+  --aa-line: rgba(255,255,255,0.08);
+  --aa-grid: rgba(255,255,255,0.05);
+  --aa-cold-blue: #65f0ff;
+  --aa-cold-green: #62ffbd;
+  --aa-cold-red: #ff625f;
+  --aa-candidate: rgba(255,255,255,0.16);
+  --aa-gold-dim: rgba(247,201,92,0.20);
+  --aa-gold: #F7C95C;
+  --aa-gold-core: #FFF2A8;
+
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.012), rgba(0,0,0,0.20)),
+    var(--aa-bg-soft);
+  color: var(--aa-text);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.aa-root svg { width: 100%; height: 100%; display: block; }
+
+.aa-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--aa-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--aa-grid) 1px, transparent 1px);
+  background-size: 64px 64px, 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 55%, transparent 92%);
+  mask-image: radial-gradient(ellipse at center, black 55%, transparent 92%);
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.aa-status {
+  position: absolute; top: 18px; right: 22px;
+  display: flex; gap: 10px; align-items: center;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.20em; text-transform: uppercase;
+  color: var(--aa-muted);
+  pointer-events: none;
+}
+.aa-status .aa-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--aa-gold);
+  box-shadow: 0 0 10px rgba(247,201,92,0.85);
+  animation: aa-pulse-dot 1400ms ease-in-out infinite;
+}
+.aa-status b { color: var(--aa-gold-core); font-weight: 500; }
+@keyframes aa-pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%     { opacity: 0.45; transform: scale(0.7); }
+}
+
+.aa-phase {
+  position: absolute; left: 22px; bottom: 18px;
+  pointer-events: none;
+}
+.aa-phase .aa-phase-num {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--aa-gold); opacity: 0.85;
+}
+.aa-phase .aa-phase-name {
+  font-size: 18px; letter-spacing: -0.01em; color: var(--aa-text); margin-top: 2px;
+  text-shadow: 0 1px 14px rgba(0,0,0,0.6);
+}
+
+/* SVG content rules - all scoped under .aa-root */
+.aa-root .band-label {
+  font: 10px "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  fill: var(--aa-muted);
+}
+.aa-root .band-rule { stroke: rgba(255,255,255,0.06); stroke-width: 1; }
+
+.aa-root .strip-row { fill: rgba(255,255,255,0.04); }
+.aa-root .pref-bar-bg { fill: rgba(255,255,255,0.06); }
+.aa-root .pref-bar {
+  fill: rgba(125,232,255,0.55);
+  transition: width 460ms cubic-bezier(.4,.7,.4,1);
+}
+
+.aa-root #aa-world-1 { fill: var(--aa-cold-blue);  opacity: 0.85; filter: drop-shadow(0 0 4px rgba(101,240,255,0.35)); }
+.aa-root #aa-world-2 { fill: var(--aa-cold-green); opacity: 0.85; filter: drop-shadow(0 0 4px rgba(98,255,189,0.35)); }
+.aa-root #aa-world-3 { fill: var(--aa-cold-red);   opacity: 0.80; filter: drop-shadow(0 0 4px rgba(255,98,95,0.35)); }
+.aa-root #aa-world-4 { fill: var(--aa-gold);       opacity: 0.75; filter: drop-shadow(0 0 4px rgba(247,201,92,0.35)); }
+
+.aa-root .chip {
+  fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.10);
+}
+.aa-root .chip-text {
+  fill: var(--aa-muted);
+  font: 10px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.10em;
+}
+
+.aa-root .cand-bg { fill: rgba(255,255,255,0.025); stroke: rgba(255,255,255,0.10); }
+.aa-root .cand-title { fill: var(--aa-text); font: 12px "Inter", sans-serif; font-weight: 500; }
+.aa-root .bar-bg   { fill: rgba(255,255,255,0.06); }
+.aa-root .bar-fill { fill: rgba(255,255,255,0.45); transition: width 320ms ease; }
+.aa-root .score-text { fill: var(--aa-soft); font: 10px "SFMono-Regular", Consolas, monospace; }
+
+.aa-root .cand-thumb video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.10);
+  opacity: 0.55;
+  filter: saturate(0.55) brightness(0.65) contrast(1.05);
+  transition: opacity 360ms ease, filter 360ms ease, border-color 360ms ease, box-shadow 360ms ease;
+}
+.aa-root .cand-row.is-winner .cand-thumb video {
+  opacity: 1;
+  filter: saturate(1.0) brightness(1.0);
+  border-color: var(--aa-gold);
+  box-shadow: 0 0 14px rgba(247,201,92,0.45);
+}
+.aa-root .cand-row.is-winner .cand-bg {
+  fill: rgba(247,201,92,0.07);
+  stroke: var(--aa-gold);
+  filter: drop-shadow(0 0 12px rgba(247,201,92,0.30));
+}
+.aa-root .cand-row.is-winner .cand-title { fill: var(--aa-gold-core); }
+.aa-root .cand-row.is-winner .bar-fill   { fill: var(--aa-gold-core); }
+.aa-root .cand-row.is-winner .score-text { fill: var(--aa-gold); }
+
+.aa-root .code-panel-frame { fill: rgba(0,0,0,0.30); stroke: rgba(255,255,255,0.08); }
+.aa-root .code-line { font: 12px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.02em; }
+.aa-root .tok-key     { fill: #7de8ff; }
+.aa-root .tok-str     { fill: #F7C95C; }
+.aa-root .tok-tag     { fill: #62ffbd; }
+.aa-root .tok-prop    { fill: #c8b6ff; }
+.aa-root .tok-punct   { fill: rgba(242,244,247,0.55); }
+.aa-root .tok-comment { fill: rgba(98,255,189,0.45); font-style: italic; }
+.aa-root .tok-text    { fill: rgba(242,244,247,0.78); }
+
+.aa-root .aa-caret {
+  fill: var(--aa-gold-core);
+  animation: aa-caret-blink 900ms steps(2,start) infinite;
+}
+@keyframes aa-caret-blink { 50% { opacity: 0; } }
+
+.aa-root .surface-frame {
+  fill: rgba(247,201,92,0.04);
+  stroke: var(--aa-gold); stroke-width: 1.4;
+  filter: drop-shadow(0 0 18px rgba(247,201,92,0.28));
+}
+.aa-root .surface-title  { fill: var(--aa-gold-core); font: 16px "Inter", sans-serif; font-weight: 500; letter-spacing: -0.01em; }
+.aa-root .surface-kicker { fill: var(--aa-gold); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; text-transform: uppercase; }
+.aa-root .surface-text   { fill: var(--aa-text); font: 11px "Inter", sans-serif; }
+.aa-root .surface-meta   { fill: var(--aa-soft); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.12em; }
+.aa-root .surface-rule   { stroke: rgba(247,201,92,0.30); stroke-width: 1; }
+
+.aa-root .surface-rail-row { fill: rgba(255,255,255,0.03); stroke: rgba(247,201,92,0.22); }
+.aa-root .surface-rail-dot { fill: var(--aa-gold); }
+
+.aa-root .surface-bet-frame {
+  fill: rgba(247,201,92,0.06);
+  stroke: var(--aa-gold); stroke-width: 1.4;
+  filter: drop-shadow(0 0 18px rgba(247,201,92,0.32));
+}
+.aa-root .bet-kicker   { fill: var(--aa-gold); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; text-transform: uppercase; }
+.aa-root .bet-volume   { fill: var(--aa-soft); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.10em; text-transform: uppercase; }
+.aa-root .bet-question { fill: var(--aa-text); font: 14px "Inter", sans-serif; font-weight: 500; letter-spacing: -0.005em; }
+
+.aa-root .bet-yes-btn {
+  fill: rgba(247,201,92,0.22); stroke: var(--aa-gold); stroke-width: 1.4;
+  animation: aa-bet-pulse 2200ms ease-in-out infinite;
+}
+@keyframes aa-bet-pulse {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(247,201,92,0.4)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(247,201,92,0.78)); }
+}
+.aa-root .bet-yes-label { fill: var(--aa-gold-core); font: 12px "Inter", sans-serif; font-weight: 700; letter-spacing: 0.16em; }
+.aa-root .bet-yes-price { fill: var(--aa-gold-core); font: 14px "SFMono-Regular", Consolas, monospace; font-weight: 700; }
+.aa-root .bet-no-btn    { fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.20); stroke-width: 1; }
+.aa-root .bet-no-label  { fill: var(--aa-muted); font: 12px "Inter", sans-serif; font-weight: 600; letter-spacing: 0.16em; }
+.aa-root .bet-no-price  { fill: var(--aa-soft);  font: 13px "SFMono-Regular", Consolas, monospace; }
+
+.aa-root .surface-video-frame { fill: rgba(0,0,0,0.45); stroke: rgba(247,201,92,0.45); stroke-width: 1; }
+.aa-root .surface-video video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+  filter: contrast(1.05) saturate(1.12) brightness(0.96);
+}
+
+.aa-root .live-pill { fill: rgba(255,98,95,0.18); stroke: var(--aa-cold-red); }
+.aa-root .live-dot  { fill: var(--aa-cold-red); animation: aa-live-pulse 1100ms ease-in-out infinite; }
+@keyframes aa-live-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.aa-root .live-text { fill: var(--aa-cold-red); font: 9px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.22em; }
+
+.aa-root .ticker-card   { fill: rgba(0,0,0,0.70); stroke: var(--aa-gold); stroke-width: 1; }
+.aa-root .ticker-symbol { fill: var(--aa-gold-core); font: 13px "Inter", sans-serif; font-weight: 600; letter-spacing: 0.02em; }
+.aa-root .ticker-price  { fill: var(--aa-text); font: 11px "SFMono-Regular", Consolas, monospace; }
+.aa-root .ticker-change {
+  fill: var(--aa-cold-green); font: 11px "SFMono-Regular", Consolas, monospace; font-weight: 600;
+  filter: drop-shadow(0 0 6px rgba(98,255,189,0.4));
+}
+
+.aa-root .spark-bg   { fill: rgba(0,0,0,0.60); stroke: rgba(247,201,92,0.30); }
+.aa-root .spark-line {
+  fill: none; stroke: var(--aa-gold-core); stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px rgba(247,201,92,0.55));
+}
+
+.aa-root .mini-stat-label { fill: var(--aa-soft); font: 8px "SFMono-Regular", Consolas, monospace; letter-spacing: 0.20em; text-transform: uppercase; }
+.aa-root .mini-stat-value { fill: var(--aa-gold-core); font: 14px "Inter", sans-serif; font-weight: 600; }
+
+.aa-root .gold-beam {
+  fill: none; stroke: var(--aa-gold); stroke-width: 1.6;
+  filter: drop-shadow(0 0 8px rgba(247,201,92,0.55));
+}
+.aa-root .gold-beam.core { stroke: var(--aa-gold-core); stroke-width: 0.8; }
+.aa-root .gold-beam.live { stroke-dasharray: 6 6; animation: aa-dash-flow 1400ms linear infinite; }
+@keyframes aa-dash-flow { to { stroke-dashoffset: -120; } }
+
+.aa-root .feedback-arc {
+  fill: none; stroke: var(--aa-gold);
+  stroke-width: 1; stroke-dasharray: 3 4;
+  opacity: 0; transition: opacity 600ms ease;
+}
+.aa-root .feedback-arc.is-on { opacity: 0.65; }
+
+.aa-root .stage-elem { opacity: 0; transition: opacity 520ms ease; }
+.aa-root .stage-elem.is-on { opacity: 1; }

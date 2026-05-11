@@ -588,6 +588,11 @@
         ["state", "The result persists as the next software state.", "memory"],
       ],
       caption: "Kat reads Attention Architecture as the system that turns attention into routed software changes.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/attention-architecture.css",
+        script: "dashboards/identities/attention-architecture.js",
+      },
     },
     "reality-glix": {
       palette: "katechon",
