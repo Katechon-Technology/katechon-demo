@@ -1,7 +1,7 @@
 (function () {
   const steps = [
     {
-      label: "A channel is three layers, packaged as one thing",
+      label: "Three input layers, packaged as a single interactive surface",
       caption: "Live data and your prompt flow into a specialist agent. A surface rebuilds in response and keeps mutating as the world changes - the whole thing is one live object.",
     },
     {
@@ -30,7 +30,7 @@
 
   function buildSvg(uid) {
     const markerId = `${uid}-arrow`;
-    return `<svg class="cc-svg" viewBox="0 0 680 440" role="img" aria-labelledby="${uid}-title ${uid}-desc">
+    return `<svg class="cc-svg" viewBox="0 0 800 500" role="img" aria-labelledby="${uid}-title ${uid}-desc">
       <title id="${uid}-title">What a channel is</title>
       <desc id="${uid}-desc">Four scenes show live inputs composing into a channel, the channel zooming in by request, shareable branch state, and action from inside the channel.</desc>
       <defs>
@@ -39,89 +39,116 @@
         </marker>
       </defs>
 
+      <g class="cc-scene-frame" transform="translate(60 38)">
       <g data-cc-scene="0">
+        <g class="cc-an-layout" transform="translate(-110 -60)">
+        <g class="cc-an-layer cc-an-story" data-cc-an-story>
+          <rect class="cc-an-story-shell" x="0" y="38" width="196" height="382" rx="18"></rect>
+          <text class="cc-an-story-kicker" x="20" y="68" dominant-baseline="central">CHANNEL OBJECT</text>
+          <text class="cc-an-story-title" x="20" y="108">One live</text>
+          <text class="cc-an-story-title" x="20" y="140">software state</text>
+          <text class="cc-an-story-copy" x="20" y="178">
+            <tspan x="20" dy="0">Signals, intent, and</tspan>
+            <tspan x="20" dy="17">user context stay inside</tspan>
+            <tspan x="20" dy="17">one mutable surface.</tspan>
+          </text>
+          <g class="cc-an-story-step" transform="translate(20 244)">
+            <rect width="156" height="42" rx="11"></rect>
+            <text class="cc-an-step-index" x="14" y="21" dominant-baseline="central">01</text>
+            <text class="cc-an-step-label" x="48" y="21" dominant-baseline="central">read the world</text>
+          </g>
+          <g class="cc-an-story-step" transform="translate(20 300)">
+            <rect width="156" height="42" rx="11"></rect>
+            <text class="cc-an-step-index" x="14" y="21" dominant-baseline="central">02</text>
+            <text class="cc-an-step-label" x="48" y="21" dominant-baseline="central">route the intent</text>
+          </g>
+          <g class="cc-an-story-step" transform="translate(20 356)">
+            <rect width="156" height="42" rx="11"></rect>
+            <text class="cc-an-step-index" x="14" y="21" dominant-baseline="central">03</text>
+            <text class="cc-an-step-label" x="48" y="21" dominant-baseline="central">keep the state</text>
+          </g>
+        </g>
+
         <g class="cc-an-layer cc-an-input" data-cc-an-layer="input">
-          <rect class="cc-an-shell" x="40" y="40" width="600" height="92" rx="14"></rect>
-          <text class="cc-an-tag" x="60" y="62" dominant-baseline="central">INPUT</text>
+          <rect class="cc-an-shell" x="224" y="38" width="418" height="108" rx="16"></rect>
+          <text class="cc-an-tag" x="246" y="64" dominant-baseline="central">INPUT LAYERS</text>
           <g class="cc-an-pill">
-            <rect x="80" y="80" width="240" height="40" rx="20"></rect>
-            <circle class="cc-an-dot cc-an-pulse cc-an-pulse-mint" cx="148" cy="100" r="4"></circle>
-            <text class="cc-th" x="164" y="101" dominant-baseline="central" style="font-size:17px;">Live data</text>
+            <rect x="246" y="84" width="112" height="42" rx="21"></rect>
+            <circle class="cc-an-dot cc-an-pulse cc-an-pulse-mint" cx="266" cy="105" r="4"></circle>
+            <text class="cc-th" x="282" y="106" dominant-baseline="central" style="font-size:15px;">Live data</text>
           </g>
           <g class="cc-an-pill">
-            <rect x="360" y="80" width="240" height="40" rx="20"></rect>
-            <text class="cc-th" x="480" y="101" text-anchor="middle" dominant-baseline="central" style="font-size:17px;font-style:italic;">"what's happening?"</text>
+            <rect x="374" y="84" width="130" height="42" rx="21"></rect>
+            <text class="cc-th" x="439" y="106" text-anchor="middle" dominant-baseline="central" style="font-size:14.5px;font-style:italic;">"what now?"</text>
+          </g>
+          <g class="cc-an-pill">
+            <rect x="520" y="84" width="100" height="42" rx="21"></rect>
+            <circle class="cc-an-dot" cx="538" cy="105" r="4"></circle>
+            <text class="cc-th" x="552" y="106" dominant-baseline="central" style="font-size:14.5px;">Context</text>
           </g>
         </g>
 
         <g class="cc-an-connector" data-cc-an-connector="1">
-          <line x1="340" y1="146" x2="340" y2="172" marker-end="url(#${markerId})"></line>
+          <line x1="433" y1="156" x2="433" y2="186" marker-end="url(#${markerId})"></line>
         </g>
 
         <g class="cc-an-layer cc-an-agent" data-cc-an-layer="agent">
-          <rect class="cc-an-shell" x="40" y="180" width="600" height="80" rx="14"></rect>
-          <text class="cc-an-tag" x="60" y="202" dominant-baseline="central">AGENT</text>
+          <rect class="cc-an-shell" x="224" y="194" width="418" height="92" rx="16"></rect>
+          <text class="cc-an-tag" x="246" y="220" dominant-baseline="central">SPECIALIST AGENT</text>
           <g class="cc-an-pill">
-            <rect x="60" y="216" width="560" height="36" rx="18"></rect>
-            <circle class="cc-an-dot" cx="80" cy="234" r="4"></circle>
-            <text class="cc-ts" x="94" y="235" dominant-baseline="central">Specialist · picks what to query and how to show it</text>
+            <rect x="246" y="236" width="374" height="36" rx="18"></rect>
+            <circle class="cc-an-dot" cx="268" cy="254" r="4"></circle>
+            <text class="cc-ts" x="286" y="255" dominant-baseline="central">chooses sources, memory, layout, and next action</text>
           </g>
         </g>
 
         <g class="cc-an-connector" data-cc-an-connector="2">
-          <line x1="340" y1="274" x2="340" y2="300" marker-end="url(#${markerId})"></line>
+          <line x1="433" y1="296" x2="433" y2="326" marker-end="url(#${markerId})"></line>
         </g>
 
         <g class="cc-an-layer cc-an-surface" data-cc-an-layer="surface">
-          <rect class="cc-an-shell" x="40" y="308" width="600" height="116" rx="14"></rect>
-          <text class="cc-an-tag" x="60" y="330" dominant-baseline="central">SURFACE</text>
+          <rect class="cc-an-shell" x="224" y="334" width="418" height="86" rx="16"></rect>
+          <text class="cc-an-tag" x="246" y="360" dominant-baseline="central">MUTABLE SURFACE</text>
 
-          <g transform="translate(584,322)">
+          <g transform="translate(594,354)">
             <circle class="cc-an-pulse cc-an-pulse-amber" cx="0" cy="0" r="3.2"></circle>
             <text class="cc-an-live-text" x="9" y="0" dominant-baseline="central">LIVE</text>
           </g>
 
           <g class="cc-an-pill">
-            <rect x="60" y="342" width="140" height="70" rx="10"></rect>
-            <text class="cc-an-metric" data-cc-an-metric x="74" y="372" dominant-baseline="central">$103.2k</text>
-            <text class="cc-an-delta"  data-cc-an-delta  x="74" y="394" dominant-baseline="central">+2.4%</text>
+            <rect x="246" y="374" width="94" height="32" rx="10"></rect>
+            <text class="cc-an-metric" data-cc-an-metric x="258" y="390" dominant-baseline="central">$103.2k</text>
           </g>
 
           <g class="cc-an-pill">
-            <rect x="216" y="342" width="224" height="70" rx="10"></rect>
-            <line class="cc-an-axis" x1="230" y1="404" x2="426" y2="404"></line>
+            <rect x="356" y="374" width="154" height="32" rx="10"></rect>
+            <line class="cc-an-axis" x1="370" y1="398" x2="496" y2="398"></line>
             <polygon class="cc-an-fill" data-cc-an-spark-fill points=""></polygon>
             <polyline class="cc-an-line" data-cc-an-spark points=""></polyline>
-            <circle class="cc-an-cursor" data-cc-an-spark-cursor cx="426" cy="376" r="3"></circle>
+            <circle class="cc-an-cursor" data-cc-an-spark-cursor cx="496" cy="386" r="3"></circle>
           </g>
 
           <g class="cc-an-pill">
-            <rect x="456" y="342" width="164" height="70" rx="10"></rect>
-            <line class="cc-an-row" x1="470" y1="360" x2="606" y2="360"></line>
-            <line class="cc-an-row" x1="470" y1="378" x2="606" y2="378"></line>
-            <line class="cc-an-row" x1="470" y1="396" x2="606" y2="396"></line>
-            <circle class="cc-an-bullet" cx="476" cy="360" r="2.2"></circle>
-            <circle class="cc-an-bullet" cx="476" cy="378" r="2.2"></circle>
-            <circle class="cc-an-bullet" cx="476" cy="396" r="2.2"></circle>
-            <text class="cc-an-rail-time" data-cc-an-row="1" x="602" y="360" text-anchor="end" dominant-baseline="central">3s</text>
-            <text class="cc-an-rail-time" data-cc-an-row="2" x="602" y="378" text-anchor="end" dominant-baseline="central">12s</text>
-            <text class="cc-an-rail-time" data-cc-an-row="3" x="602" y="396" text-anchor="end" dominant-baseline="central">31s</text>
+            <rect x="526" y="374" width="94" height="32" rx="10"></rect>
+            <circle class="cc-an-bullet" cx="542" cy="390" r="2.2"></circle>
+            <text class="cc-an-state-label" x="556" y="390" dominant-baseline="central">state</text>
           </g>
         </g>
 
         <g class="cc-an-bracket" data-cc-an-bracket>
-          <path d="M648 44 Q660 44 660 64 L660 224 Q660 232 670 232 Q660 232 660 240 L660 420 Q660 428 648 428"></path>
-          <text x="672" y="232" text-anchor="middle" dominant-baseline="central" style="writing-mode:vertical-rl; transform: rotate(180deg); transform-origin:672px 232px;">one channel</text>
+          <path d="M654 42 Q672 42 672 64 L672 220 Q672 232 684 232 Q672 232 672 244 L672 396 Q672 418 654 418"></path>
+          <text x="692" y="232" text-anchor="middle" dominant-baseline="central" style="writing-mode:vertical-rl; transform: rotate(180deg); transform-origin:692px 232px;">one channel</text>
+        </g>
         </g>
       </g>
 
       <g data-cc-scene="1" style="display:none">
-        <g class="cc-fill-neutral cc-card" data-cc-query>
+        <g class="cc-fill-data cc-card cc-query-card" data-cc-query>
           <rect x="56" y="28" width="568" height="58" rx="15"></rect>
           <text class="cc-th" data-cc-q x="340" y="57" text-anchor="middle" dominant-baseline="central" style="font-style:italic;font-size:22px;">"What's happening with Iran?"</text>
         </g>
 
-        <g data-cc-view="0" class="cc-fill-agent cc-card">
+        <g data-cc-view="0" class="cc-fill-screen cc-card">
           <rect x="52" y="112" width="182" height="178" rx="15"></rect>
           <text class="cc-ts" x="143" y="134" text-anchor="middle" dominant-baseline="central">High-level view</text>
           <path class="cc-map-land" d="M78 175Q92 145 130 148Q171 143 198 160Q222 180 212 217Q198 249 160 255Q119 259 92 238Q70 211 78 175Z"></path>
@@ -130,7 +157,7 @@
           <text class="cc-ts" x="143" y="272" text-anchor="middle" dominant-baseline="central">region</text>
         </g>
 
-        <g data-cc-view="1" class="cc-fill-agent cc-card" opacity="0">
+        <g data-cc-view="1" class="cc-fill-screen cc-card" opacity="0">
           <rect x="249" y="112" width="182" height="178" rx="15"></rect>
           <text class="cc-ts" x="340" y="134" text-anchor="middle" dominant-baseline="central">Strait of Hormuz</text>
           <path class="cc-strait-land" d="M260 154Q300 146 340 160Q347 166 332 174Q300 181 260 180Z"></path>
@@ -143,7 +170,7 @@
           <text class="cc-ts" x="340" y="272" text-anchor="middle" dominant-baseline="central">strait</text>
         </g>
 
-        <g data-cc-view="2" class="cc-fill-agent cc-card" opacity="0">
+        <g data-cc-view="2" class="cc-fill-screen cc-card" opacity="0">
           <rect x="446" y="112" width="182" height="178" rx="15"></rect>
           <text class="cc-ts" x="537" y="134" text-anchor="middle" dominant-baseline="central">Tankers, live</text>
           <line x1="462" y1="222" x2="612" y2="222" class="cc-water-line" opacity="0.42"></line>
@@ -161,7 +188,7 @@
       </g>
 
       <g data-cc-scene="2" style="display:none">
-        <g class="cc-fill-agent cc-card" data-cc-share-source>
+        <g class="cc-fill-screen cc-card" data-cc-share-source>
           <rect x="228" y="42" width="224" height="68" rx="15"></rect>
           <text class="cc-th" x="340" y="68" text-anchor="middle" dominant-baseline="central">Your channel</text>
           <text class="cc-ts" x="340" y="92" text-anchor="middle" dominant-baseline="central" style="font-size:13px;">tankers in the strait</text>
@@ -178,17 +205,17 @@
           <line x1="340" y1="192" x2="340" y2="242" class="cc-arrow cc-arrow-soft" marker-end="url(#${markerId})"></line>
           <line x1="340" y1="192" x2="560" y2="242" class="cc-arrow cc-arrow-soft" marker-end="url(#${markerId})"></line>
 
-          <g class="cc-fill-agent cc-friend-card">
+          <g class="cc-fill-data cc-friend-card">
             <rect x="32" y="254" width="176" height="66" rx="15"></rect>
             <text class="cc-th" x="120" y="280" text-anchor="middle" dominant-baseline="central">Friend A</text>
             <text class="cc-ts" x="120" y="304" text-anchor="middle" dominant-baseline="central">just watches</text>
           </g>
-          <g class="cc-fill-agent cc-friend-card">
+          <g class="cc-fill-data cc-friend-card">
             <rect x="252" y="254" width="176" height="66" rx="15"></rect>
             <text class="cc-th" x="340" y="280" text-anchor="middle" dominant-baseline="central">Friend B</text>
             <text class="cc-ts" x="340" y="304" text-anchor="middle" dominant-baseline="central">asks about oil</text>
           </g>
-          <g class="cc-fill-agent cc-friend-card">
+          <g class="cc-fill-data cc-friend-card">
             <rect x="472" y="254" width="176" height="66" rx="15"></rect>
             <text class="cc-th" x="560" y="280" text-anchor="middle" dominant-baseline="central">Friend C</text>
             <text class="cc-ts" x="560" y="304" text-anchor="middle" dominant-baseline="central">zooms one tanker</text>
@@ -208,7 +235,7 @@
       </g>
 
       <g data-cc-scene="3" style="display:none">
-        <g class="cc-fill-agent cc-card" data-cc-inside-card>
+        <g class="cc-fill-screen cc-card" data-cc-inside-card>
           <rect x="176" y="38" width="328" height="76" rx="16"></rect>
           <text class="cc-th" x="340" y="64" text-anchor="middle" dominant-baseline="central" style="font-size:23px;">Inside the channel</text>
           <text class="cc-ts" x="340" y="88" text-anchor="middle" dominant-baseline="central" style="font-size:13.5px;">tankers slowing - prices climbing</text>
@@ -237,6 +264,7 @@
         </g>
 
         <text class="cc-ts" data-cc-action-cap x="340" y="333" text-anchor="middle" opacity="0"></text>
+      </g>
       </g>
     </svg>`;
   }
@@ -275,15 +303,7 @@
     }
     const scenes = Array.from(root.querySelectorAll("[data-cc-scene]"));
     const label = root.querySelector("[data-cc-label]");
-    const count = root.querySelector("[data-cc-count]");
-    const caption = root.querySelector("[data-cc-caption]");
-    const playButton = root.querySelector("[data-cc-play]");
-    const playLabel = root.querySelector("[data-cc-play-label]");
-    const prevButton = root.querySelector("[data-cc-prev]");
-    const nextButton = root.querySelector("[data-cc-next]");
     let current = 0;
-    let playing = false;
-    let playTimer = null;
     let activeInstances = [];
     let activeTimers = [];
     let activeIntervals = [];
@@ -373,20 +393,21 @@
     }
 
     function animateScene1(scene) {
+      const story        = scene.querySelector("[data-cc-an-story]");
       const inputLayer   = scene.querySelector('[data-cc-an-layer="input"]');
       const agentLayer   = scene.querySelector('[data-cc-an-layer="agent"]');
       const surfaceLayer = scene.querySelector('[data-cc-an-layer="surface"]');
       const connector1   = scene.querySelector('[data-cc-an-connector="1"]');
       const connector2   = scene.querySelector('[data-cc-an-connector="2"]');
       const bracket      = scene.querySelector('[data-cc-an-bracket]');
-      const stages = [inputLayer, connector1, agentLayer, connector2, surfaceLayer, bracket];
+      const stages = [story, inputLayer, connector1, agentLayer, connector2, surfaceLayer, bracket];
 
       stages.forEach((el) => el && el.classList.remove("in"));
 
       if (reduceMotion || !canAnimateNow()) {
         stages.forEach((el) => el && el.classList.add("in"));
       } else {
-        const delays = [200, 900, 1200, 2000, 2300, 3200];
+        const delays = [120, 520, 1050, 1300, 2050, 2300, 3050];
         stages.forEach((el, i) => {
           if (!el) return;
           later(() => el.classList.add("in"), delays[i]);
@@ -413,7 +434,7 @@
       if (metricEl) metricEl.textContent = `$${metricVal.toFixed(1)}k`;
       if (deltaEl)  deltaEl.textContent  = `+${deltaVal.toFixed(1)}%`;
 
-      const SPARK_X0 = 230, SPARK_X1 = 426, SPARK_Y_BASE = 376, SPARK_AMP = 22, BASELINE_Y = 404, N = 36;
+      const SPARK_X0 = 370, SPARK_X1 = 496, SPARK_Y_BASE = 386, SPARK_AMP = 10, BASELINE_Y = 398, N = 30;
       const vals = [];
       let v = 0;
       for (let i = 0; i < N; i++) {
@@ -585,57 +606,16 @@
         scene.style.transform = "";
       });
       if (label) label.textContent = steps[current].label;
-      if (count) count.textContent = `${current + 1} / ${steps.length}`;
-      if (caption) caption.textContent = steps[current].caption;
       const scene = scenes[current];
       if (scene) animateCurrentScene(scene, direction);
-      if (options.stopPlay) stopAutoPlay();
-    }
-
-    function stopAutoPlay() {
-      playing = false;
-      if (playTimer) window.clearInterval(playTimer);
-      playTimer = null;
-      if (playLabel) playLabel.textContent = "Play";
-      if (playButton) {
-        playButton.classList.remove("is-playing");
-        playButton.setAttribute("aria-pressed", "false");
-      }
-    }
-
-    function startAutoPlay() {
-      playing = true;
-      if (playLabel) playLabel.textContent = "Pause";
-      if (playButton) {
-        playButton.classList.add("is-playing");
-        playButton.setAttribute("aria-pressed", "true");
-      }
-      if (playTimer) window.clearInterval(playTimer);
-      playTimer = window.setInterval(() => {
-        showStep(current + 1, { direction: 1 });
-      }, 6000);
     }
 
     function onPrev() {
-      showStep(current - 1, { direction: -1, stopPlay: true });
+      showStep(current - 1, { direction: -1 });
     }
 
     function onNext() {
-      showStep(current + 1, { direction: 1, stopPlay: true });
-    }
-
-    function onPlay() {
-      if (playing) stopAutoPlay();
-      else startAutoPlay();
-    }
-
-    function onRootClick(event) {
-      const button = event.target?.closest?.("[data-cc-prev], [data-cc-next], [data-cc-play]");
-      if (!button || !root.contains(button)) return;
-      event.preventDefault();
-      if (button.matches("[data-cc-prev]")) onPrev();
-      else if (button.matches("[data-cc-next]")) onNext();
-      else onPlay();
+      showStep(current + 1, { direction: 1 });
     }
 
     function onKey(event) {
@@ -655,17 +635,14 @@
       if (event.origin !== window.location.origin) return;
       if (event.data?.type !== "channel-concept-step") return;
       const direction = Number(event.data.direction) < 0 ? -1 : 1;
-      showStep(current + direction, { direction, stopPlay: true });
+      showStep(current + direction, { direction });
     }
 
-    root.addEventListener("click", onRootClick, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("message", onMessage);
 
     window.__channelsConceptCleanup = function cleanupChannelsConcept() {
       clearMotion();
-      stopAutoPlay();
-      root.removeEventListener("click", onRootClick, true);
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("message", onMessage);
       if (window.__channelsConceptCleanup === cleanupChannelsConcept) {
@@ -683,19 +660,8 @@
 
     return `<div class="scene channel-concept" data-channel-concept-root="${escapeHtml(uid)}">
       <header class="cc-toolbar">
-        <div class="cc-step-label" data-cc-label aria-live="polite">${escapeHtml(steps[0].label)}</div>
-        <div class="cc-controls" aria-label="Channel animation controls">
-          <button class="cc-button" type="button" data-cc-prev aria-label="Previous step">
-            <span class="cc-arrow-icon" aria-hidden="true">&lsaquo;</span>
-          </button>
-          <span class="cc-count" data-cc-count aria-live="polite">1 / ${steps.length}</span>
-          <button class="cc-button" type="button" data-cc-next aria-label="Next step">
-            <span class="cc-arrow-icon" aria-hidden="true">&rsaquo;</span>
-          </button>
-          <button class="cc-button" type="button" data-cc-play aria-label="Play animation" aria-pressed="false">
-            <span class="cc-play-icon" aria-hidden="true"></span>
-            <span data-cc-play-label>Play</span>
-          </button>
+        <div class="cc-copy">
+          <div class="cc-step-label" data-cc-label aria-live="polite">${escapeHtml(steps[0].label)}</div>
         </div>
       </header>
       <div class="cc-viewport">${buildSvg(uid)}</div>
