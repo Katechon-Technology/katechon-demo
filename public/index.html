@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Katechon</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#050608">
   <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
   <link rel="alternate icon" href="/brand/favicon.ico">
@@ -396,6 +397,7 @@
       z-index: 29;
       display: none;
       pointer-events: none;
+      touch-action: none;
       background: transparent;
     }
     body.watch-mode #watch-input-layer {
@@ -2333,12 +2335,35 @@
     }
 
     @media (max-width: 860px) {
-      .overlay {
-        left: 5%; top: 9%;
-        width: 90%; height: 82%;
+      html,
+      body {
+        height: auto;
+        min-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      body {
+        min-height: 100svh;
+        -webkit-overflow-scrolling: touch;
+      }
+      #email-overlay,
+      #main-overlay {
+        position: relative;
+        left: auto;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        width: auto;
+        height: auto;
+        min-height: calc(100svh - 36px);
+        margin: max(18px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
       }
       .email-card { width: min(376px, 100%); }
-      #main-overlay { width: 90%; padding: 26px 22px; gap: 22px; }
+      #main-overlay {
+        overflow: visible;
+        padding: 26px 22px max(42px, calc(env(safe-area-inset-bottom) + 28px));
+        gap: 22px;
+      }
       .main-title { font-size: 39px; }
       .main-sub { font-size: 15px; }
       .layout-control-row { margin-top: 14px; }
@@ -2346,9 +2371,14 @@
       .gif-row,
       .gif-row-primary,
       .gif-row-dashboard { grid-template-columns: 1fr; max-height: none; overflow: visible; padding-right: 4px; }
-      .gif-groups { max-height: 58vh; overflow: auto; padding-right: 4px; }
+      .gif-groups { max-height: none; overflow: visible; padding-right: 4px; }
       .gif-box { aspect-ratio: 16/9; min-height: 126px; }
-      #main-overlay[data-layout="showcase"] .gif-groups { max-height: 58vh; }
+      #main-overlay[data-layout="showcase"] .gif-groups,
+      #main-overlay[data-layout="rows"] .gif-groups,
+      #main-overlay[data-layout="spotlight"] .gif-groups {
+        max-height: none;
+        overflow: visible;
+      }
       #main-overlay[data-layout="showcase"] .gif-row-primary,
       #main-overlay[data-layout="showcase"] .gif-row-dashboard { grid-template-columns: 1fr; }
       #main-overlay[data-layout="showcase"] .gif-row-dashboard .gif-box {
@@ -3979,6 +4009,7 @@
     let dashboardPrefetchTimer = null;
     let startupAudioDashboardId = null;
     let startupAudioPayload = null;
+    let watchTouchGesture = null;
     const CHANNEL_MUSIC_STORAGE_KEY = 'katechon.channelMusic.enabled.v1';
     const CHANNEL_MUSIC_VOLUME = 0.24;
     const CHANNEL_MUSIC_DUCKED_VOLUME = 0.08;
@@ -3996,6 +4027,7 @@
     const DASHBOARD_KEY_HOLD_START_MS = 180;
     const DASHBOARD_NAV_MAX_PENDING_STEPS = 10;
     const DASHBOARD_WHEEL_STEP_DELTA = 96;
+    const WATCH_TOUCH_STEP_DELTA = 72;
     const DASHBOARD_INPUT_BURST_MS = 220;
     const DASHBOARD_REMOTE_SWITCH_DEBOUNCE = 150;
     const DASHBOARD_NARRATION_DEBOUNCE = 360;
@@ -5472,6 +5504,46 @@
       enqueueDashboardSteps(delta > 0 ? 1 : -1, 1);
     }
 
+    function handleWatchTouchStart(event) {
+      if (!watchMode.active || !currentDashboardId || event.touches.length !== 1) {
+        watchTouchGesture = null;
+        return;
+      }
+      const touch = event.touches[0];
+      watchTouchGesture = {
+        startX: touch.clientX,
+        startY: touch.clientY,
+        lastStepY: touch.clientY,
+        horizontalTriggered: false,
+      };
+    }
+
+    function handleWatchTouchMove(event) {
+      if (!watchMode.active || !currentDashboardId || !watchTouchGesture || event.touches.length !== 1) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const touch = event.touches[0];
+      const totalX = touch.clientX - watchTouchGesture.startX;
+      const totalY = touch.clientY - watchTouchGesture.startY;
+      const stepY = touch.clientY - watchTouchGesture.lastStepY;
+      if (
+        !watchTouchGesture.horizontalTriggered &&
+        Math.abs(totalX) > Math.abs(totalY) &&
+        Math.abs(totalX) > WATCH_TOUCH_STEP_DELTA
+      ) {
+        watchTouchGesture.horizontalTriggered = true;
+        runWatchPrompt('inCard');
+        return;
+      }
+      if (Math.abs(stepY) < WATCH_TOUCH_STEP_DELTA) return;
+      const direction = stepY < 0 ? 1 : -1;
+      if (enqueueDashboardSteps(direction, 1)) watchTouchGesture.lastStepY = touch.clientY;
+    }
+
+    function handleWatchTouchEnd() {
+      watchTouchGesture = null;
+    }
+
     function syncFullscreenButton() {
       const fullscreen = document.body.classList.contains('dashboard-fullscreen');
       fullscreenButton.classList.toggle('is-fullscreen', fullscreen);
@@ -5804,7 +5876,12 @@
       });
     });
     document.getElementById('watch-fork')?.addEventListener('click', forkWatchState);
-    document.getElementById('watch-input-layer')?.addEventListener('wheel', handleWatchWheel, { passive: false });
+    const watchInputLayer = document.getElementById('watch-input-layer');
+    watchInputLayer?.addEventListener('wheel', handleWatchWheel, { passive: false });
+    watchInputLayer?.addEventListener('touchstart', handleWatchTouchStart, { passive: true });
+    watchInputLayer?.addEventListener('touchmove', handleWatchTouchMove, { passive: false });
+    watchInputLayer?.addEventListener('touchend', handleWatchTouchEnd, { passive: true });
+    watchInputLayer?.addEventListener('touchcancel', handleWatchTouchEnd, { passive: true });
     document.addEventListener('fullscreenchange', () => {
       if (!document.fullscreenElement && document.body.classList.contains('dashboard-fullscreen')) {
         setDashboardFullscreen(false, false);
@@ -6751,7 +6828,7 @@
       }
       if (isDuneDeckSlideCommand(text)) {
         sendDuneDeckSlideCommand(text);
-        showToast('Kat is generating a slide', '#00e87b');
+        showToast('Kat is morphing the channel', '#00e87b');
         return;
       }
       const r = await fetch(appUrl('/api/agent'), {
