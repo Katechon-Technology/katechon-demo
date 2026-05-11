@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="blank-dashboard-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -4073,9 +4073,124 @@
       .action-rail { grid-template-columns: 1fr; }
       .action-rail-share { justify-self: stretch; text-align: center; }
     }
+
+    html.blank-dashboard-root,
+    body.blank-dashboard {
+      height: 100%;
+      min-height: 100%;
+      overflow: hidden;
+    }
+    body.blank-dashboard .app {
+      min-height: 100vh;
+      height: 100vh;
+      padding: clamp(14px, 2.2vw, 26px);
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: clamp(12px, 2vw, 22px);
+    }
+    body.blank-dashboard .topbar {
+      min-height: auto;
+      grid-template-columns: minmax(0, 1fr);
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    body.blank-dashboard h1 {
+      max-width: min(980px, 100%);
+      color: rgba(243,246,248,0.95);
+      font-size: clamp(34px, 6vh, 76px);
+      line-height: 0.96;
+      text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    body.blank-dashboard .kicker,
+    body.blank-dashboard .command-panel,
+    body.blank-dashboard .topbar-meta,
+    body.blank-dashboard .generated-breadcrumb,
+    body.blank-dashboard .generated-page,
+    body.blank-dashboard .pitch-morph,
+    body.blank-dashboard .pulse-strip,
+    body.blank-dashboard .metrics,
+    body.blank-dashboard .stage-thesis,
+    body.blank-dashboard .section-head,
+    body.blank-dashboard .small-multiples,
+    body.blank-dashboard .rail,
+    body.blank-dashboard .action-rail,
+    body.blank-dashboard .kat-target-ring,
+    body.blank-dashboard .kat-target-modal,
+    body.blank-dashboard .generated-modal {
+      display: none !important;
+    }
+    body.blank-dashboard .workspace,
+    body.blank-dashboard .main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+    }
+    body.blank-dashboard .stage-wrap.cockpit {
+      min-width: 0;
+      min-height: 0;
+      padding: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    body.blank-dashboard .stage {
+      min-height: 0;
+      height: 100%;
+      border: 1px solid color-mix(in srgb, var(--accent) 36%, rgba(255,255,255,0.14));
+      border-radius: 8px;
+      background:
+        linear-gradient(rgba(255,255,255,0.024) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.020) 1px, transparent 1px),
+        radial-gradient(circle at 24% 18%, color-mix(in srgb, var(--accent2) 12%, transparent), transparent 30%),
+        radial-gradient(circle at 72% 74%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+        rgba(0,0,0,0.22);
+      background-size: 42px 42px, 42px 42px, auto, auto, auto;
+      box-shadow:
+        0 24px 76px rgba(0,0,0,0.34),
+        inset 0 0 64px rgba(255,255,255,0.025);
+    }
+    body.blank-dashboard .stage::after {
+      opacity: 0.72;
+    }
+    body.blank-dashboard .scene-grid {
+      opacity: 0.42;
+    }
+    body.blank-dashboard .scan-line {
+      opacity: 0.44;
+    }
+    body.blank-dashboard .texture-video {
+      opacity: 0.18;
+    }
+    body.blank-dashboard .asset-plane {
+      opacity: 0.18;
+    }
+
+    @media (max-width: 860px) {
+      html.blank-dashboard-root,
+      body.blank-dashboard {
+        height: 100%;
+        min-height: 100%;
+        overflow: hidden;
+      }
+      body.blank-dashboard .app {
+        height: 100vh;
+        min-height: 100vh;
+      }
+      body.blank-dashboard .stage {
+        min-height: 0;
+      }
+    }
   </style>
 </head>
-<body>
+<body class="blank-dashboard">
   <main class="app">
     <header class="topbar">
       <div>

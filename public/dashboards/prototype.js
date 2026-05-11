@@ -33,6 +33,7 @@
     if (identity.className) document.body.classList.add(identity.className);
     const palette = palettes[config.palette] || palettes.acid;
     const generatedSlotNames = ["rail", "stageOverlay", "modal"];
+    const blankDashboardMode = true;
     const state = {
       activeFeed: 0,
       tick: 0,
@@ -1722,6 +1723,10 @@
 
     function render() {
       setTheme();
+      if (blankDashboardMode) {
+        renderBlankDashboard();
+        return;
+      }
       const page = activeGeneratedPage();
       const pitchMorph = dashboardId === "dune-deck" ? state.pitchMorph : null;
       const title = pitchMorph ? baseChannelTitle : page?.thesis?.title || config.title;
@@ -1765,6 +1770,65 @@
         setInterval(updateClock, 10000);
         setInterval(loadLiveData, 12000);
       }
+    }
+
+    function renderBlankDashboard() {
+      const title = baseChannelTitle || config.title || "Katechon";
+      document.title = `${title} - Katechon`;
+      document.documentElement.classList.add("blank-dashboard-root");
+      document.body.classList.add("blank-dashboard");
+      document.body.classList.remove("generated-page-active", "pitch-morph-active", "has-command-panel", "replay-stage", "replay-provenance", "replay-next");
+      document.body.dataset.generatedView = "blank";
+      document.body.dataset.generatedMode = "blank";
+      document.body.dataset.generatedTemplate = "";
+      const overrideStyle = document.getElementById("dashboard-voice-override-css");
+      if (overrideStyle) overrideStyle.textContent = "";
+      $("title").textContent = title;
+      [
+        "kicker",
+        "command-status",
+        "visual-label",
+        "visual-copy",
+        "feed-label",
+        "pulse-kicker",
+        "pulse-now",
+        "pulse-delta",
+        "pulse-range",
+        "thesis-headline",
+        "thesis-trail",
+        "thesis-big",
+        "thesis-small",
+        "source-chip",
+        "clock",
+        "evidence-label",
+        "evidence-chip",
+      ].forEach((id) => {
+        const node = $(id);
+        if (node) node.textContent = "";
+      });
+      [
+        "metrics",
+        "pulse-cells",
+        "small-multiples",
+        "feed",
+        "evidence-cards",
+        "generated-rail",
+        "generated-page",
+        "generated-breadcrumb",
+        "pitch-morph",
+        "generated-modal",
+      ].forEach((id) => {
+        const node = $(id);
+        if (!node) return;
+        node.innerHTML = "";
+        if ("hidden" in node) node.hidden = true;
+      });
+      ["command-panel", "provenance-chip", "lens-chip", "narration-ticker"].forEach((id) => {
+        const node = $(id);
+        if (node && "hidden" in node) node.hidden = true;
+      });
+      renderBlankStage();
+      if (!dashboardRendered) dashboardRendered = true;
     }
 
     function renderMetrics() {
@@ -2944,6 +3008,12 @@
       wireSceneInteractions();
       runSceneMotion();
       requestAnimationFrame(renderGeneratedCharts);
+    }
+
+    function renderBlankStage() {
+      const stage = $("stage");
+      if (!stage) return;
+      stage.innerHTML = "";
     }
 
     function metricText(index) {
