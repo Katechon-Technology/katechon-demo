@@ -522,7 +522,7 @@
       api: null,
       asset: "share-thumbnails/what-comes-after-the-feed.jpg",
       kicker: "katechon technology / post-feed",
-      title: "What Comes After the Feed",
+      title: "What comes after the feed?",
       subtitle: "A pitch surface for replacing passive ranked media with commandable, shareable software channels.",
       visualLabel: "post-feed software surface",
       visualCopy: "The next surface is not another stream of posts; it is live state users can watch, command, share, and fork.",
@@ -536,6 +536,11 @@
         ["share", "The result spreads as replayable state, not a flattened post.", "distribution"],
       ],
       caption: "Kat reads this as the post-feed thesis: attention becomes interactive software state.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/feed-substitution.css",
+        script: "dashboards/identities/feed-substitution.js",
+      },
     },
     channels: {
       palette: "katechon",

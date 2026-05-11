@@ -1,0 +1,464 @@
+/* ============================================================
+   feed-substitution identity
+   "What Comes After the Feed?" — Google→Claude precedent vs.
+   Feed→? repeat. Click/arrow through 4 states. State 3 escalates
+   the single `?` glyph from the puzzle cell to scene-center.
+   ============================================================ */
+
+.scene.feed-sub-identity {
+  inset: 0;
+  padding: clamp(16px, 1.8vw, 32px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto 1fr;
+  column-gap: clamp(20px, 2.4vw, 40px);
+  row-gap: clamp(14px, 1.8vw, 26px);
+  min-height: 0;
+}
+
+.feed-sub-identity .col-precedent { --fs-accent: #7de8ff; }
+.feed-sub-identity .col-repeat    { --fs-accent: #00e87b; }
+
+/* ===== Queries ===== */
+.feed-sub-identity .query {
+  position: relative;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(14px, 1.2vw, 20px);
+  letter-spacing: 0.02em;
+  color: rgba(243,246,248,0.92);
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--fs-accent) 28%, rgba(255,255,255,0.10));
+  border-radius: 8px;
+  background: rgba(0,0,0,0.32);
+  display: flex; align-items: center; gap: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 520ms ease, filter 520ms ease;
+}
+.feed-sub-identity .query::before {
+  content: "›";
+  color: var(--fs-accent);
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.feed-sub-identity .query .key {
+  position: absolute;
+  top: -16px; left: 4px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--fs-accent) 80%, transparent);
+}
+.feed-sub-identity .query.is-future { opacity: 0.38; filter: saturate(0.5); }
+.feed-sub-identity .query.is-past   { opacity: 0.6;  filter: saturate(0.78); }
+.feed-sub-identity .query.is-active { opacity: 1; }
+
+.feed-sub-identity .q-precedent { grid-column: 1; grid-row: 1; }
+.feed-sub-identity .q-repeat    { grid-column: 2; grid-row: 1; }
+
+/* ===== Cells ===== */
+.feed-sub-identity .cell {
+  position: relative;
+  min-width: 0; min-height: 0;
+  border: 1px solid color-mix(in srgb, var(--fs-accent) 22%, rgba(255,255,255,0.07));
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--fs-accent) 7%, transparent), transparent 50%),
+    rgba(0,0,0,0.32);
+  box-shadow: inset 0 0 28px rgba(255,255,255,0.022);
+  overflow: hidden;
+  transition:
+    opacity 520ms cubic-bezier(0.4, 0.02, 0.4, 1),
+    filter 520ms ease,
+    border-color 520ms ease,
+    box-shadow 520ms ease;
+}
+.feed-sub-identity .cell.is-future {
+  opacity: 0.32;
+  filter: saturate(0.42);
+}
+.feed-sub-identity .cell.is-past {
+  opacity: 0.5;
+  filter: saturate(0.68);
+}
+.feed-sub-identity .cell.is-active {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--fs-accent) 52%, rgba(255,255,255,0.18));
+  box-shadow:
+    inset 0 0 32px rgba(0,232,123,0.06),
+    0 0 24px color-mix(in srgb, var(--fs-accent) 20%, transparent);
+}
+.feed-sub-identity .cell .brand {
+  position: absolute; top: 10px; left: 14px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10.5px; letter-spacing: 0.24em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--fs-accent) 80%, rgba(255,255,255,0.4));
+  z-index: 4;
+}
+
+.feed-sub-identity .c-google { grid-column: 1; grid-row: 2; }
+.feed-sub-identity .c-claude { grid-column: 1; grid-row: 4; }
+.feed-sub-identity .c-feed   { grid-column: 2; grid-row: 2; }
+.feed-sub-identity .c-puzzle { grid-column: 2; grid-row: 4; }
+
+.feed-sub-identity .connector {
+  display: grid; place-items: center;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(18px, 1.6vw, 26px);
+  color: color-mix(in srgb, var(--fs-accent) 55%, transparent);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--fs-accent) 40%, transparent);
+}
+.feed-sub-identity .ct-precedent { grid-column: 1; grid-row: 3; }
+.feed-sub-identity .ct-repeat    { grid-column: 2; grid-row: 3; }
+
+/* ===== Google SERP ===== */
+.feed-sub-identity .serp {
+  position: absolute; inset: 0;
+  padding: 36px 20px 18px;
+  display: grid;
+  grid-template-rows: repeat(5, 1fr);
+  gap: 8px;
+}
+.feed-sub-identity .serp-row { padding-right: 40px; align-self: center; }
+.feed-sub-identity .serp-url {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px; letter-spacing: 0.04em;
+  color: rgba(243,246,248,0.32);
+  margin-bottom: 5px;
+}
+.feed-sub-identity .serp-title {
+  height: 9px; width: 64%; max-width: 280px;
+  background: linear-gradient(90deg, rgba(125,232,255,0.62), rgba(125,232,255,0.22));
+  border-radius: 2px;
+  margin-bottom: 5px;
+}
+.feed-sub-identity .serp-snippet {
+  height: 5px; width: 92%; max-width: 360px;
+  background: rgba(255,255,255,0.16);
+  border-radius: 2px;
+}
+
+/* ===== Claude answer ===== */
+.feed-sub-identity .claude {
+  position: absolute; inset: 0;
+  padding: 38px 20px 20px;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 14px;
+}
+.feed-sub-identity .claude-bubble {
+  border-left: 2px solid var(--fs-accent);
+  padding: 4px 0 4px 14px;
+  align-self: center;
+}
+.feed-sub-identity .claude-line {
+  height: 7px;
+  background: rgba(243,246,248,0.46);
+  border-radius: 2px; margin-bottom: 8px;
+}
+.feed-sub-identity .claude-line:last-child { margin-bottom: 0; }
+.feed-sub-identity .claude-line.w95 { width: 92%; max-width: 360px; }
+.feed-sub-identity .claude-line.w80 { width: 78%; max-width: 300px; }
+.feed-sub-identity .claude-line.w65 { width: 62%; max-width: 240px; }
+.feed-sub-identity .claude-pills {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  align-self: end;
+}
+.feed-sub-identity .claude-pills span {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px; letter-spacing: 0.18em; text-transform: lowercase;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--fs-accent) 42%, transparent);
+  border-radius: 4px;
+  color: var(--fs-accent);
+  background: rgba(0,0,0,0.42);
+}
+
+/* ===== Scrolling feed ===== */
+.feed-sub-identity .fs-feed { position: absolute; inset: 0; overflow: hidden; }
+.feed-sub-identity .fs-feed-mask {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg,
+    rgba(5,8,10,0.95), rgba(5,8,10,0.55) 14%,
+    transparent 22%, transparent 78%,
+    rgba(5,8,10,0.55) 86%, rgba(5,8,10,0.95));
+  z-index: 3;
+}
+.feed-sub-identity .fs-feed-scroller {
+  position: absolute; inset: 0;
+  padding: 8px 20px;
+  animation: fs-feedScroll 26s linear infinite;
+  will-change: transform;
+}
+@keyframes fs-feedScroll {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+.feed-sub-identity .fs-feed-row {
+  display: grid; grid-template-columns: 26px 1fr; gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.07);
+}
+.feed-sub-identity .fs-feed-av {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(255,255,255,0.16);
+}
+.feed-sub-identity .fs-feed-row.hot .fs-feed-av { background: rgba(0,232,123,0.45); }
+.feed-sub-identity .fs-feed-row.alt .fs-feed-av { background: rgba(125,232,255,0.32); }
+.feed-sub-identity .fs-feed-handle {
+  height: 7px; width: 38%;
+  background: rgba(255,255,255,0.32);
+  border-radius: 2px; margin-bottom: 6px;
+}
+.feed-sub-identity .fs-feed-text {
+  height: 5px;
+  background: rgba(255,255,255,0.18);
+  border-radius: 2px; margin-bottom: 4px;
+}
+.feed-sub-identity .fs-feed-text.w95 { width: 95%; }
+.feed-sub-identity .fs-feed-text.w80 { width: 80%; }
+.feed-sub-identity .fs-feed-text.w55 { width: 55%; }
+
+/* ===== Puzzle cell (no `?` lives here — see overlay below) ===== */
+.feed-sub-identity .puzzle {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--fs-accent) 32%, rgba(255,255,255,0.06));
+  background:
+    repeating-linear-gradient(135deg, rgba(0,232,123,0.025) 0 14px, transparent 14px 28px),
+    rgba(0,0,0,0.28);
+}
+.feed-sub-identity .puzzle.has-escalation {
+  z-index: 12;
+  animation: fs-puzzleRise 14s cubic-bezier(0.4, 0.02, 0.4, 1) forwards;
+}
+@keyframes fs-puzzleRise {
+  0% {
+    box-shadow: inset 0 0 28px rgba(255,255,255,0.022);
+    border-color: color-mix(in srgb, #00e87b 32%, rgba(255,255,255,0.06));
+    transform: scale(1);
+  }
+  35% {
+    border-color: color-mix(in srgb, #00e87b 52%, rgba(255,255,255,0.14));
+    box-shadow:
+      inset 0 0 56px rgba(0,232,123,0.18),
+      0 0 48px color-mix(in srgb, #00e87b 22%, transparent),
+      0 0 120px color-mix(in srgb, #00e87b 12%, transparent);
+    transform: scale(1.015);
+  }
+  55% {
+    border-color: color-mix(in srgb, #00e87b 64%, rgba(255,255,255,0.16));
+    box-shadow:
+      inset 0 0 84px rgba(0,232,123,0.26),
+      0 0 96px color-mix(in srgb, #00e87b 32%, transparent),
+      0 0 220px color-mix(in srgb, #00e87b 18%, transparent);
+    transform: scale(1.022);
+  }
+  100% {
+    border-color: color-mix(in srgb, #00e87b 18%, rgba(255,255,255,0.05));
+    box-shadow: inset 0 0 24px rgba(255,255,255,0.02);
+    transform: scale(1);
+  }
+}
+
+.feed-sub-identity .puzzle::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(0,232,123,0.04) 3px 4px);
+  opacity: 0;
+  z-index: 5;
+}
+.feed-sub-identity .puzzle.has-escalation::before {
+  animation: fs-scanlinesIn 14s ease-out forwards;
+}
+@keyframes fs-scanlinesIn {
+  0%, 20% { opacity: 0; }
+  45%     { opacity: 0.7; }
+  80%     { opacity: 0.4; }
+  100%    { opacity: 0; }
+}
+
+.feed-sub-identity .puzzle::after {
+  content: "";
+  position: absolute; left: 0; right: 0;
+  height: 2px; top: -2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--fs-accent), transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--fs-accent) 65%, transparent);
+  opacity: 0;
+  z-index: 6;
+}
+.feed-sub-identity .puzzle.has-escalation::after {
+  animation:
+    fs-scanBeamIntro 14s ease-out forwards,
+    fs-scanBeamLoop 5.2s linear 4s 2;
+}
+@keyframes fs-scanBeamIntro {
+  0%, 22% { opacity: 0; }
+  28%     { opacity: 0.85; }
+  55%     { opacity: 0.7; }
+  80%     { opacity: 0.3; }
+  100%    { opacity: 0; }
+}
+@keyframes fs-scanBeamLoop {
+  0%   { top: -2px; }
+  100% { top: 100%; }
+}
+
+.feed-sub-identity .puzzle .brand {
+  color: color-mix(in srgb, var(--fs-accent) 60%, rgba(255,255,255,0.3));
+}
+.feed-sub-identity .puzzle-hint {
+  position: absolute; inset: 26px;
+  display: grid; grid-template-rows: 20px 1fr 22px; gap: 12px;
+  opacity: 0.16;
+  filter: blur(2px);
+}
+.feed-sub-identity .puzzle.has-escalation .puzzle-hint {
+  animation: fs-hintReveal 14s ease-out forwards;
+}
+@keyframes fs-hintReveal {
+  0%   { opacity: 0.16; filter: blur(2px); }
+  40%  { opacity: 0.45; filter: blur(0.5px); }
+  75%  { opacity: 0.25; filter: blur(1px); }
+  100% { opacity: 0;    filter: blur(3px); }
+}
+.feed-sub-identity .ph-strip {
+  background: linear-gradient(90deg,
+    rgba(0,232,123,0.55),
+    rgba(0,232,123,0.12) 38%,
+    rgba(125,232,255,0.32) 70%,
+    rgba(0,232,123,0.05));
+  border-radius: 3px;
+}
+.feed-sub-identity .ph-stage {
+  border-radius: 4px;
+  background:
+    radial-gradient(circle at 32% 42%, rgba(0,232,123,0.32), transparent 44%),
+    radial-gradient(circle at 70% 60%, rgba(125,232,255,0.22), transparent 48%),
+    rgba(0,0,0,0.3);
+}
+.feed-sub-identity .ph-actions {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+}
+.feed-sub-identity .ph-actions span {
+  background: rgba(0,232,123,0.28); border-radius: 3px;
+}
+
+.feed-sub-identity .puzzle-mask {
+  position: absolute; inset: 26px;
+  border-radius: 6px;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(5,6,8,0.84) 70%);
+  pointer-events: none;
+}
+.feed-sub-identity .puzzle.has-escalation .puzzle-mask {
+  animation: fs-maskThin 14s ease-out forwards;
+}
+@keyframes fs-maskThin {
+  0%   { background: radial-gradient(ellipse at center, transparent 0%,  rgba(5,6,8,0.86) 70%); }
+  45%  { background: radial-gradient(ellipse at center, transparent 36%, rgba(5,6,8,0.30) 96%); }
+  100% { background: radial-gradient(ellipse at center, transparent 0%,  rgba(5,6,8,0.92) 60%); }
+}
+
+/* ===== Single `?` overlay — only one `?` exists, anywhere ===== */
+.feed-sub-identity .puzzle-dominant {
+  grid-column: 1 / 3;
+  grid-row: 2 / 5;
+  align-self: stretch;
+  justify-self: stretch;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 35;
+  min-width: 0; min-height: 0;
+}
+.feed-sub-identity .puzzle-q-wrap {
+  display: inline-block;
+  opacity: 0;
+  transform: translate(var(--qcell-dx, 0px), var(--qcell-dy, 0px));
+  transition: opacity 240ms ease;
+}
+.feed-sub-identity .puzzle-q-wrap.is-ready { opacity: 1; }
+body.escalating .feed-sub-identity .puzzle-q-wrap {
+  animation: fs-qMorph 14s cubic-bezier(0.4, 0.02, 0.4, 1) forwards;
+}
+@keyframes fs-qMorph {
+  0% {
+    transform: translate(var(--qcell-dx, 0px), var(--qcell-dy, 0px));
+  }
+  55% {
+    transform: translate(
+      calc(var(--qcell-dx, 0px) * 0.35),
+      calc(var(--qcell-dy, 0px) * 0.35 - 2vh)
+    );
+  }
+  100% {
+    transform: translate(0px, -6vh);
+  }
+}
+
+.feed-sub-identity .puzzle-q-big {
+  display: inline-block;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: clamp(64px, 8vw, 120px);
+  font-weight: 700;
+  line-height: 0.9;
+  color: #00e87b;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 22px color-mix(in srgb, #00e87b 38%, transparent);
+  will-change: transform, font-size, text-shadow;
+}
+body.escalating .feed-sub-identity .puzzle-q-big {
+  animation:
+    fs-qBigGrow 14s cubic-bezier(0.4, 0.02, 0.4, 1) forwards,
+    fs-qBreathe 2.8s ease-in-out 1.5s infinite,
+    fs-qChromatic 5.4s steps(1) 4s infinite,
+    fs-qJitter 7.3s steps(1) 8s infinite;
+}
+@keyframes fs-qBigGrow {
+  0%   { font-size: clamp(64px,  8vw, 120px); letter-spacing: 0.08em; }
+  35%  { font-size: clamp(160px, 18vw, 300px); letter-spacing: 0.12em; }
+  70%  { font-size: clamp(260px, 30vw, 480px); letter-spacing: 0.16em; }
+  100% { font-size: clamp(340px, 38vw, 640px); letter-spacing: 0.20em; }
+}
+@keyframes fs-qBreathe {
+  0%, 100% { filter: brightness(1.0); }
+  50%      { filter: brightness(1.28); }
+}
+@keyframes fs-qChromatic {
+  0%, 92% {
+    text-shadow: 0 0 44px color-mix(in srgb, #00e87b 55%, transparent);
+  }
+  93%, 94% {
+    text-shadow:
+      -3px 0 0 rgba(255,80,120,0.85),
+      3px 0 0 rgba(125,232,255,0.85),
+      0 0 44px color-mix(in srgb, #00e87b 55%, transparent);
+  }
+  95% {
+    text-shadow:
+      2px 1px 0 rgba(125,232,255,0.7),
+      -2px -1px 0 rgba(255,80,120,0.7),
+      0 0 44px color-mix(in srgb, #00e87b 55%, transparent);
+  }
+  96%, 100% {
+    text-shadow: 0 0 44px color-mix(in srgb, #00e87b 55%, transparent);
+  }
+}
+@keyframes fs-qJitter {
+  0%, 95%, 100% { transform: translate(0, 0); }
+  96%           { transform: translate(-2px, 1px); }
+  97%           { transform: translate(2px, -1px); }
+  98%           { transform: translate(-1px, 0); }
+}
+
+/* Title's `?` glows in sync (JS wraps the trailing `?` in a span) */
+body.blank-dashboard[data-dashboard="what-comes-after-the-feed"] h1 .fs-title-q {
+  display: inline-block;
+  transition: color 600ms ease, text-shadow 600ms ease;
+}
+body.escalating[data-dashboard="what-comes-after-the-feed"] h1 .fs-title-q {
+  color: #00e87b;
+  text-shadow: 0 0 32px color-mix(in srgb, #00e87b 60%, transparent);
+}
