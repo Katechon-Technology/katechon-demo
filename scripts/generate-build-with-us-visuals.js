@@ -6,6 +6,7 @@
 //   REPLICATE_API_TOKEN=... node scripts/generate-build-with-us-visuals.js
 //   node scripts/generate-build-with-us-visuals.js --only=iran
 //   node scripts/generate-build-with-us-visuals.js --only=tanker-schematic
+//   node scripts/generate-build-with-us-visuals.js --only=tanker-night
 //   node scripts/generate-build-with-us-visuals.js --force
 
 const fs = require("fs");
@@ -74,6 +75,15 @@ const SHOTS = [
     file: "tanker.mp4",
     prompt:
       "Slow cinematic top-down aerial dolly at sunrise over a single enormous crude oil supertanker cutting through dark blue water in the Strait of Hormuz, long white wake trailing behind, deck details visible — red pipes, white storage domes, crane silhouettes, distant Iranian coastline faintly on the horizon, warm amber and deep navy palette, photoreal documentary news drone footage, satellite-to-aerial blend, no text, no logos.",
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
+  {
+    id: "tanker-night",
+    kind: "video",
+    file: "tanker-night.mp4",
+    prompt:
+      "Elegant cinematic night shot in the Strait of Hormuz, a single enormous crude oil tanker moving slowly through black water, sparse warm deck lights and navigation lights reflecting on the sea, faint dark coastline and a few distant refinery lights on the horizon, moonless deep navy sky, quiet geopolitical documentary b-roll, slow aerial pullback, no interface, no text, no logos.",
     duration: 5,
     aspect_ratio: "16:9",
   },

@@ -1,6 +1,7 @@
 /* Final slide: a channel snapshot inside a single broadcasting box.
-   Five scenes back to back: Iran, Strait of Hormuz, tanker deep dive,
-   a Replicate/Seedream tanker schematic, then the final Hormuz live state. */
+   Six scenes back to back: Iran, Strait of Hormuz, tanker deep dive,
+   a Replicate/Seedream tanker schematic, the Hormuz live state, then
+   a clean night tanker video closer. */
 
 body[data-dashboard="build-with-us"] {
   background: #000 !important;
@@ -91,7 +92,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-root[data-bwu-scene="seed"]   .bwu-scene-seed,
 .bwu-root[data-bwu-scene="tanker"] .bwu-scene-tanker,
 .bwu-root[data-bwu-scene="schematic"] .bwu-scene-schematic,
-.bwu-root[data-bwu-scene="channel"] .bwu-scene-channel {
+.bwu-root[data-bwu-scene="channel"] .bwu-scene-channel,
+.bwu-root[data-bwu-scene="night"] .bwu-scene-night {
   opacity: 1;
   pointer-events: auto;
 }
@@ -120,12 +122,13 @@ body[data-dashboard="build-with-us"] .action-rail {
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
 
-/* Iran + Strait + Tanker + schematic + channel scenes all use a video background. */
+/* Iran + Strait + Tanker + schematic + channel + night scenes all use a video background. */
 .bwu-scene-iran,
 .bwu-scene-strait,
 .bwu-scene-tanker,
 .bwu-scene-schematic,
-.bwu-scene-channel {
+.bwu-scene-channel,
+.bwu-scene-night {
   overflow: hidden;
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
@@ -705,7 +708,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 /* ---- Scene 4: Replicate / Seedream schematic ------------------------ */
 
 .bwu-root[data-bwu-scene="schematic"] .bwu-globe-panel,
-.bwu-root[data-bwu-scene="channel"] .bwu-globe-panel {
+.bwu-root[data-bwu-scene="channel"] .bwu-globe-panel,
+.bwu-root[data-bwu-scene="night"] .bwu-globe-panel {
   opacity: 0;
   transform: translateX(18px) scale(0.96);
 }
@@ -1353,6 +1357,37 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="3"] { transition-delay: 1000ms; }
 .bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="4"] { transition-delay: 1080ms; }
 .bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="5"] { transition-delay: 1160ms; }
+
+/* ---- Scene 6: clean night video closer ------------------------------- */
+
+body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"]) {
+  border-color: transparent;
+  background: #000;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.78),
+    inset 0 0 0 rgba(255, 255, 255, 0);
+}
+
+.bwu-scene-night {
+  padding: 0;
+  background: #000;
+}
+
+.bwu-night-video {
+  opacity: 1;
+  filter: brightness(0.46) contrast(1.18) saturate(0.72);
+  transform: scale(1.02);
+}
+
+.bwu-night-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.1) 42%, rgba(0, 0, 0, 0.72) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.02) 48%, rgba(0, 0, 0, 0.48) 100%);
+}
 
 /* ---- Scene 1: Iran betting cards ------------------------------------- */
 
