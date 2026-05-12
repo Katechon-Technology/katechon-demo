@@ -1045,7 +1045,6 @@
       animation-name: build-scan-backward;
     }
     body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] {
-      inset: 12.5%;
       border-radius: 12px;
       overflow: hidden;
       box-shadow:
@@ -4752,6 +4751,14 @@
         dashboardBuildEffects.dataset.transition = '';
         dashboardBuildEffects.style.opacity = '';
         dashboardBuildEffects.style.visibility = '';
+        dashboardBuildEffects.style.left = '';
+        dashboardBuildEffects.style.top = '';
+        dashboardBuildEffects.style.right = '';
+        dashboardBuildEffects.style.bottom = '';
+        dashboardBuildEffects.style.width = '';
+        dashboardBuildEffects.style.height = '';
+        dashboardBuildEffects.style.borderRadius = '';
+        dashboardBuildEffects.style.boxShadow = '';
       }
       if (dashboardBuildElements.veil) dashboardBuildElements.veil.style.opacity = '';
       if (dashboardBuildElements.buffer) {
@@ -4809,6 +4816,51 @@
       }, 170);
     }
 
+    function dashboardBuildClipBounds(dashboardId) {
+      if (dashboardId !== 'build-with-us') return null;
+      const frame = activeDashboardFrame();
+      if (!frame?.contentWindow || !dashboardFrameStage) return null;
+      try {
+        const frameDocument = frame.contentDocument;
+        const root = frameDocument?.querySelector('.bwu-root');
+        const surface = root?.closest('.stage') || frameDocument?.querySelector('.stage');
+        if (!surface) return null;
+
+        const stageRect = dashboardFrameStage.getBoundingClientRect();
+        const frameRect = frame.getBoundingClientRect();
+        const surfaceRect = surface.getBoundingClientRect();
+        const frameWidth = frame.contentWindow.innerWidth || frameDocument.documentElement.clientWidth || frameRect.width;
+        const frameHeight = frame.contentWindow.innerHeight || frameDocument.documentElement.clientHeight || frameRect.height;
+        const scaleX = frameRect.width / Math.max(1, frameWidth);
+        const scaleY = frameRect.height / Math.max(1, frameHeight);
+        const computed = frame.contentWindow.getComputedStyle(surface);
+
+        return {
+          left: frameRect.left - stageRect.left + surfaceRect.left * scaleX,
+          top: frameRect.top - stageRect.top + surfaceRect.top * scaleY,
+          width: surfaceRect.width * scaleX,
+          height: surfaceRect.height * scaleY,
+          borderRadius: computed.borderRadius || '12px',
+        };
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function applyDashboardBuildClipBounds(dashboardId) {
+      const bounds = dashboardBuildClipBounds(dashboardId);
+      if (!bounds || !dashboardBuildEffects) return;
+      const px = (value) => `${Math.max(0, Math.round(value))}px`;
+      dashboardBuildEffects.style.left = px(bounds.left);
+      dashboardBuildEffects.style.top = px(bounds.top);
+      dashboardBuildEffects.style.right = 'auto';
+      dashboardBuildEffects.style.bottom = 'auto';
+      dashboardBuildEffects.style.width = px(bounds.width);
+      dashboardBuildEffects.style.height = px(bounds.height);
+      dashboardBuildEffects.style.borderRadius = bounds.borderRadius;
+      dashboardBuildEffects.style.boxShadow = '0 28px 90px rgba(0, 0, 0, 0.42), 0 0 36px rgba(0, 232, 123, 0.14)';
+    }
+
     function runDashboardBuildEffectTransition(options = {}) {
       if (reduceDashboardMotion || !dashboardBuildEffects || !dashboardFrameStage) return;
       const dashboardId = String(options.dashboard || currentDashboardId || '').replace(/[^\w-]/g, '');
@@ -4820,6 +4872,7 @@
       renderDashboardBuildCopy(dashboardId, options);
       dashboardBuildEffects.dataset.dashboardId = dashboardId;
       dashboardBuildEffects.dataset.transition = 'clip';
+      applyDashboardBuildClipBounds(dashboardId);
       void dashboardBuildEffects.offsetWidth;
 
       dashboardMaterializationStartedAt = performance.now();
