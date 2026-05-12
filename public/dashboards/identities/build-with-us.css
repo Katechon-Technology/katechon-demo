@@ -1377,7 +1377,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 
 .bwu-night-video {
   opacity: 1;
-  filter: brightness(0.46) contrast(1.18) saturate(0.72);
+  filter: brightness(0.78) contrast(1.1) saturate(0.86);
   transform: scale(1.02);
 }
 
@@ -1387,8 +1387,8 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 46%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.1) 42%, rgba(0, 0, 0, 0.72) 100%),
-    linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.02) 48%, rgba(0, 0, 0, 0.48) 100%);
+    radial-gradient(circle at 50% 46%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.04) 48%, rgba(0, 0, 0, 0.46) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.28) 100%);
 }
 
 /* ---- Scene 1: Iran betting cards ------------------------------------- */
