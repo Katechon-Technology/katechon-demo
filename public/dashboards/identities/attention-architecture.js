@@ -109,7 +109,7 @@
         <g class="cand-row" data-cand="1" transform="translate(412,108)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("crypto-trading.mp4")}" autoplay muted loop playsinline></video>
+            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("crypto-trading.mp4")}" autoplay muted loop playsinline preload="auto"></video>
           </foreignObject>
           <text class="cand-title" x="96" y="28">BTC liquidity</text>
           <g transform="translate(96,40)">
@@ -122,7 +122,7 @@
         <g class="cand-row" data-cand="2" transform="translate(412,196)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("meme-coin.mp4")}" autoplay muted loop playsinline></video>
+            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("meme-coin.mp4")}" autoplay muted loop playsinline preload="auto"></video>
           </foreignObject>
           <text class="cand-title" x="96" y="28">Pump.fun graduation</text>
           <g transform="translate(96,40)">
@@ -135,7 +135,7 @@
         <g class="cand-row" data-cand="3" data-winner="true" transform="translate(412,284)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline></video>
+            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline preload="auto"></video>
           </foreignObject>
           <text class="cand-title" x="96" y="28">Hormuz tanker risk</text>
           <g transform="translate(96,40)">
@@ -148,7 +148,7 @@
         <g class="cand-row" data-cand="4" transform="translate(412,372)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("polyrec.mp4")}" autoplay muted loop playsinline></video>
+            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("polyrec.mp4")}" autoplay muted loop playsinline preload="auto"></video>
           </foreignObject>
           <text class="cand-title" x="96" y="28">Polymarket close odds</text>
           <g transform="translate(96,40)">
@@ -161,7 +161,7 @@
         <g class="cand-row" data-cand="5" transform="translate(412,460)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("spectre.mp4")}" autoplay muted loop playsinline></video>
+            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("spectre.mp4")}" autoplay muted loop playsinline preload="auto"></video>
           </foreignObject>
           <text class="cand-title" x="96" y="28">SPECTRE cluster</text>
           <g transform="translate(96,40)">
@@ -208,7 +208,7 @@
           <g id="aa-s-stage" class="stage-elem">
             <rect class="surface-video-frame" x="20" y="108" width="420" height="294" rx="10"/>
             <foreignObject class="surface-video" x="22" y="110" width="416" height="290">
-              <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline></video>
+              <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline preload="auto"></video>
             </foreignObject>
 
             <g transform="translate(36,122)">
@@ -593,8 +593,11 @@
       });
     }
     function stepPhase(delta) {
+      const nextIdx = phaseIdx + delta;
+      if (nextIdx < 0 || nextIdx >= PHASES.length) return false;
       paused = true;
-      runPhase(phaseIdx + delta);
+      runPhase(nextIdx);
+      return true;
     }
     function setPaused(v) {
       paused = v;
@@ -602,12 +605,49 @@
     }
 
     // ===== keyboard + postMessage navigation =====
+    function directionForKey(e) {
+      const keys = { ArrowDown: 1, ArrowUp: -1 };
+      return keys[e.code] ?? keys[e.key] ?? 0;
+    }
+    function isActiveInParent() {
+      if (!window.parent || window.parent === window) return true;
+      try {
+        return window.parent.document.body?.dataset?.currentDashboard === "attention-architecture";
+      } catch (_) {
+        return true;
+      }
+    }
+    function requestParentDashboardStep(direction) {
+      if (!direction || !window.parent || window.parent === window) return false;
+      try {
+        window.parent.postMessage({
+          type: "dashboard-nav-step",
+          dashboard: "attention-architecture",
+          direction,
+        }, window.location.origin);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
     function onKey(e) {
       const tag = e.target && e.target.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
-      if (e.key === "ArrowRight") { e.preventDefault(); stepPhase(1); }
-      else if (e.key === "ArrowLeft") { e.preventDefault(); stepPhase(-1); }
-      else if (e.key === " ") { e.preventDefault(); setPaused(!paused); }
+      if (e.currentTarget !== document && !isActiveInParent()) return;
+      const direction = directionForKey(e);
+      if (direction) {
+        if (stepPhase(direction)) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (e.currentTarget === document && requestParentDashboardStep(direction)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
+      if (e.key === " ") { e.preventDefault(); setPaused(!paused); }
       else if (e.key === "r" || e.key === "R") { phaseIdx = 0; setPaused(false); }
     }
     function onMessage(event) {
@@ -618,6 +658,15 @@
       stepPhase(direction);
     }
     document.addEventListener("keydown", onKey);
+    let parentDoc = null;
+    try {
+      if (window.parent && window.parent !== window) {
+        parentDoc = window.parent.document;
+        if (parentDoc) parentDoc.addEventListener("keydown", onKey);
+      }
+    } catch (_) {
+      parentDoc = null;
+    }
     window.addEventListener("message", onMessage);
 
     // ===== cleanup =====
@@ -630,6 +679,9 @@
       intervals.forEach(clearInterval);
       intervals.length = 0;
       document.removeEventListener("keydown", onKey);
+      if (parentDoc) {
+        try { parentDoc.removeEventListener("keydown", onKey); } catch (_) {}
+      }
       window.removeEventListener("message", onMessage);
       if (window.__attentionArchCleanup === cleanup) {
         window.__attentionArchCleanup = null;

@@ -173,23 +173,61 @@
       if (window.__feedSubHandler) window.__feedSubHandler.scrambleTimer = null;
     }
 
-    function next() { setState(state + 1); }
-    function prev() { setState(state - 1); }
+    function directionForKey(event) {
+      const keys = { ArrowDown: 1, ArrowUp: -1 };
+      return keys[event.code] ?? keys[event.key] ?? 0;
+    }
+
+    function isActiveInParent() {
+      if (!window.parent || window.parent === window) return true;
+      try {
+        return window.parent.document.body?.dataset?.currentDashboard === "what-comes-after-the-feed";
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function requestParentDashboardStep(direction) {
+      if (!direction || !window.parent || window.parent === window) return false;
+      try {
+        window.parent.postMessage({
+          type: "dashboard-nav-step",
+          dashboard: "what-comes-after-the-feed",
+          direction,
+        }, window.location.origin);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function step(delta) {
+      const nextState = state + delta;
+      if (nextState < 0 || nextState > 3) return false;
+      setState(nextState);
+      return true;
+    }
+
+    function next() { step(1); }
+    function prev() { step(-1); }
 
     function onKey(e) {
       if (!e || e.defaultPrevented) return;
+      if (e.currentTarget !== document && !isActiveInParent()) return;
       const target = e.target;
       if (target && (target.isContentEditable ||
           target.tagName === "INPUT" || target.tagName === "TEXTAREA" ||
           target.tagName === "SELECT")) return;
-      if (e.key === "ArrowRight") {
+      const direction = directionForKey(e);
+      if (!direction) return;
+      if (step(direction)) {
         e.preventDefault();
         e.stopPropagation();
-        next();
-      } else if (e.key === "ArrowLeft") {
+        return;
+      }
+      if (e.currentTarget === document && requestParentDashboardStep(direction)) {
         e.preventDefault();
         e.stopPropagation();
-        prev();
       }
     }
     function onClick(e) {

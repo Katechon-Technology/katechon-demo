@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Pre-generate the build-with-us channel-snapshot videos via Replicate
-// (default model: bytedance/seedance-2.0). Outputs MP4s to
-// public/videos/build-with-us/. Run once before the pitch.
+// Pre-generate the build-with-us channel-snapshot assets via Replicate.
+// Videos default to bytedance/seedance-2.0 and the schematic image
+// defaults to bytedance/seedream-4.5.
 //
 //   REPLICATE_API_TOKEN=... node scripts/generate-build-with-us-visuals.js
 //   node scripts/generate-build-with-us-visuals.js --only=iran
+//   node scripts/generate-build-with-us-visuals.js --only=tanker-schematic
 //   node scripts/generate-build-with-us-visuals.js --force
 
 const fs = require("fs");
@@ -12,8 +13,10 @@ const path = require("path");
 const fetch = require("node-fetch");
 
 const root = path.resolve(__dirname, "..");
-const outDir = path.join(root, "public", "videos", "build-with-us");
-const MODEL = process.env.REPLICATE_MODEL || "bytedance/seedance-2.0";
+const videoOutDir = path.join(root, "public", "videos", "build-with-us");
+const generatedOutDir = path.join(root, "public", "generated", "build-with-us");
+const VIDEO_MODEL = process.env.REPLICATE_VIDEO_MODEL || process.env.REPLICATE_MODEL || "bytedance/seedance-2.0";
+const IMAGE_MODEL = process.env.REPLICATE_IMAGE_MODEL || "bytedance/seedream-4.5";
 const POLL_INTERVAL_MS = 4000;
 const POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -49,6 +52,7 @@ const apiKey = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY;
 const SHOTS = [
   {
     id: "iran",
+    kind: "video",
     file: "iran.mp4",
     prompt:
       "Cinematic aerial shot at night over the Iranian plateau, sparse city lights of Tehran in the deep distance, faint missile contrails rising slowly through a thin layer of cloud, dark sky with a cold blue-grey palette, slow forward dolly, photoreal, documentary news drone footage style, no text, no logos.",
@@ -57,6 +61,7 @@ const SHOTS = [
   },
   {
     id: "strait-of-hormuz",
+    kind: "video",
     file: "strait-of-hormuz.mp4",
     prompt:
       "Slow cinematic dolly over the Strait of Hormuz at golden hour, massive oil tanker silhouetted against shimmering water, distant refinery flare stack burning on the horizon, dark sea, warm amber sky bleeding into deep navy, photoreal satellite-to-aerial blend, documentary geopolitical news b-roll, no text, no logos.",
@@ -65,10 +70,22 @@ const SHOTS = [
   },
   {
     id: "tanker",
+    kind: "video",
     file: "tanker.mp4",
     prompt:
       "Slow cinematic top-down aerial dolly at sunrise over a single enormous crude oil supertanker cutting through dark blue water in the Strait of Hormuz, long white wake trailing behind, deck details visible — red pipes, white storage domes, crane silhouettes, distant Iranian coastline faintly on the horizon, warm amber and deep navy palette, photoreal documentary news drone footage, satellite-to-aerial blend, no text, no logos.",
     duration: 5,
+    aspect_ratio: "16:9",
+  },
+  {
+    id: "tanker-schematic",
+    kind: "image",
+    file: "tanker-schematic.jpg",
+    outDir: generatedOutDir,
+    model: IMAGE_MODEL,
+    prompt:
+      "Transparent technical diagram of a crude oil supertanker, drafting board style, precise cyan and white engineering linework on a dark transparent glass surface, side elevation and top-down cutaway visible, hull compartments, cargo tanks, ballast tanks, deck manifold piping, pump room, engine room, bow and stern annotations, realtime intelligence schematic, clean professional naval architecture drawing, no logos, no watermark.",
+    size: "2K",
     aspect_ratio: "16:9",
   },
 ];
@@ -80,14 +97,24 @@ function selected() {
 }
 
 async function createPrediction(shot) {
-  const url = `https://api.replicate.com/v1/models/${MODEL}/predictions`;
+  const model = shot.model || VIDEO_MODEL;
+  const url = `https://api.replicate.com/v1/models/${model}/predictions`;
+  const input = shot.kind === "image"
+    ? {
+        prompt: shot.prompt,
+        size: shot.size || "2K",
+        aspect_ratio: shot.aspect_ratio || "16:9",
+        sequential_image_generation: "disabled",
+        max_images: 1,
+      }
+    : {
+        prompt: shot.prompt,
+        duration: shot.duration,
+        aspect_ratio: shot.aspect_ratio,
+        resolution: "1080p",
+      };
   const body = {
-    input: {
-      prompt: shot.prompt,
-      duration: shot.duration,
-      aspect_ratio: shot.aspect_ratio,
-      resolution: "1080p",
-    },
+    input,
   };
   const resp = await fetch(url, {
     method: "POST",
@@ -126,19 +153,20 @@ async function downloadTo(url, target) {
 }
 
 async function generate(shot) {
-  const target = path.join(outDir, shot.file);
+  const target = path.join(shot.outDir || videoOutDir, shot.file);
   if (fs.existsSync(target) && !force) {
     console.log(`skip ${shot.id}: ${path.relative(root, target)} exists (use --force to regenerate)`);
     return;
   }
 
-  console.log(`${dryRun ? "plan" : "generating"} ${shot.id} via ${MODEL} -> ${path.relative(root, target)}`);
+  const model = shot.model || VIDEO_MODEL;
+  console.log(`${dryRun ? "plan" : "generating"} ${shot.id} via ${model} -> ${path.relative(root, target)}`);
   if (dryRun) {
     console.log(`  prompt: ${shot.prompt}`);
     return;
   }
 
-  fs.mkdirSync(outDir, { recursive: true });
+  fs.mkdirSync(path.dirname(target), { recursive: true });
 
   let prediction = await createPrediction(shot);
   const startedAt = Date.now();
@@ -157,15 +185,15 @@ async function generate(shot) {
   }
 
   const out = prediction.output;
-  const videoUrl = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : out?.video || out?.url);
-  if (!videoUrl) throw new Error(`no video url in prediction output: ${JSON.stringify(out).slice(0, 300)}`);
+  const assetUrl = Array.isArray(out) ? out[0] : (typeof out === "string" ? out : out?.video || out?.url);
+  if (!assetUrl) throw new Error(`no asset url in prediction output: ${JSON.stringify(out).slice(0, 300)}`);
 
-  await downloadTo(videoUrl, target);
+  await downloadTo(assetUrl, target);
   console.log(`wrote ${path.relative(root, target)}`);
 }
 
 async function main() {
-  if (!apiKey) {
+  if (!apiKey && !dryRun) {
     console.error("REPLICATE_API_TOKEN (or REPLICATE_API_KEY) is not set. Add it to env or .env.");
     process.exit(1);
   }

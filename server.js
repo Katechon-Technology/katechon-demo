@@ -723,6 +723,18 @@ const DASHBOARD_NARRATION = {
       "Long-baseline watches take patience. The anomaly window is narrow and the data arrives slowly.",
     ],
   },
+  channels: {
+    label: "Channels",
+    voice:
+      "You are Kat narrating the Katechon channel object graphic. Explain the idea of a channel as live software: " +
+      "data, agent, memory, mutable surface, share state, and action in one object. Keep it calm and concise.",
+    fallback: [
+      "A channel is software that stays alive: live data, memory, agent, surface, and share state in one object.",
+      "The useful shift here is that the viewer can watch first, then command the same surface without losing context.",
+      "This graphic is the channel object: read the world, route intent, keep state, then act inside the surface.",
+      "Kat is the continuity layer. The specialist agent owns the data, layout, memory, and next useful action.",
+    ],
+  },
 };
 
 function cleanDashboardId(value) {

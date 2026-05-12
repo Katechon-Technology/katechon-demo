@@ -1,7 +1,6 @@
-/* Final slide: a 15s channel snapshot inside a single broadcasting box.
-   Three scenes back to back — Iran (video bg + betting cards), Strait of
-   Hormuz (video bg + oil ticker), Seed Round (cap-table closer). The
-   seed scene keeps the existing lead-lands → your-row → hard-cut beat. */
+/* Final slide: a channel snapshot inside a single broadcasting box.
+   Four scenes back to back: Iran, Strait of Hormuz, tanker deep dive,
+   then a Replicate/Seedream tanker schematic generated from a video click. */
 
 body[data-dashboard="build-with-us"] {
   background: #000 !important;
@@ -90,7 +89,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-root[data-bwu-scene="iran"]   .bwu-scene-iran,
 .bwu-root[data-bwu-scene="strait"] .bwu-scene-strait,
 .bwu-root[data-bwu-scene="seed"]   .bwu-scene-seed,
-.bwu-root[data-bwu-scene="tanker"] .bwu-scene-tanker {
+.bwu-root[data-bwu-scene="tanker"] .bwu-scene-tanker,
+.bwu-root[data-bwu-scene="schematic"] .bwu-scene-schematic {
   opacity: 1;
   pointer-events: auto;
 }
@@ -119,10 +119,11 @@ body[data-dashboard="build-with-us"] .action-rail {
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
 
-/* Iran + Strait + Tanker scenes all use a video background. */
+/* Iran + Strait + Tanker + schematic scenes all use a video background. */
 .bwu-scene-iran,
 .bwu-scene-strait,
-.bwu-scene-tanker {
+.bwu-scene-tanker,
+.bwu-scene-schematic {
   overflow: hidden;
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
@@ -620,6 +621,413 @@ body[data-dashboard="build-with-us"] .action-rail {
   font-weight: 800;
   color: var(--accent2, #7de8ff);
   text-shadow: 0 0 12px color-mix(in srgb, var(--accent2, #7de8ff) 60%, transparent);
+}
+
+.bwu-video-click-target {
+  position: absolute;
+  left: 50%;
+  top: 70%;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  gap: 9px;
+  width: 178px;
+  height: 72px;
+  border: 1px solid rgba(125, 232, 255, 0.48);
+  border-radius: 6px;
+  background: rgba(0, 14, 22, 0.56);
+  color: rgba(232, 250, 255, 0.95);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 320ms ease, transform 320ms ease, border-color 220ms ease, background 220ms ease;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42), inset 0 0 20px rgba(125, 232, 255, 0.08);
+}
+
+.bwu-hud-targeting.is-in + .bwu-video-click-target,
+.bwu-video-click-target.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bwu-video-click-target:hover,
+.bwu-video-click-target.is-clicked {
+  border-color: rgba(125, 232, 255, 0.88);
+  background: rgba(2, 28, 40, 0.82);
+  transform: translate(-50%, -50%) scale(1.02);
+}
+
+.bwu-click-ring {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(125, 232, 255, 0.86);
+  border-radius: 50%;
+  position: relative;
+  box-shadow: 0 0 18px rgba(125, 232, 255, 0.32);
+}
+
+.bwu-click-ring::before,
+.bwu-click-ring::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border: 1px solid rgba(125, 232, 255, 0.32);
+  border-radius: 50%;
+  animation: bwu-click-pulse 1500ms ease-out infinite;
+}
+
+.bwu-click-ring::after {
+  animation-delay: 520ms;
+}
+
+.bwu-click-copy {
+  line-height: 1.2;
+}
+
+.bwu-video-click-target.is-clicked .bwu-click-ring::before,
+.bwu-video-click-target.is-clicked .bwu-click-ring::after {
+  animation-duration: 360ms;
+}
+
+@keyframes bwu-click-pulse {
+  0% { opacity: 0.85; transform: scale(0.55); }
+  100% { opacity: 0; transform: scale(1.7); }
+}
+
+/* ---- Scene 4: Replicate / Seedream schematic ------------------------ */
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-globe-panel {
+  opacity: 0;
+  transform: translateX(18px) scale(0.96);
+}
+
+.bwu-scene-schematic .bwu-headline {
+  border-color: rgba(125, 232, 255, 0.52);
+  background: rgba(0, 14, 22, 0.76);
+}
+
+.bwu-scene-schematic .bwu-headline-pill {
+  background: var(--accent2, #7de8ff);
+  color: #021018;
+}
+
+.bwu-schematic-video {
+  opacity: 0.34;
+  filter: saturate(0.65) contrast(1.18) brightness(0.58);
+}
+
+.bwu-schematic-grad {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.24) 46%, rgba(0, 0, 0, 0.82) 100%),
+    linear-gradient(90deg, rgba(0, 9, 13, 0.78), rgba(0, 0, 0, 0.14) 52%, rgba(0, 9, 13, 0.7));
+}
+
+.bwu-schematic-click {
+  position: absolute;
+  left: clamp(28px, 3vw, 42px);
+  top: clamp(92px, 10vh, 126px);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid rgba(125, 232, 255, 0.26);
+  border-radius: 4px;
+  background: rgba(2, 10, 16, 0.7);
+  color: rgba(232, 250, 255, 0.78);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-schematic-click {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 220ms;
+}
+
+.bwu-schematic-click-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent2, #7de8ff);
+  box-shadow: 0 0 14px rgba(125, 232, 255, 0.72);
+}
+
+.bwu-schematic-workspace {
+  position: absolute;
+  z-index: 3;
+  left: clamp(28px, 3vw, 42px);
+  right: clamp(28px, 3vw, 42px);
+  top: clamp(134px, 15vh, 172px);
+  bottom: clamp(28px, 3vh, 44px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 28vw, 360px);
+  gap: clamp(14px, 1.6vw, 22px);
+  min-height: 0;
+}
+
+.bwu-schematic-board,
+.bwu-seedream-console {
+  border: 1px solid rgba(125, 232, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(1, 8, 12, 0.64);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 420ms ease, transform 420ms ease;
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-schematic-board,
+.bwu-root[data-bwu-scene="schematic"] .bwu-seedream-console {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-seedream-console {
+  transition-delay: 130ms;
+}
+
+.bwu-schematic-board {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.bwu-schematic-board-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 13px;
+  border-bottom: 1px solid rgba(125, 232, 255, 0.16);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: rgba(232, 250, 255, 0.68);
+  text-transform: uppercase;
+}
+
+.bwu-root.is-schematic-ready .bwu-schematic-board-head [data-bwu-schematic-state] {
+  color: var(--accent, #00e87b);
+}
+
+.bwu-schematic-diagram {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(125, 232, 255, 0.12), transparent 52%),
+    rgba(0, 8, 12, 0.18);
+}
+
+.bwu-schematic-image,
+.bwu-schematic-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bwu-schematic-image {
+  opacity: 0;
+  padding: clamp(16px, 2vw, 24px);
+  transition: opacity 420ms ease;
+  mix-blend-mode: screen;
+}
+
+.bwu-root.has-schematic-asset.is-schematic-ready .bwu-schematic-image {
+  opacity: 0.94;
+}
+
+.bwu-schematic-svg {
+  opacity: 0.06;
+  padding: clamp(16px, 2vw, 24px);
+  filter: blur(9px);
+  transition: opacity 520ms ease, filter 520ms ease, transform 520ms ease;
+  transform: scale(0.985);
+}
+
+.bwu-root.is-schematic-ready .bwu-schematic-svg {
+  opacity: 0.94;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+.bwu-root.has-schematic-asset.is-schematic-ready .bwu-schematic-svg {
+  opacity: 0.28;
+}
+
+.bwu-schematic-line,
+.bwu-schematic-pipe,
+.bwu-schematic-measure {
+  fill: none;
+  stroke: rgba(125, 232, 255, 0.76);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.bwu-schematic-line-main {
+  stroke-width: 2.8;
+}
+
+.bwu-schematic-pipe {
+  stroke: rgba(0, 232, 123, 0.68);
+  stroke-width: 1.8;
+}
+
+.bwu-schematic-tank {
+  fill: rgba(125, 232, 255, 0.07);
+  stroke: rgba(125, 232, 255, 0.58);
+  stroke-width: 1.4;
+}
+
+.bwu-schematic-node {
+  fill: rgba(0, 232, 123, 0.18);
+  stroke: rgba(0, 232, 123, 0.74);
+  stroke-width: 1.8;
+}
+
+.bwu-schematic-danger,
+.bwu-schematic-danger-fill {
+  stroke: rgba(255, 116, 86, 0.86);
+}
+
+.bwu-schematic-danger-fill {
+  fill: rgba(255, 116, 86, 0.28);
+}
+
+.bwu-schematic-measure {
+  stroke: rgba(232, 250, 255, 0.46);
+  stroke-width: 1.2;
+}
+
+.bwu-schematic-copy {
+  fill: rgba(232, 250, 255, 0.66);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.bwu-root.is-generating-schematic .bwu-schematic-line,
+.bwu-root.is-generating-schematic .bwu-schematic-pipe,
+.bwu-root.is-generating-schematic .bwu-schematic-measure {
+  stroke-dasharray: 10 14;
+  animation: bwu-schematic-draw 780ms linear infinite;
+}
+
+@keyframes bwu-schematic-draw {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -48; }
+}
+
+.bwu-seedream-console {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: clamp(12px, 1.4vh, 16px);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  min-height: 0;
+}
+
+.bwu-console-title {
+  padding-bottom: 9px;
+  border-bottom: 1px solid rgba(125, 232, 255, 0.16);
+  color: var(--accent2, #7de8ff);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+}
+
+.bwu-console-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  opacity: 0.28;
+  transform: translateX(8px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-row {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-row[data-bwu-console-row="1"] { transition-delay: 260ms; }
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-row[data-bwu-console-row="2"] { transition-delay: 430ms; }
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-row[data-bwu-console-row="3"] { transition-delay: 600ms; }
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-row[data-bwu-console-row="4"] { transition-delay: 770ms; }
+
+.bwu-console-row span {
+  color: rgba(243, 246, 248, 0.44);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bwu-console-row strong {
+  min-width: 0;
+  color: rgba(232, 250, 255, 0.92);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(11px, 0.95vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+
+.bwu-console-progress {
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(125, 232, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(125, 232, 255, 0.08);
+  margin-top: 4px;
+}
+
+.bwu-console-progress span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent2, #7de8ff), var(--accent, #00e87b));
+  box-shadow: 0 0 16px rgba(125, 232, 255, 0.46);
+}
+
+.bwu-root[data-bwu-scene="schematic"] .bwu-console-progress span {
+  animation: bwu-seedream-progress 2100ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes bwu-seedream-progress {
+  0% { width: 0%; }
+  38% { width: 46%; }
+  72% { width: 78%; }
+  100% { width: 100%; }
+}
+
+.bwu-console-prompt {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(125, 232, 255, 0.14);
+  color: rgba(243, 246, 248, 0.52);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(11px, 0.9vw, 12px);
+  line-height: 1.45;
+  letter-spacing: 0.02em;
 }
 
 /* ---- Scene 1: Iran betting cards ------------------------------------- */

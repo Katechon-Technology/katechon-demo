@@ -561,24 +561,24 @@
       asset: "share-thumbnails/what-comes-after-the-feed.jpg",
       kicker: "katechon technology / post-feed answer",
       title: "What comes after the feed?",
-      subtitle: "Answer: live generated states.",
+      subtitle: "Answer: Generative UI.",
       visualLabel: "post-feed answer",
-      visualCopy: "Live generated states.",
+      visualCopy: "Generative UI.",
       stageQuote: {
-        text: "Live generated states.",
+        text: "Generative UI.",
         kicker: "post-feed answer",
         quoteMarks: false,
       },
       feedLabel: "answer rail",
-      lens: "live state",
-      tabs: ["Feed", "State", "Command", "Fork"],
-      metrics: [["Feed", "posts", "old unit"], ["Answer", "states", "live"], ["Channel", "software", "next"]],
+      lens: "generative UI",
+      tabs: ["Feed", "UI", "Command", "Fork"],
+      metrics: [["Feed", "posts", "old unit"], ["Answer", "UI", "generated"], ["Channel", "software", "next"]],
       feed: [
-        ["answer", "Live generated states replace passive post streams.", "state"],
+        ["answer", "Generative UI replaces passive post streams.", "ui"],
         ["watch", "The surface can be consumed like media without losing state.", "watch"],
-        ["command", "The user can change the software object directly.", "intent"],
+        ["command", "The user can change the generated interface directly.", "intent"],
       ],
-      caption: "Kat reads this as the post-feed answer: live generated states.",
+      caption: "Kat reads this as the post-feed answer: Generative UI.",
     },
     "what-is-a-channel": {
       palette: "pitchChannel",
@@ -1357,7 +1357,7 @@
       title: "// KATECHON - CHANNELS",
       channel: "24 / KATECHON",
       route: "prototype",
-      narration: false,
+      narration: true,
       tile: {
         group: "dashboard",
         kicker: "24 / KATECHON",
@@ -1462,18 +1462,22 @@
     },
   };
 
-  const musicStyle = "Instrumental only, no lyrics, no singing, no spoken words, no vocal samples. Create a seamless 120 second loop with futuristic high-energy dark midnight coding vibes: driving cyberpunk drums, tight sidechain synth bass, luminous arpeggios, neon control-room texture, serious focus, premium late-night software demo energy, no fade out.";
+  const channelGraphicMusic = {
+    title: "Channel Graphic",
+    src: "music/channels/channels.mp3",
+    durationMs: 120000,
+    prompt:
+      "Instrumental only, no lyrics, no singing, no spoken words, no vocal samples. " +
+      "Create a seamless 120 second loop with a chill future techno vibe: warm analog pads, soft modular pulses, glassy arpeggios, restrained sub bass, brushed electronic percussion, spacious control-room ambience, calm forward motion, premium live software demo energy. " +
+      "Avoid hard driving drums, aggressive drops, distorted bass, EDM build-ups, and cinematic trailer impacts. No fade out.",
+  };
 
-  // Music is intentionally restricted to the final seed-round channel so
-  // the entire deck plays silent and the closer is the only thing the
-  // viewer hears.
+  // Music is restricted to the channel graphic/live-channel moments so
+  // the thesis slides stay quiet while the channel object gets a softer
+  // future-techno bed.
   const channelMusic = {
-    "build-with-us": {
-      title: "Seed Round Closer",
-      src: "music/channels/arena.mp3",
-      durationMs: 120000,
-      prompt: `${musicStyle} Tailor it for a final seed-round close: competitive score-screen tension, cap-table-locking-in synth stabs, taut percussion, escalating pressure for a 15-second crescendo that ends on a hard cut.`,
-    },
+    channels: channelGraphicMusic,
+    "build-with-us": channelGraphicMusic,
   };
 
   Object.entries(channelMusic).forEach(([id, music]) => {

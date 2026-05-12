@@ -597,7 +597,7 @@
 
     function showStep(nextIndex, options = {}) {
       const previous = current;
-      current = ((nextIndex % steps.length) + steps.length) % steps.length;
+      current = Math.max(0, Math.min(steps.length - 1, nextIndex));
       const direction = options.direction || (current >= previous ? 1 : -1);
       clearMotion();
       scenes.forEach((scene, index) => {
@@ -610,24 +610,64 @@
       if (scene) animateCurrentScene(scene, direction);
     }
 
+    function directionForKey(event) {
+      const keys = { ArrowDown: 1, ArrowUp: -1 };
+      return keys[event.code] ?? keys[event.key] ?? 0;
+    }
+
+    function isActiveInParent() {
+      if (!window.parent || window.parent === window) return true;
+      try {
+        return window.parent.document.body?.dataset?.currentDashboard === "channels";
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function requestParentDashboardStep(direction) {
+      if (!direction || !window.parent || window.parent === window) return false;
+      try {
+        window.parent.postMessage({
+          type: "dashboard-nav-step",
+          dashboard: "channels",
+          direction,
+        }, window.location.origin);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function stepBy(direction) {
+      const nextIndex = current + direction;
+      if (nextIndex < 0 || nextIndex >= steps.length) return false;
+      showStep(nextIndex, { direction });
+      return true;
+    }
+
     function onPrev() {
-      showStep(current - 1, { direction: -1 });
+      stepBy(-1);
     }
 
     function onNext() {
-      showStep(current + 1, { direction: 1 });
+      stepBy(1);
     }
 
     function onKey(event) {
       if (event.defaultPrevented) return;
+      if (event.currentTarget !== document && !isActiveInParent()) return;
       const tag = event.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target?.isContentEditable) return;
-      if (event.key === "ArrowRight") {
+      const direction = directionForKey(event);
+      if (!direction) return;
+      if (stepBy(direction)) {
         event.preventDefault();
-        onNext();
-      } else if (event.key === "ArrowLeft") {
+        event.stopPropagation();
+        return;
+      }
+      if (event.currentTarget === document && requestParentDashboardStep(direction)) {
         event.preventDefault();
-        onPrev();
+        event.stopPropagation();
       }
     }
 
@@ -635,15 +675,27 @@
       if (event.origin !== window.location.origin) return;
       if (event.data?.type !== "channel-concept-step") return;
       const direction = Number(event.data.direction) < 0 ? -1 : 1;
-      showStep(current + direction, { direction });
+      stepBy(direction);
     }
 
     document.addEventListener("keydown", onKey);
+    let parentDoc = null;
+    try {
+      if (window.parent && window.parent !== window) {
+        parentDoc = window.parent.document;
+        if (parentDoc) parentDoc.addEventListener("keydown", onKey);
+      }
+    } catch (_) {
+      parentDoc = null;
+    }
     window.addEventListener("message", onMessage);
 
     window.__channelsConceptCleanup = function cleanupChannelsConcept() {
       clearMotion();
       document.removeEventListener("keydown", onKey);
+      if (parentDoc) {
+        try { parentDoc.removeEventListener("keydown", onKey); } catch (_) {}
+      }
       window.removeEventListener("message", onMessage);
       if (window.__channelsConceptCleanup === cleanupChannelsConcept) {
         window.__channelsConceptCleanup = null;

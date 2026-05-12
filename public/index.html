@@ -1044,6 +1044,58 @@
     #dashboard-frame-stage.materialize-active.materialize-backward .build-scan {
       animation-name: build-scan-backward;
     }
+    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] {
+      inset: 12.5%;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.42),
+        0 0 36px rgba(0, 232, 123, 0.14);
+    }
+    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] .build-frame {
+      width: min(640px, calc(100% - clamp(24px, 5vw, 56px)));
+      max-height: min(320px, calc(100% - clamp(36px, 9vh, 82px)));
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-veil::before {
+      animation-duration: 360ms;
+      animation-delay: 36ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-veil::after {
+      animation-duration: 420ms;
+      animation-delay: 56ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-board-map::after {
+      animation-duration: 436ms;
+      animation-delay: 24ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-buffer-cell {
+      animation-duration: 352ms;
+      animation-delay: 36ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-buffer-cell::before {
+      animation-duration: 380ms;
+      animation-delay: 52ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-buffer-line {
+      animation-duration: 192ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-progress span {
+      animation-duration: 460ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-terminal-row,
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-source-row {
+      animation-duration: 144ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-diff {
+      animation-duration: 212ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-cursor {
+      animation-duration: 184ms;
+    }
+    #dashboard-frame-stage.materialize-active.materialize-extended .build-scan {
+      animation-duration: 148ms;
+      animation-delay: 344ms;
+    }
     @keyframes build-veil {
       0% { opacity: 0; }
       18% { opacity: 0.86; }
@@ -3038,6 +3090,45 @@
       return `${APP_BASE_PATH}${path}`;
     }
 
+    const DECK_VIDEO_PRELOAD_PATHS = [
+      '/videos/crypto-trading.mp4',
+      '/videos/meme-coin.mp4',
+      '/videos/iran.mp4',
+      '/videos/polyrec.mp4',
+      '/videos/spectre.mp4',
+      '/videos/build-with-us/iran.mp4',
+      '/videos/build-with-us/strait-of-hormuz.mp4',
+      '/videos/build-with-us/tanker.mp4',
+    ];
+    let deckVideoAssetsPreloaded = false;
+
+    function preloadDeckVideoAssets() {
+      if (deckVideoAssetsPreloaded || isMobileGated()) return;
+      deckVideoAssetsPreloaded = true;
+      DECK_VIDEO_PRELOAD_PATHS.forEach(path => {
+        const url = appUrl(path);
+        if (!url) return;
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'video';
+        link.href = url;
+        document.head.appendChild(link);
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+        video.src = url;
+        video.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;top:-9999px;';
+        video.setAttribute('aria-hidden', 'true');
+        video.dataset.preloadVideo = path;
+        document.body.appendChild(video);
+        try { video.load(); } catch (_) {}
+      });
+    }
+
+    afterNextPaint(() => whenIdle(preloadDeckVideoAssets, 900), 220);
+
     let channelPreviewMediaStarted = false;
     let channelPreviewMediaObserver = null;
     const channelPreviewHydrated = new WeakSet();
@@ -3665,6 +3756,7 @@
     let dashboardFrameAnimationTimer = null;
     let dashboardBuildStatusTimer = null;
     let dashboardTerminalStreamTimer = null;
+    let dashboardBuildTransitionTimer = null;
     let dashboardMaterializationStartedAt = 0;
     let dashboardPendingStepCount = 0;
     let dashboardNavPumpTimer = null;
@@ -4008,6 +4100,15 @@
         }
         return;
       }
+      if (event.data.type === 'dashboard-nav-step') {
+        if (event.origin !== window.location.origin) return;
+        if (event.source !== activeDashboardFrame()?.contentWindow) return;
+        const dashboard = String(event.data.dashboard || '').replace(/[^\w-]/g, '');
+        if (dashboard && dashboard !== currentDashboardId) return;
+        const direction = Number(event.data.direction) < 0 ? -1 : 1;
+        enqueueDashboardSteps(direction, 1);
+        return;
+      }
       if (event.data.type === 'kat-target-voice-start') {
         startDashboardTargetVoice(event);
         return;
@@ -4043,6 +4144,25 @@
           : { id, text, muted: true };
         playAvatarSpeech(payload).catch(err => {
           console.warn('seed-channel speech failed:', err);
+        });
+        return;
+      }
+      if (event.data.type === 'seed-channel-build-transition') {
+        if (event.origin !== window.location.origin) return;
+        if (currentDashboardId !== 'build-with-us') return;
+        runDashboardBuildEffectTransition({
+          dashboard: 'build-with-us',
+          direction: Number(event.data.direction) || 1,
+          durationMs: event.data.durationMs,
+          extended: true,
+          status: event.data.status || 'GENERATING VIDEO',
+          label: event.data.label,
+          channelLabel: event.data.channelLabel || 'VIDEO CHANNEL',
+          route: event.data.route,
+          scene: event.data.scene,
+          lens: event.data.lens,
+          visual: event.data.visual,
+          api: event.data.api,
         });
         return;
       }
@@ -4529,23 +4649,26 @@
       return compactBuildText(String(route).split('?')[0] || `/dashboards/${id}/`, `/dashboards/${id}/`, 64);
     }
 
-    function dashboardBuildContext(id) {
+    function dashboardBuildContext(id, options = {}) {
       const channel = CHANNELS[id] || {};
       const dashboard = DASHBOARD_CATALOG.dashboards?.[id] || {};
-      const label = compactBuildText(channel.label || dashboard.title || id, 'Live dashboard', 42);
-      const channelLabel = compactBuildText(channel.channel || channel.tile?.kicker || id, 'DASHBOARD CHANNEL', 32);
-      const route = dashboardBuildRoute(id, channel);
-      const scene = compactBuildText(dashboard.scene || (channel.route === 'static' ? 'static deck' : 'prototype surface'), 'dashboard surface', 38);
-      const lens = compactBuildText(dashboard.lens || dashboard.feedLabel || dashboard.visualLabel || 'operator lens', 'operator lens', 38);
-      const visual = compactBuildText(dashboard.visualLabel || dashboard.title || label, label, 42);
+      const label = compactBuildText(options.label || channel.label || dashboard.title || id, 'Live dashboard', 42);
+      const channelLabel = compactBuildText(options.channelLabel || channel.channel || channel.tile?.kicker || id, 'DASHBOARD CHANNEL', 32);
+      const route = options.route
+        ? compactBuildText(String(options.route).split('?')[0], `/dashboards/${id}/`, 64)
+        : dashboardBuildRoute(id, channel);
+      const scene = compactBuildText(options.scene || dashboard.scene || (channel.route === 'static' ? 'static deck' : 'prototype surface'), 'dashboard surface', 38);
+      const lens = compactBuildText(options.lens || dashboard.lens || dashboard.feedLabel || dashboard.visualLabel || 'operator lens', 'operator lens', 38);
+      const visual = compactBuildText(options.visual || dashboard.visualLabel || dashboard.title || label, label, 42);
       const tabs = Array.isArray(dashboard.tabs) && dashboard.tabs.length
         ? compactBuildText(dashboard.tabs.slice(0, 4).join(' / '), 'Overview / Feed', 52)
         : 'Overview / Feed';
-      const api = compactBuildText(dashboard.api || 'local model', 'local model', 28);
-      const componentName = compactBuildText(`${String(id).replace(/(^|-)(\w)/g, (_, __, char) => char.toUpperCase())}Dashboard`, 'Dashboard', 34);
+      const api = compactBuildText(options.api || dashboard.api || 'local model', 'local model', 28);
+      const componentName = compactBuildText(options.componentName || `${String(id).replace(/(^|-)(\w)/g, (_, __, char) => char.toUpperCase())}Dashboard`, 'Dashboard', 34);
       return {
         label,
         channelLabel,
+        status: compactBuildText(options.status || 'COMPILING ROUTE', 'COMPILING ROUTE', 22).toUpperCase(),
         terminalRows: [
           `checking route ${route}... yes`,
           `loading model ${componentName}`,
@@ -4608,9 +4731,9 @@
       }, 18);
     }
 
-    function renderDashboardBuildCopy(dashboardId) {
-      const context = dashboardBuildContext(dashboardId);
-      if (dashboardBuildElements.status) dashboardBuildElements.status.textContent = 'COMPILING ROUTE';
+    function renderDashboardBuildCopy(dashboardId, options = {}) {
+      const context = dashboardBuildContext(dashboardId, options);
+      if (dashboardBuildElements.status) dashboardBuildElements.status.textContent = context.status;
       if (dashboardBuildElements.target) dashboardBuildElements.target.textContent = context.label;
       if (dashboardBuildElements.channel) dashboardBuildElements.channel.textContent = context.channelLabel;
       startDashboardTerminalStream(context);
@@ -4619,11 +4742,14 @@
     function clearDashboardMaterializationStage() {
       if (dashboardBuildStatusTimer) clearTimeout(dashboardBuildStatusTimer);
       dashboardBuildStatusTimer = null;
+      if (dashboardBuildTransitionTimer) clearTimeout(dashboardBuildTransitionTimer);
+      dashboardBuildTransitionTimer = null;
       stopDashboardTerminalStream();
       dashboardMaterializationStartedAt = 0;
-      dashboardFrameStage.classList.remove('materialize-active', 'materialize-forward', 'materialize-backward');
+      dashboardFrameStage.classList.remove('materialize-active', 'materialize-forward', 'materialize-backward', 'materialize-extended');
       if (dashboardBuildEffects) {
         dashboardBuildEffects.dataset.dashboardId = '';
+        dashboardBuildEffects.dataset.transition = '';
         dashboardBuildEffects.style.opacity = '';
         dashboardBuildEffects.style.visibility = '';
       }
@@ -4681,6 +4807,55 @@
           if (dashboardBuildElements.status) dashboardBuildElements.status.textContent = 'COMPILE OK';
         }
       }, 170);
+    }
+
+    function runDashboardBuildEffectTransition(options = {}) {
+      if (reduceDashboardMotion || !dashboardBuildEffects || !dashboardFrameStage) return;
+      const dashboardId = String(options.dashboard || currentDashboardId || '').replace(/[^\w-]/g, '');
+      if (!dashboardId || (currentDashboardId && dashboardId !== currentDashboardId)) return;
+      const durationMs = Math.min(1200, Math.max(240, Number(options.durationMs) || 500));
+      const direction = Number(options.direction) || 1;
+
+      clearDashboardMaterializationStage();
+      renderDashboardBuildCopy(dashboardId, options);
+      dashboardBuildEffects.dataset.dashboardId = dashboardId;
+      dashboardBuildEffects.dataset.transition = 'clip';
+      void dashboardBuildEffects.offsetWidth;
+
+      dashboardMaterializationStartedAt = performance.now();
+      dashboardFrameStage.classList.add('materialize-active', direction >= 0 ? 'materialize-forward' : 'materialize-backward');
+      if (options.extended) dashboardFrameStage.classList.add('materialize-extended');
+      dashboardBuildEffects.style.opacity = '1';
+      dashboardBuildEffects.style.visibility = 'visible';
+      if (dashboardBuildElements.veil) dashboardBuildElements.veil.style.opacity = '0.94';
+      if (dashboardBuildElements.buffer) {
+        dashboardBuildElements.buffer.style.opacity = '1';
+        dashboardBuildElements.buffer.style.transform = 'scale(1)';
+        dashboardBuildElements.buffer.style.filter = 'brightness(1.12) blur(0)';
+      }
+      if (dashboardBuildElements.frame) {
+        dashboardBuildElements.frame.style.opacity = '1';
+        dashboardBuildElements.frame.style.transform = 'translate3d(-50%, -50%, 0) scale(1)';
+      }
+      if (dashboardBuildElements.progress) dashboardBuildElements.progress.style.transform = 'scaleX(1)';
+      [...dashboardBuildElements.bufferRows, ...dashboardBuildElements.terminalRows, ...dashboardBuildElements.sourceRows].forEach(row => {
+        row.style.opacity = '1';
+        row.style.clipPath = 'inset(0 0 0 0)';
+        row.style.transform = 'translate3d(0, 0, 0)';
+      });
+
+      dashboardBuildStatusTimer = setTimeout(() => {
+        dashboardBuildStatusTimer = null;
+        if (dashboardBuildEffects?.dataset.dashboardId === dashboardId && dashboardBuildEffects?.dataset.transition === 'clip') {
+          if (dashboardBuildElements.status) dashboardBuildElements.status.textContent = 'VIDEO READY';
+        }
+      }, Math.min(330, Math.max(170, Math.round(durationMs * 0.58))));
+
+      dashboardBuildTransitionTimer = setTimeout(() => {
+        if (dashboardBuildEffects?.dataset.dashboardId === dashboardId && dashboardBuildEffects?.dataset.transition === 'clip') {
+          clearDashboardMaterializationStage();
+        }
+      }, durationMs);
     }
 
     function ensureDashboardMaterializationStage(direction, dashboardId) {
@@ -5519,23 +5694,8 @@
       return keys[event.code] ?? keys[event.key] ?? 0;
     }
 
-    function channelConceptDirectionForKey(event) {
-      const keys = {
-        ArrowRight: 1,
-        ArrowLeft: -1,
-      };
-      return keys[event.code] ?? keys[event.key] ?? 0;
-    }
-
     window.addEventListener('keydown', (event) => {
       if (dashboardOverlay.classList.contains('hidden')) return;
-      const channelConceptDirection = channelConceptDirectionForKey(event);
-      if (channelConceptDirection && currentDashboardId === 'channels') {
-        event.preventDefault();
-        stopDashboardKeyHold();
-        postWatchFrameMessage({ type: 'channel-concept-step', direction: channelConceptDirection });
-        return;
-      }
       const direction = dashboardDirectionForKey(event);
       if (!direction) return;
       event.preventDefault();

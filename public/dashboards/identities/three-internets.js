@@ -277,6 +277,34 @@
     const panels = Array.from(root.querySelectorAll(".ti-panel"));
     let activeIdx = 0;
 
+    function directionForKey(event) {
+      const keys = { ArrowDown: 1, ArrowUp: -1 };
+      return keys[event.code] ?? keys[event.key] ?? 0;
+    }
+
+    function isActiveInParent() {
+      if (!window.parent || window.parent === window) return true;
+      try {
+        return window.parent.document.body?.dataset?.currentDashboard === "three-internets";
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function requestParentDashboardStep(direction) {
+      if (!direction || !window.parent || window.parent === window) return false;
+      try {
+        window.parent.postMessage({
+          type: "dashboard-nav-step",
+          dashboard: "three-internets",
+          direction,
+        }, window.location.origin);
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
     function setActive(idx) {
       activeIdx = Math.max(0, Math.min(panels.length - 1, idx));
       panels.forEach((panel, i) => {
@@ -298,20 +326,28 @@
       });
     }
 
+    function stepActive(direction) {
+      const nextIdx = activeIdx + direction;
+      if (nextIdx < 0 || nextIdx >= panels.length) return false;
+      setActive(nextIdx);
+      return true;
+    }
+
     function onKey(event) {
       if (event.defaultPrevented) return;
+      if (event.currentTarget !== document && !isActiveInParent()) return;
       const tag = event.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target?.isContentEditable) return;
-      if (event.key === "ArrowRight") {
-        if (activeIdx >= panels.length - 1) return;
+      const direction = directionForKey(event);
+      if (!direction) return;
+      if (stepActive(direction)) {
         event.preventDefault();
         event.stopPropagation();
-        setActive(activeIdx + 1);
-      } else if (event.key === "ArrowLeft") {
-        if (activeIdx <= 0) return;
+        return;
+      }
+      if (event.currentTarget === document && requestParentDashboardStep(direction)) {
         event.preventDefault();
         event.stopPropagation();
-        setActive(activeIdx - 1);
       }
     }
     document.addEventListener("keydown", onKey);

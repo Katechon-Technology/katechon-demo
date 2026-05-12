@@ -42,6 +42,12 @@
       "prompt": "Abyssal ocean sensor network texture, hydrothermal vent plumes, pressure waves, bioluminescent traces, deep cyan and electric teal, scientific dashboard background, no text"
     },
     {
+      "id": "build-with-us-tanker-schematic",
+      "file": "../build-with-us/tanker-schematic.jpg",
+      "model": "bytedance/seedream-4.5",
+      "prompt": "Transparent technical diagram of a crude oil supertanker, drafting board style, precise cyan and white engineering linework on a dark transparent glass surface, side elevation and top-down cutaway visible, hull compartments, cargo tanks, ballast tanks, deck manifold piping, pump room, engine room, bow and stern annotations, realtime intelligence schematic, clean professional naval architecture drawing, no logos, no watermark"
+    },
+    {
       "id": "dark-forest",
       "file": "dark-forest-catalog.jpg",
       "prompt": "Anomalous astronomy watch texture, dark star catalog, stellar dimming traces, silence window, long-baseline signal grid, quiet ominous sci-fi, no text"
