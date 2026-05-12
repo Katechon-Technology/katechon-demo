@@ -1,6 +1,6 @@
 /* Final slide: a channel snapshot inside a single broadcasting box.
-   Four scenes back to back: Iran, Strait of Hormuz, tanker deep dive,
-   then a Replicate/Seedream tanker schematic generated from a video click. */
+   Five scenes back to back: Iran, Strait of Hormuz, tanker deep dive,
+   a Replicate/Seedream tanker schematic, then the final Hormuz live state. */
 
 body[data-dashboard="build-with-us"] {
   background: #000 !important;
@@ -90,7 +90,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-root[data-bwu-scene="strait"] .bwu-scene-strait,
 .bwu-root[data-bwu-scene="seed"]   .bwu-scene-seed,
 .bwu-root[data-bwu-scene="tanker"] .bwu-scene-tanker,
-.bwu-root[data-bwu-scene="schematic"] .bwu-scene-schematic {
+.bwu-root[data-bwu-scene="schematic"] .bwu-scene-schematic,
+.bwu-root[data-bwu-scene="channel"] .bwu-scene-channel {
   opacity: 1;
   pointer-events: auto;
 }
@@ -119,11 +120,12 @@ body[data-dashboard="build-with-us"] .action-rail {
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
 
-/* Iran + Strait + Tanker + schematic scenes all use a video background. */
+/* Iran + Strait + Tanker + schematic + channel scenes all use a video background. */
 .bwu-scene-iran,
 .bwu-scene-strait,
 .bwu-scene-tanker,
-.bwu-scene-schematic {
+.bwu-scene-schematic,
+.bwu-scene-channel {
   overflow: hidden;
   padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
 }
@@ -702,7 +704,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 /* ---- Scene 4: Replicate / Seedream schematic ------------------------ */
 
-.bwu-root[data-bwu-scene="schematic"] .bwu-globe-panel {
+.bwu-root[data-bwu-scene="schematic"] .bwu-globe-panel,
+.bwu-root[data-bwu-scene="channel"] .bwu-globe-panel {
   opacity: 0;
   transform: translateX(18px) scale(0.96);
 }
@@ -871,6 +874,18 @@ body[data-dashboard="build-with-us"] .action-rail {
   opacity: 0.28;
 }
 
+.bwu-root.is-schematic-pinning[data-bwu-scene="schematic"] .bwu-schematic-board {
+  opacity: 0.64;
+  transform: translate(-16%, -12%) scale(0.58);
+  transform-origin: 62% 58%;
+  transition: opacity 500ms ease, transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.bwu-root.is-schematic-pinning[data-bwu-scene="schematic"] .bwu-seedream-console {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
 .bwu-schematic-line,
 .bwu-schematic-pipe,
 .bwu-schematic-measure {
@@ -1029,6 +1044,315 @@ body[data-dashboard="build-with-us"] .action-rail {
   line-height: 1.45;
   letter-spacing: 0.02em;
 }
+
+/* ---- Scene 5: Hormuz channel state ---------------------------------- */
+
+.bwu-channel-video {
+  opacity: 0.42;
+  filter: saturate(0.74) contrast(1.16) brightness(0.62);
+  transform: scale(1.06);
+}
+
+.bwu-channel-grad {
+  background:
+    radial-gradient(circle at 58% 48%, rgba(125, 232, 255, 0.16), transparent 38%),
+    radial-gradient(circle at 82% 28%, rgba(255, 154, 92, 0.13), transparent 31%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0.18) 45%, rgba(0, 0, 0, 0.84) 100%),
+    linear-gradient(90deg, rgba(0, 8, 12, 0.76), rgba(0, 0, 0, 0.04) 56%, rgba(0, 8, 12, 0.76));
+}
+
+.bwu-scene-channel .bwu-headline {
+  border-color: rgba(0, 232, 123, 0.48);
+  background: rgba(0, 18, 12, 0.76);
+}
+
+.bwu-scene-channel .bwu-headline-pill {
+  background: var(--accent, #00e87b);
+  color: #02120c;
+}
+
+.bwu-channel-hero {
+  position: absolute;
+  z-index: 3;
+  left: clamp(28px, 3vw, 42px);
+  right: clamp(28px, 3vw, 42px);
+  top: clamp(94px, 10.5vh, 126px);
+  bottom: clamp(28px, 3vh, 44px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(270px, 29vw, 390px);
+  gap: clamp(14px, 1.6vw, 22px);
+  min-height: 0;
+}
+
+.bwu-channel-map,
+.bwu-channel-summary {
+  border: 1px solid rgba(125, 232, 255, 0.22);
+  border-radius: 7px;
+  background: rgba(1, 8, 12, 0.52);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  transition: opacity 560ms ease, transform 700ms ease;
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-map,
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-summary {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-summary {
+  transition-delay: 140ms;
+}
+
+.bwu-channel-map {
+  position: relative;
+  overflow: hidden;
+}
+
+.bwu-channel-map::before,
+.bwu-channel-map::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  inset: 0;
+}
+
+.bwu-channel-map::before {
+  background:
+    linear-gradient(rgba(125, 232, 255, 0.065) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 232, 255, 0.065) 1px, transparent 1px);
+  background-size: 42px 42px;
+  opacity: 0.54;
+}
+
+.bwu-channel-map::after {
+  background:
+    radial-gradient(circle at 61% 58%, rgba(0, 232, 123, 0.2), transparent 22%),
+    radial-gradient(circle at 82% 34%, rgba(255, 154, 92, 0.18), transparent 20%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.36));
+  mix-blend-mode: screen;
+}
+
+.bwu-channel-map-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bwu-channel-depth path,
+.bwu-channel-coast-lines path {
+  fill: none;
+  stroke: rgba(125, 232, 255, 0.13);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.bwu-channel-coast path {
+  fill: rgba(10, 25, 22, 0.72);
+  stroke: none;
+}
+
+.bwu-channel-coast-lines path {
+  stroke: rgba(255, 194, 128, 0.34);
+  stroke-width: 1.6;
+}
+
+.bwu-channel-lanes path {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 12 17;
+  vector-effect: non-scaling-stroke;
+  animation: bwu-channel-lane-flow 1600ms linear infinite;
+}
+
+@keyframes bwu-channel-lane-flow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -58; }
+}
+
+.bwu-channel-vessel {
+  fill: rgba(125, 232, 255, 0.82);
+  stroke: rgba(232, 250, 255, 0.74);
+  stroke-width: 1.2;
+}
+
+.bwu-channel-vessel-main {
+  fill: rgba(0, 232, 123, 0.82);
+  stroke: rgba(220, 255, 239, 0.9);
+}
+
+.bwu-channel-pin line {
+  stroke: rgba(125, 232, 255, 0.62);
+  stroke-width: 1.6;
+  stroke-dasharray: 7 8;
+}
+
+.bwu-channel-pin circle {
+  fill: rgba(0, 232, 123, 0.2);
+  stroke: rgba(0, 232, 123, 0.88);
+  stroke-width: 2;
+}
+
+.bwu-channel-pin rect {
+  fill: rgba(0, 12, 18, 0.72);
+  stroke: rgba(125, 232, 255, 0.56);
+  stroke-width: 1.4;
+}
+
+.bwu-channel-pin path {
+  fill: none;
+  stroke: rgba(125, 232, 255, 0.78);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.bwu-channel-pin text {
+  fill: rgba(232, 250, 255, 0.72);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.bwu-channel-pulses circle {
+  fill: none;
+  stroke: rgba(255, 154, 92, 0.42);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bwu-channel-pulse-ring 1800ms ease-out infinite;
+}
+
+.bwu-channel-pulses circle:nth-child(2) { animation-delay: 420ms; }
+.bwu-channel-pulses circle:nth-child(3) { animation-delay: 840ms; }
+
+@keyframes bwu-channel-pulse-ring {
+  0% { opacity: 0.92; transform: scale(0.45); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+
+.bwu-channel-summary {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(12px, 1.4vh, 18px);
+  padding: clamp(12px, 1.5vh, 18px);
+  min-height: 0;
+}
+
+.bwu-channel-summary-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(125, 232, 255, 0.16);
+  color: var(--accent, #00e87b);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.bwu-channel-metrics {
+  display: grid;
+  align-content: start;
+  gap: clamp(8px, 1vh, 12px);
+  min-height: 0;
+}
+
+.bwu-channel-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  padding: clamp(9px, 1.1vh, 13px) clamp(10px, 1vw, 13px);
+  border: 1px solid rgba(243, 246, 248, 0.09);
+  border-radius: 5px;
+  background:
+    linear-gradient(90deg, rgba(125, 232, 255, 0.08), transparent 58%),
+    rgba(2, 10, 15, 0.66);
+  opacity: 0;
+  transform: translateX(10px);
+  transition: opacity 360ms ease, transform 360ms ease, border-color 360ms ease;
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-metric {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-metric[data-bwu-channel-metric="0"] { transition-delay: 300ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-metric[data-bwu-channel-metric="1"] { transition-delay: 420ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-metric[data-bwu-channel-metric="2"] { transition-delay: 540ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-metric[data-bwu-channel-metric="3"] { transition-delay: 660ms; }
+
+.bwu-channel-metric-k {
+  color: rgba(243, 246, 248, 0.56);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.bwu-channel-metric strong {
+  color: rgba(232, 250, 255, 0.98);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(14px, 1.25vw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-align: right;
+}
+
+.bwu-channel-metric-s {
+  grid-column: 1 / -1;
+  color: rgba(243, 246, 248, 0.5);
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(11px, 0.9vw, 12px);
+  line-height: 1.35;
+}
+
+.bwu-channel-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(125, 232, 255, 0.14);
+}
+
+.bwu-channel-layer {
+  padding: 6px 8px;
+  border: 1px solid rgba(125, 232, 255, 0.22);
+  border-radius: 4px;
+  background: rgba(125, 232, 255, 0.06);
+  color: rgba(232, 250, 255, 0.72);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="0"] { transition-delay: 760ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="1"] { transition-delay: 840ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="2"] { transition-delay: 920ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="3"] { transition-delay: 1000ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="4"] { transition-delay: 1080ms; }
+.bwu-root[data-bwu-scene="channel"] .bwu-channel-layer[data-bwu-channel-layer="5"] { transition-delay: 1160ms; }
 
 /* ---- Scene 1: Iran betting cards ------------------------------------- */
 
