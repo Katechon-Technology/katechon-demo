@@ -3858,26 +3858,6 @@
     let landingCaptureTimer = null;
     let landingSwitchRunId = 0;
     let currentDashboardId = null;
-    let seedChannelAudioCache = null;
-    let seedChannelAudioFetching = false;
-    function preloadSeedChannelAudio() {
-      if (seedChannelAudioCache || seedChannelAudioFetching) return;
-      seedChannelAudioFetching = true;
-      const text = 'One of these is yours.';
-      const id = `seed-channel-${Date.now()}`;
-      fetch(appUrl('/api/speak'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, id }),
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(payload => {
-          if (payload && payload.audio) seedChannelAudioCache = payload;
-        })
-        .catch(err => console.warn('seed-channel preload failed:', err))
-        .finally(() => { seedChannelAudioFetching = false; });
-    }
-
     function setCurrentDashboardAttr(id) {
       const value = String(id || '').toLowerCase().replace(/[^\w-]/g, '');
       if (value) document.body.dataset.currentDashboard = value;
@@ -3885,12 +3865,10 @@
       warmDeckResourcesForDashboard(value);
       if (value !== 'build-with-us') {
         document.body.classList.remove('seed-channel-cut');
-        seedChannelAudioCache = null;
       } else {
         loadBrowserAvatarFrame().catch(err => {
           console.warn('avatar load failed:', err);
         });
-        preloadSeedChannelAudio();
       }
     }
     let dashboardWheelDelta = 0;
@@ -4277,12 +4255,9 @@
         const text = String(event.data.text || '').trim();
         if (!text) return;
         const id = String(event.data.id || `seed-${Date.now()}`);
-        // Prefer audio attached to the event (build-with-us.js prefetches
-        // per-scene). Fall back to the legacy single-line cache, then to
-        // muted lip-sync if neither is available.
-        const inlineAudio = String(event.data.audio || '');
-        const cached = seedChannelAudioCache;
-        const audio = inlineAudio || (cached && cached.audio) || '';
+        // build-with-us.js attaches the full narration audio. Do not fall
+        // back to the old single-line seed-channel preload.
+        const audio = String(event.data.audio || '');
         const payload = audio
           ? { id, text, audio, muted: false }
           : { id, text, muted: true };
