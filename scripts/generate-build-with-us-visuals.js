@@ -12,6 +12,7 @@
 const fs = require("fs");
 const path = require("path");
 const fetch = require("node-fetch");
+const { execFile } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const videoOutDir = path.join(root, "public", "videos", "build-with-us");
@@ -162,9 +163,53 @@ async function downloadTo(url, target) {
   fs.renameSync(tmp, target);
 }
 
+function webmTargetFor(target) {
+  return target.replace(/\.mp4$/i, ".webm");
+}
+
+function execFilePromise(command, args) {
+  return new Promise((resolve, reject) => {
+    execFile(command, args, { cwd: root }, (error, stdout, stderr) => {
+      if (error) {
+        error.stdout = stdout;
+        error.stderr = stderr;
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function transcodeWebmFallback(target) {
+  if (!/\.mp4$/i.test(target)) return;
+  const webmTarget = webmTargetFor(target);
+  const tmp = `${webmTarget}.tmp`;
+  await execFilePromise("ffmpeg", [
+    "-y",
+    "-i", target,
+    "-an",
+    "-c:v", "libvpx-vp9",
+    "-pix_fmt", "yuv420p",
+    "-b:v", "0",
+    "-crf", "34",
+    "-row-mt", "1",
+    "-cpu-used", "5",
+    "-f", "webm",
+    tmp,
+  ]);
+  fs.renameSync(tmp, webmTarget);
+  console.log(`wrote ${path.relative(root, webmTarget)}`);
+}
+
 async function generate(shot) {
   const target = path.join(shot.outDir || videoOutDir, shot.file);
   if (fs.existsSync(target) && !force) {
+    if (shot.kind === "video" && !fs.existsSync(webmTargetFor(target))) {
+      console.log(`transcoding ${shot.id}: ${path.relative(root, webmTargetFor(target))}`);
+      if (!dryRun) await transcodeWebmFallback(target);
+      return;
+    }
     console.log(`skip ${shot.id}: ${path.relative(root, target)} exists (use --force to regenerate)`);
     return;
   }
@@ -200,6 +245,7 @@ async function generate(shot) {
 
   await downloadTo(assetUrl, target);
   console.log(`wrote ${path.relative(root, target)}`);
+  if (shot.kind === "video") await transcodeWebmFallback(target);
 }
 
 async function main() {

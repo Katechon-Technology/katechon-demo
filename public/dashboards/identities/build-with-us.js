@@ -37,13 +37,14 @@
       "And here, M/V Artemis, rerouting south. Live position, live cargo, live risk. " +
       "Click the tanker. Replicate calls ByteDance Seedream, and the video becomes a transparent engineering schematic in real time. " +
       "Then the schematic pins back into Hormuz, live vessel state, market pressure, and model output in one channel. " +
-      "Finally everything clears. We end on the ship itself, alone at night in the Strait of Hormuz.",
+      "Finally everything clears. Katechon Technology.",
   };
   // If ElevenLabs is slow, don't hang forever — start the visual reel
   // anyway after this much wall-clock time.
   const AUDIO_WAIT_MAX_MS = 4500;
   const SCENE_TRANSITION_MS = 500;
   const SCENE_TRANSITION_LEAD_MS = SCENE_TRANSITION_MS / 2;
+  const NARRATION_AUDIO_ASSET = "generated/build-with-us/narration.mp3";
   const IRAN_TO_STRAIT_MS = 5000;
   const STRAIT_TO_TANKER_MS = 10000;
   const TANKER_TO_SCHEMATIC_MS = 14500;
@@ -209,6 +210,14 @@
       pov: { lat: ARTEMIS_COORD.lat, lng: ARTEMIS_COORD.lng, altitude: 0.34 },
       points: ["artemis"],
       rings: ["artemis"],
+    },
+    channel: {
+      kicker: "CHANNEL STATE",
+      label: "HORMUZ LIVE",
+      detail: "AIS + MARKETS + MODEL LAYER",
+      pov: { lat: HORMUZ_COORD.lat, lng: HORMUZ_COORD.lng, altitude: 0.66 },
+      points: ["hormuz", "artemis"],
+      rings: ["hormuz", "artemis"],
     },
   };
 
@@ -508,7 +517,7 @@
       <div class="bwu-scene bwu-scene-iran" data-bwu-scene-el="iran">
         <video class="bwu-video" data-bwu-video="iran"
           src="${escapeHtml(videoSrc(appUrl, 'iran.mp4'))}"
-          muted playsinline autoplay loop preload="auto"></video>
+          muted playsinline loop preload="auto"></video>
         <div class="bwu-video-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="iran">
@@ -537,7 +546,7 @@
       <div class="bwu-scene bwu-scene-strait" data-bwu-scene-el="strait">
         <video class="bwu-video" data-bwu-video="strait"
           src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          muted playsinline loop preload="none"></video>
         <div class="bwu-video-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="strait">
@@ -576,7 +585,7 @@
       <div class="bwu-scene bwu-scene-tanker" data-bwu-scene-el="tanker">
         <video class="bwu-video" data-bwu-video="tanker"
           src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          muted playsinline loop preload="none"></video>
         <div class="bwu-video-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="tanker">
@@ -620,7 +629,7 @@
       <div class="bwu-scene bwu-scene-schematic" data-bwu-scene-el="schematic">
         <video class="bwu-video bwu-schematic-video" data-bwu-video="schematic"
           src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          muted playsinline loop preload="none"></video>
         <div class="bwu-video-grad bwu-schematic-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="schematic">
@@ -683,7 +692,7 @@
       <div class="bwu-scene bwu-scene-channel" data-bwu-scene-el="channel">
         <video class="bwu-video bwu-channel-video" data-bwu-video="channel"
           src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          muted playsinline loop preload="none"></video>
         <div class="bwu-video-grad bwu-channel-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="channel">
@@ -720,8 +729,12 @@
       <div class="bwu-scene bwu-scene-night" data-bwu-scene-el="night">
         <video class="bwu-video bwu-night-video" data-bwu-video="night"
           src="${escapeHtml(videoSrc(appUrl, NIGHT_VIDEO_FILE))}"
-          muted playsinline loop preload="auto"></video>
+          muted playsinline loop preload="none"></video>
         <div class="bwu-night-vignette"></div>
+        <div class="bwu-final-brand" aria-label="Katechon Technology">
+          <span>Katechon</span>
+          <span>Technology</span>
+        </div>
       </div>
 
       <div class="bwu-globe-panel" data-bwu-globe-panel>
@@ -978,20 +991,50 @@
     window.__bwuState = null;
   }
 
-  // Fetch the single ElevenLabs narration. Returns the payload (with
-  // base64 audio) on success, or null. Never throws.
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  function loadStaticNarration(appUrl, id) {
+    return fetch(appUrl(NARRATION_AUDIO_ASSET), { cache: "reload" })
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .then((buffer) => {
+        if (!buffer || !buffer.byteLength) return null;
+        return {
+          id,
+          text: NARRATION.text,
+          audio: arrayBufferToBase64(buffer),
+          muted: false,
+          source: "static",
+        };
+      })
+      .catch(() => null);
+  }
+
+  // Fetch the single narration payload. Prefer the checked-in MP3 so this
+  // reel works locally and on deploy without depending on HLS or live TTS.
+  // Fall back to /api/speak only if the static asset is missing.
   function preloadNarration(appUrl) {
     const id = `${NARRATION.id}-${Date.now()}`;
-    return fetch(appUrl("/api/speak"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: NARRATION.text, id }),
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((payload) => (payload && payload.audio ? payload : null))
-      .catch((err) => {
-        console.warn(`[bwu] /api/speak failed:`, err);
-        return null;
+    return loadStaticNarration(appUrl, id).then((staticPayload) => {
+      if (staticPayload) return staticPayload;
+      return fetch(appUrl("/api/speak"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: NARRATION.text, id }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((payload) => (payload && payload.audio ? payload : null))
+        .catch((err) => {
+          console.warn(`[bwu] /api/speak failed:`, err);
+          return null;
+        });
       });
   }
 
@@ -1033,9 +1076,52 @@
     if (!root) return;
     cancelPrevious();
 
-    const state = { timers: [], intervals: [], cleanups: [], uid, started: false };
+    const state = { timers: [], intervals: [], cleanups: [], uid, started: false, narrationRequested: false, narrationId: null };
     window.__bwuState = state;
     const FALLBACK = videoFallback(appUrl);
+
+    function prepareVideo(vid) {
+      if (!vid) return;
+      vid.muted = true;
+      vid.defaultMuted = true;
+      vid.playsInline = true;
+      vid.setAttribute("muted", "");
+      vid.setAttribute("playsinline", "");
+      vid.setAttribute("webkit-playsinline", "");
+    }
+
+    function safePlayVideo(vid) {
+      if (!vid) return;
+      prepareVideo(vid);
+      vid.play?.().catch((err) => {
+        const id = vid.dataset.bwuVideo || "unknown";
+        console.warn(`[bwu] video play failed (${id}):`, err);
+      });
+    }
+
+    // Only one bwu video should hold a decoder slot at a time. Pause every
+    // other clip and strip its src so Chrome releases the decoder; we
+    // restore from data-bwu-src when that clip is reactivated.
+    function activateVideo(target) {
+      if (!target) return;
+      root.querySelectorAll("[data-bwu-video]").forEach((other) => {
+        if (other === target) return;
+        try {
+          other.pause();
+          const cur = other.getAttribute("src");
+          if (cur && !other.dataset.bwuSrc) other.dataset.bwuSrc = cur;
+          if (cur) {
+            other.removeAttribute("src");
+            try { other.load(); } catch (_) {}
+          }
+        } catch (_) {}
+      });
+      if (!target.getAttribute("src") && target.dataset.bwuSrc) {
+        target.setAttribute("src", target.dataset.bwuSrc);
+        try { target.load(); } catch (_) {}
+      }
+      safePlayVideo(target);
+    }
 
     function schedule(delayMs, fn) {
       const id = setTimeout(() => {
@@ -1049,38 +1135,39 @@
     // the visual reel waits until ElevenLabs audio is ready.
     postParent({ type: "seed-channel-init" });
 
-    // Wire video error fallbacks: if a freshly-baked clip errors, swap
-    // in the legacy root-level mp4 where one exists.
+    // Wire video error fallbacks and stash the original src so
+    // activateVideo() can release decoders by stripping src on inactive
+    // clips and restoring them when their scene comes up.
     root.querySelectorAll("[data-bwu-video]").forEach((vid) => {
+      prepareVideo(vid);
+      const initialSrc = vid.getAttribute("src");
+      if (initialSrc) vid.dataset.bwuSrc = initialSrc;
       vid.addEventListener("error", () => {
-        const cur = (vid.getAttribute("src") || "").split("/").pop();
+        const cur = (vid.getAttribute("src") || vid.dataset.bwuSrc || "").split("/").pop();
         const fallback = FALLBACK[cur];
         if (fallback && vid.dataset.bwuFallbackTried !== "1") {
           vid.dataset.bwuFallbackTried = "1";
+          vid.dataset.bwuSrc = fallback;
           vid.src = fallback;
           vid.load();
-          vid.play?.().catch(() => {});
+          safePlayVideo(vid);
         } else {
+          console.warn(`[bwu] video failed with no fallback: ${cur || vid.dataset.bwuVideo || "unknown"}`, vid.error);
           vid.style.opacity = "0";
         }
       });
     });
 
-    // Kick the Iran video immediately so the establishing shot plays
-    // while we wait for narration audio.
+    // Only the iran clip eagerly buffers; the rest load on scene
+    // transition via activateVideo() so Chrome only juggles one
+    // hardware decoder at a time.
     const iranVideo = root.querySelector('[data-bwu-video="iran"]');
-    if (iranVideo) iranVideo.play?.().catch(() => {});
-    // Pre-buffer the later videos so each scene swap is instant.
     const straitVideo = root.querySelector('[data-bwu-video="strait"]');
-    if (straitVideo) { try { straitVideo.load(); } catch (_) {} }
     const tankerVideo = root.querySelector('[data-bwu-video="tanker"]');
-    if (tankerVideo) { try { tankerVideo.load(); } catch (_) {} }
     const schematicVideo = root.querySelector('[data-bwu-video="schematic"]');
-    if (schematicVideo) { try { schematicVideo.load(); } catch (_) {} }
     const channelVideo = root.querySelector('[data-bwu-video="channel"]');
-    if (channelVideo) { try { channelVideo.load(); } catch (_) {} }
     const nightVideo = root.querySelector('[data-bwu-video="night"]');
-    if (nightVideo) { try { nightVideo.load(); } catch (_) {} }
+    if (iranVideo) { try { iranVideo.load(); } catch (_) {} }
 
     const schematicImg = root.querySelector("[data-bwu-schematic-img]");
     if (schematicImg) {
@@ -1121,7 +1208,7 @@
     function showSchematicScene() {
       if (state.schematicShown) return;
       state.schematicShown = true;
-      if (schematicVideo) schematicVideo.play?.().catch(() => {});
+      activateVideo(schematicVideo);
       root.setAttribute("data-bwu-scene", "schematic");
       root.classList.add("is-generating-schematic");
       root.classList.remove("is-schematic-ready");
@@ -1138,8 +1225,9 @@
       if (state.channelShown) return;
       state.channelShown = true;
       root.classList.add("is-schematic-pinned");
-      if (channelVideo) channelVideo.play?.().catch(() => {});
+      activateVideo(channelVideo);
       root.setAttribute("data-bwu-scene", "channel");
+      setGlobeFrame(root, state, "channel", 900);
       root.querySelector('[data-bwu-headline="channel"]')?.classList.add("is-in");
     }
 
@@ -1154,7 +1242,7 @@
     function showNightScene() {
       if (state.nightShown) return;
       state.nightShown = true;
-      if (nightVideo) nightVideo.play?.().catch(() => {});
+      activateVideo(nightVideo);
       root.classList.add("is-clean-closing");
       root.setAttribute("data-bwu-scene", "night");
     }
@@ -1192,18 +1280,28 @@
 
     // ---- Start the reel once audio is ready (or after a max wait) ---------
     function startReel(audioPayload) {
-      if (state.started) return;
-      state.started = true;
+      if (state.narrationRequested) return;
+      state.narrationRequested = true;
+      const narrationId = (audioPayload && audioPayload.id) || `${NARRATION.id}-${Date.now()}`;
+      state.narrationId = narrationId;
 
-      // Fire the single narration. If audio is missing we still send
-      // the speak event — the parent will fall back gracefully — but
-      // ElevenLabs is the expected path for the pitch.
+      // Fire the single local narration. Visual playback waits for the
+      // avatar to confirm audio actually started, so cold launches stay
+      // synced after the browser audio gesture.
       postParent({
         type: "seed-channel-speak",
-        id: (audioPayload && audioPayload.id) || `${NARRATION.id}-${Date.now()}`,
+        id: narrationId,
         text: NARRATION.text,
         audio: (audioPayload && audioPayload.audio) || "",
       });
+
+      if (!(audioPayload && audioPayload.audio) || window.parent === window) startVisualReel();
+    }
+
+    function startVisualReel() {
+      if (state.started) return;
+      state.started = true;
+      activateVideo(iranVideo);
 
       // Iran market odds tick upward across the scene.
       schedule(400, () => {
@@ -1229,7 +1327,7 @@
       // ---- Iran -> Hormuz ----------------------------------------------
       schedule(IRAN_TO_STRAIT_MS - SCENE_TRANSITION_LEAD_MS, () => requestBuildTransition("strait"));
       schedule(IRAN_TO_STRAIT_MS, () => {
-        if (straitVideo) straitVideo.play?.().catch(() => {});
+        activateVideo(straitVideo);
         root.setAttribute("data-bwu-scene", "strait");
         setGlobeFrame(root, state, "strait", 1200);
       });
@@ -1260,7 +1358,7 @@
       // ---- Hormuz -> Tanker deep dive ----------------------------------
       schedule(STRAIT_TO_TANKER_MS - SCENE_TRANSITION_LEAD_MS, () => requestBuildTransition("tanker"));
       schedule(STRAIT_TO_TANKER_MS, () => {
-        if (tankerVideo) tankerVideo.play?.().catch(() => {});
+        activateVideo(tankerVideo);
         root.setAttribute("data-bwu-scene", "tanker");
         setGlobeFrame(root, state, "tanker", 1200);
       });
@@ -1292,6 +1390,14 @@
       // The reel ends cleanly on the tanker video. Music continues until
       // the user moves on. (The seed-round closer lives on its own future slide.)
     }
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (window.__bwuState !== state) return;
+      if (event.data?.type !== "seed-channel-audio-started") return;
+      if (state.narrationId && event.data.id !== state.narrationId) return;
+      startVisualReel();
+    });
 
     // Audio race: start when /api/speak resolves, or force-start after
     // AUDIO_WAIT_MAX_MS so the reel never hangs in silence.

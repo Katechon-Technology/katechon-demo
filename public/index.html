@@ -1183,28 +1183,23 @@
       transform: translate3d(0, 0, 0) scale(1);
       transform-origin: center;
       backface-visibility: hidden;
-      transition:
-        opacity 120ms ease,
-        filter 240ms ease;
-      will-change: opacity, filter;
+      transition: opacity 120ms ease;
+      will-change: opacity;
     }
     .dashboard-frame.active {
       opacity: 1;
       pointer-events: auto;
       transform: translate3d(0, 0, 0) scale(1);
-      filter: none;
       z-index: 2;
     }
     .dashboard-frame.incoming {
-      opacity: 0.08;
+      opacity: 0;
       z-index: 1;
-      filter: brightness(0.28) blur(4.2px) saturate(0.48) contrast(1.22);
       transform: translate3d(0, 0, 0) scale(1);
     }
     .dashboard-frame.outgoing {
-      opacity: 0.08;
+      opacity: 0;
       z-index: 3;
-      filter: brightness(0.24) blur(3.2px) saturate(0.48) contrast(1.2);
       transform: translate3d(0, 0, 0) scale(1);
     }
     @media (max-width: 620px) {
@@ -2618,7 +2613,10 @@
     const forceMotion = /^(1|true|yes)$/i.test(motionParamValue) ||
       pageParams.get('demo') === '1';
     if (forceMotion) document.documentElement.classList.add('force-motion');
-    const dashboardTransitionsEnabled = !/^(0|false|no|off)$/i.test(motionParamValue);
+    // Default-off: the heavy materialize transition (filter chains + build-effects
+    // overlay) was stalling Chrome's compositor during channel switches. Opt back
+    // in with ?motion=1 for the cinematic transition; default is a fast opacity fade.
+    const dashboardTransitionsEnabled = /^(1|true|yes)$/i.test(motionParamValue);
     if (dashboardTransitionsEnabled) document.documentElement.classList.add('dashboard-motion');
     const AUTO_WELCOME_NARRATION_ENABLED = false;
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
@@ -3660,8 +3658,9 @@
 
     async function playStartupAudioPrompt() {
       const dashboardId = startupAudioDashboardId || currentDashboardId;
-      const payload = startupAudioPayload;
+      const payload = startupAudioPayload || (dashboardId === 'build-with-us' ? seedChannelStartupPayload : null);
       hideStartupAudioPrompt();
+      if (payload && dashboardId === 'build-with-us') stopBrowserAvatarAudio();
       try {
         await unlockAgentAudio();
       } catch (err) {
@@ -3672,11 +3671,19 @@
         console.warn('startup music failed:', err);
       });
       try {
-        if (payload) await playAvatarSpeech(payload, { preferParentAudio: true });
+        if (payload && dashboardId === 'build-with-us') {
+          await playAvatarSpeech(payload, { requireAvatar: true, avatarStartTimeoutMs: 2500 });
+        } else if (payload) {
+          await playAvatarSpeech(payload, { preferParentAudio: true });
+        }
         else startDashboardNarration(dashboardId, { preferParentAudio: true });
       } catch (err) {
         console.warn('startup audio prompt playback failed:', err);
-        startDashboardNarration(dashboardId);
+        if (payload && dashboardId === 'build-with-us') {
+          showStartupAudioPrompt('build-with-us', payload);
+        } else {
+          startDashboardNarration(dashboardId);
+        }
       }
     }
 
@@ -3721,6 +3728,7 @@
     let landingSwitchRunId = 0;
     let currentDashboardId = null;
     let seedChannelAudioCache = null;
+    let seedChannelStartupPayload = null;
     let seedChannelAudioFetching = false;
     function preloadSeedChannelAudio() {
       if (seedChannelAudioCache || seedChannelAudioFetching) return;
@@ -3747,8 +3755,9 @@
       if (value !== 'build-with-us') {
         document.body.classList.remove('seed-channel-cut');
         seedChannelAudioCache = null;
+        seedChannelStartupPayload = null;
       } else {
-        preloadSeedChannelAudio();
+        seedChannelAudioCache = null;
       }
     }
     let dashboardWheelDelta = 0;
@@ -4071,6 +4080,15 @@
       if (event.data.type === 'audio-started' && event.data.id && avatarAudioStarters.has(event.data.id)) {
         avatarAudioStarters.get(event.data.id)();
         avatarAudioStarters.delete(event.data.id);
+        activeDashboardFrame()?.contentWindow?.postMessage({
+          type: 'seed-channel-audio-started',
+          id: event.data.id,
+          durationMs: event.data.durationMs,
+          offsetMs: event.data.offsetMs,
+        }, window.location.origin);
+        if (currentDashboardId === 'build-with-us' && seedChannelStartupPayload?.id === event.data.id) {
+          hideStartupAudioPrompt();
+        }
         return;
       }
       if (event.data.type === 'audio-ended' && event.data.id && avatarAudioWaiters.has(event.data.id)) {
@@ -4141,8 +4159,13 @@
         const payload = audio
           ? { id, text, audio, muted: false }
           : { id, text, muted: true };
-        playAvatarSpeech(payload).catch(err => {
+        if (audio) {
+          seedChannelStartupPayload = payload;
+          showStartupAudioPrompt('build-with-us', payload);
+        }
+        playAvatarSpeech(payload, { requireAvatar: true, avatarStartTimeoutMs: 2500 }).catch(err => {
           console.warn('seed-channel speech failed:', err);
+          if (audio && currentDashboardId === 'build-with-us') showStartupAudioPrompt('build-with-us', payload);
         });
         return;
       }
@@ -4228,7 +4251,7 @@
         return;
       }
 
-      await playThroughBrowserAvatar(payload);
+      await playThroughBrowserAvatar(payload, options);
     }
 
     function playWelcomeMessage(payload) {
@@ -4354,7 +4377,7 @@
       });
     }
 
-    async function playThroughBrowserAvatar(payload) {
+    async function playThroughBrowserAvatar(payload, options = {}) {
       const playbackSeq = ++avatarPlaybackSeq;
       const text = payload.text || payload.speech || payload.reply || '';
       setKatNarrationLine(text, true);
@@ -4378,7 +4401,7 @@
         const timeout = setTimeout(() => {
           avatarAudioStarters.delete(id);
           resolve(false);
-        }, 900);
+        }, Number(options.avatarStartTimeoutMs) || 900);
         avatarAudioStarters.set(id, () => {
           clearTimeout(timeout);
           resolve(true);
@@ -4389,6 +4412,7 @@
       if (!avatarStarted && payload.audio) {
         avatarAudioWaiters.delete(id);
         postToAvatar({ type: 'stop' });
+        if (options.requireAvatar) throw new Error('avatar audio did not start');
         await playBase64Audio(payload.audio);
         if (playbackSeq === avatarPlaybackSeq) setKatNarrationLine('', false);
         return;

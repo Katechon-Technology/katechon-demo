@@ -74,6 +74,10 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-root {
   position: absolute;
   inset: 0;
+  --bwu-edge-x: clamp(28px, 3vw, 42px);
+  --bwu-edge-y: clamp(28px, 3vh, 44px);
+  --bwu-avatar-reserve: clamp(260px, 24vw, 520px);
+  --bwu-safe-right: calc(var(--bwu-avatar-reserve) + var(--bwu-edge-x));
   color: rgba(243, 246, 248, 0.92);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   transition: filter 260ms ease, opacity 260ms ease;
@@ -130,7 +134,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-scene-channel,
 .bwu-scene-night {
   overflow: hidden;
-  padding: clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+  padding: var(--bwu-edge-y) var(--bwu-edge-x);
 }
 
 .bwu-video {
@@ -140,7 +144,9 @@ body[data-dashboard="build-with-us"] .action-rail {
   height: 100%;
   object-fit: cover;
   z-index: 0;
-  filter: saturate(0.92) contrast(1.04);
+  background: #000;
+  transform: translateZ(0);
+  backface-visibility: hidden;
   transition: opacity 320ms ease;
 }
 
@@ -159,18 +165,37 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-globe-panel {
   position: absolute;
   top: clamp(96px, 11vh, 132px);
-  right: clamp(28px, 3vw, 42px);
+  right: var(--bwu-safe-right);
   z-index: 4;
-  width: clamp(190px, 23vw, 310px);
+  width: clamp(190px, 21vw, 300px);
   pointer-events: none;
-  opacity: 0.94;
+  opacity: 0.86;
   transition: opacity 360ms ease, transform 420ms ease, filter 420ms ease;
   filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.48));
 }
 
+.bwu-root[data-bwu-scene="iran"] .bwu-globe-panel,
 .bwu-root[data-bwu-scene="tanker"] .bwu-globe-panel {
-  top: clamp(86px, 9vh, 112px);
-  width: clamp(200px, 24vw, 330px);
+  z-index: 2;
+  top: clamp(126px, 15vh, 176px);
+  width: clamp(210px, 21vw, 320px);
+  opacity: 0.18;
+  filter: blur(0.2px) drop-shadow(0 18px 42px rgba(0, 0, 0, 0.42));
+}
+
+.bwu-root[data-bwu-scene="iran"] .bwu-globe-caption,
+.bwu-root[data-bwu-scene="tanker"] .bwu-globe-caption {
+  display: none;
+}
+
+.bwu-root[data-bwu-scene="strait"] .bwu-globe-panel {
+  top: clamp(92px, 10vh, 128px);
+  width: clamp(220px, 23vw, 330px);
+  opacity: 0.74;
+}
+
+.bwu-root[data-bwu-scene="tanker"] .bwu-globe-panel {
+  top: clamp(116px, 13vh, 160px);
 }
 
 .bwu-globe-frame {
@@ -546,9 +571,9 @@ body[data-dashboard="build-with-us"] .action-rail {
   opacity: 1;
   transform: translateY(0);
 }
-.bwu-hud-id        { left: clamp(28px, 3vw, 42px); top: clamp(96px, 11vh, 130px); }
-.bwu-hud-cargo     { left: clamp(28px, 3vw, 42px); bottom: clamp(28px, 3vh, 44px); }
-.bwu-hud-telemetry { right: clamp(28px, 3vw, 42px); bottom: clamp(28px, 3vh, 44px); }
+.bwu-hud-id        { left: var(--bwu-edge-x); top: clamp(96px, 11vh, 130px); }
+.bwu-hud-cargo     { left: var(--bwu-edge-x); bottom: var(--bwu-edge-y); }
+.bwu-hud-telemetry { right: var(--bwu-safe-right); bottom: var(--bwu-edge-y); }
 
 .bwu-hud-title {
   font-size: 10px;
@@ -708,10 +733,23 @@ body[data-dashboard="build-with-us"] .action-rail {
 /* ---- Scene 4: Replicate / Seedream schematic ------------------------ */
 
 .bwu-root[data-bwu-scene="schematic"] .bwu-globe-panel,
-.bwu-root[data-bwu-scene="channel"] .bwu-globe-panel,
 .bwu-root[data-bwu-scene="night"] .bwu-globe-panel {
   opacity: 0;
   transform: translateX(18px) scale(0.96);
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-globe-panel {
+  z-index: 2;
+  top: clamp(106px, 11vh, 152px);
+  right: var(--bwu-safe-right);
+  width: clamp(220px, 23vw, 340px);
+  opacity: 0.14;
+  transform: scale(1.04);
+  filter: blur(0.2px) drop-shadow(0 24px 56px rgba(0, 0, 0, 0.58));
+}
+
+.bwu-root[data-bwu-scene="channel"] .bwu-globe-caption {
+  display: none;
 }
 
 .bwu-scene-schematic .bwu-headline {
@@ -726,7 +764,6 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 .bwu-schematic-video {
   opacity: 0.34;
-  filter: saturate(0.65) contrast(1.18) brightness(0.58);
 }
 
 .bwu-schematic-grad {
@@ -774,12 +811,12 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-schematic-workspace {
   position: absolute;
   z-index: 3;
-  left: clamp(28px, 3vw, 42px);
-  right: clamp(28px, 3vw, 42px);
+  left: var(--bwu-edge-x);
+  right: var(--bwu-safe-right);
   top: clamp(134px, 15vh, 172px);
-  bottom: clamp(28px, 3vh, 44px);
+  bottom: var(--bwu-edge-y);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(250px, 28vw, 360px);
+  grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 330px);
   gap: clamp(14px, 1.6vw, 22px);
   min-height: 0;
 }
@@ -1053,7 +1090,6 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 .bwu-channel-video {
   opacity: 0.42;
-  filter: saturate(0.74) contrast(1.16) brightness(0.62);
   transform: scale(1.06);
 }
 
@@ -1080,12 +1116,12 @@ body[data-dashboard="build-with-us"] .action-rail {
 .bwu-channel-hero {
   position: absolute;
   z-index: 3;
-  left: clamp(28px, 3vw, 42px);
-  right: clamp(28px, 3vw, 42px);
+  left: var(--bwu-edge-x);
+  right: var(--bwu-safe-right);
   top: clamp(94px, 10.5vh, 126px);
-  bottom: clamp(28px, 3vh, 44px);
+  bottom: var(--bwu-edge-y);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(270px, 29vw, 390px);
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 24vw, 340px);
   gap: clamp(14px, 1.6vw, 22px);
   min-height: 0;
 }
@@ -1377,7 +1413,6 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 
 .bwu-night-video {
   opacity: 1;
-  filter: brightness(0.78) contrast(1.1) saturate(0.86);
   transform: scale(1.02);
 }
 
@@ -1391,16 +1426,48 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
     linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0) 48%, rgba(0, 0, 0, 0.28) 100%);
 }
 
+.bwu-final-brand {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  gap: clamp(4px, 0.8vh, 12px);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  color: #fff;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: clamp(46px, 6.4vw, 112px);
+  font-weight: 800;
+  line-height: 0.94;
+  letter-spacing: 0;
+  text-align: center;
+  text-shadow:
+    0 2px 18px rgba(0, 0, 0, 0.68),
+    0 0 42px rgba(255, 255, 255, 0.14);
+}
+
+.bwu-final-brand span {
+  display: block;
+}
+
+.bwu-root[data-bwu-scene="night"] .bwu-final-brand {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 720ms ease 900ms, transform 720ms ease 900ms;
+}
+
 /* ---- Scene 1: Iran betting cards ------------------------------------- */
 
 .bwu-markets {
   position: absolute;
-  right: clamp(28px, 3vw, 42px);
-  bottom: clamp(28px, 3vh, 44px);
+  right: var(--bwu-safe-right);
+  bottom: var(--bwu-edge-y);
   z-index: 3;
   display: grid;
   gap: clamp(8px, 1vh, 12px);
-  width: clamp(280px, 38%, 460px);
+  width: clamp(300px, 32vw, 460px);
 }
 
 .bwu-market {
@@ -1470,10 +1537,10 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 
 .bwu-ticker {
   position: absolute;
-  inset: auto clamp(28px, 3vw, 42px) clamp(28px, 3vh, 44px) clamp(28px, 3vw, 42px);
+  inset: auto var(--bwu-safe-right) var(--bwu-edge-y) var(--bwu-edge-x);
   z-index: 3;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) clamp(260px, 36%, 420px);
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 28vw, 380px);
   gap: clamp(12px, 1.4vw, 18px);
   align-items: end;
 }

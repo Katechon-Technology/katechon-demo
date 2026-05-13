@@ -73,7 +73,7 @@ body[data-dashboard="seed-round"] .stage {
 
 .sr-amount {
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-  font-size: clamp(120px, 22vw, 380px);
+  font-size: clamp(120px, 44vw, 760px);
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 0.9;

@@ -12229,14 +12229,14 @@ async function runKatAgent(transcript, options = {}) {
   }
 
   const speechStartedAt = Date.now();
-  const speechRemote = audio
+  const speechRemote = STREAM_AUDIO_ENABLED && audio
     ? await dispatchRemoteSpeech({
         id,
         text: decision.speech,
         audio,
         muted: false,
       }).then((result) => ({ ...result, elapsedMs: Date.now() - speechStartedAt }))
-    : { ok: false, error: "no audio" };
+    : { ok: false, skipped: true, reason: audio ? "stream audio disabled" : "no audio" };
   const commandRemote = await commandRemotePromise;
 
   return {
@@ -12291,7 +12291,8 @@ app.post("/api/command", async (req, res) => {
   }
 });
 
-// POST /api/speak — synthesize Kat's reply and forward it to the remote avatar
+// POST /api/speak — synthesize Kat's reply for browser-local playback.
+// The legacy HLS/avatar bridge is opt-in for recording/streaming runs.
 app.post("/api/speak", async (req, res) => {
   try {
     const text = String(req.body?.text || "").trim();
@@ -12311,9 +12312,16 @@ app.post("/api/speak", async (req, res) => {
       audio,
       muted: !audio,
     };
-    const remote = audio ? await dispatchRemoteSpeech(payload) : { ok: false, error: "no audio" };
-
+    const remote = STREAM_AUDIO_ENABLED && audio
+      ? { ok: true, pending: true }
+      : { ok: false, skipped: true, reason: audio ? "stream audio disabled" : "no audio" };
     res.json({ ...payload, remote, streamAudio: STREAM_AUDIO_ENABLED });
+
+    if (STREAM_AUDIO_ENABLED && audio) {
+      dispatchRemoteSpeech(payload).catch((err) => {
+        console.warn("remote speech dispatch failed:", err.message);
+      });
+    }
   } catch (err) {
     console.error("speech error:", err.message);
     res.status(500).json({ error: err.message });
