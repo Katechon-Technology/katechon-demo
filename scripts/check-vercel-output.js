@@ -34,6 +34,10 @@ function requireNotHtml(file) {
 const requiredFiles = [
   "dist/index.html",
   "dist/deck/index.html",
+  "dist/deck/deck.css",
+  "dist/deck/deck.js",
+  "dist/deck/vc-deck.json",
+  "dist/deck/katechon-vc-deck.pdf",
   "dist/data/index.html",
   "dist/pdf/index.html",
   "dist/katechon.pdf",
@@ -51,6 +55,10 @@ const requiredFiles = [
   "dist/decks/dune/deck.json",
   "dist/app/index.html",
   "dist/app/deck/index.html",
+  "dist/app/deck/deck.css",
+  "dist/app/deck/deck.js",
+  "dist/app/deck/vc-deck.json",
+  "dist/app/deck/katechon-vc-deck.pdf",
   "dist/app/brand/katechon-motion.gif",
   "dist/app/prototype-dashboard.html",
   "dist/app/dashboards/catalog.js",
@@ -110,11 +118,12 @@ for (const file of requiredFiles) {
 }
 
 requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
-requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag");
-requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
-requireContains("dist/deck/index.html", "dune-deck", "deck starts at dashboard 18");
-requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
-requireContains("dist/deck/index.html", "seed-round", "deck includes seed round closer");
+requireContains("dist/deck/index.html", "deck-frame", "root VC deck frame");
+requireContains("dist/deck/deck.js", "./vc-deck.json", "root VC deck manifest loader");
+requireContains("dist/deck/vc-deck.json", '"number": 18', "VC deck starts at dashboard 18");
+requireContains("dist/deck/vc-deck.json", '"number": 28', "VC deck ends at dashboard 28");
+requireContains("dist/deck/vc-deck.json", '"dune-deck"', "VC deck includes dashboard 18");
+requireContains("dist/deck/vc-deck.json", '"seed-round"', "VC deck includes seed round closer");
 requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
 requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
 requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
@@ -135,8 +144,8 @@ requireContains("dist/dashboards/live-generated-states/index.html", "/dashboards
 requireContains("dist/dashboards/what-should-exist-next/index.html", "/dashboards/catalog.js", "What Should Exist Next root prototype dashboard");
 requireContains("dist/dashboards/seed-round/index.html", "/dashboards/catalog.js", "Seed Round root prototype dashboard");
 requireContains("dist/app/index.html", '<base href="/app/">', "the /app base tag");
-requireContains("dist/app/deck/index.html", '<base href="/app/">', "the /app deck base tag");
-requireContains("dist/app/deck/index.html", "DECK_CHANNEL_IDS", "app deck-mode dashboard subset");
+requireContains("dist/app/deck/index.html", "deck-frame", "app VC deck frame");
+requireContains("dist/app/deck/deck.js", 'const appBase = /^\\/app', "app-aware VC deck runtime");
 requireContains("dist/app/index.html", "dashboard-build-effects", "app dashboard transition layer");
 requireContains("dist/app/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG", "dashboard catalog registration");
 requireContains("dist/app/dashboards/prototype.js", "function appUrl", "dashboard appUrl helper");

@@ -69,6 +69,14 @@
       "destination": "/deck/index.html"
     },
     {
+      "source": "/app/deck",
+      "destination": "/app/deck/index.html"
+    },
+    {
+      "source": "/app/deck/",
+      "destination": "/app/deck/index.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://176.57.184.142:4040/api/:path*"
     },

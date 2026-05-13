@@ -95,8 +95,10 @@ function materializeDeckEntrypoint(targetRoot, indexFile, baseHref = "") {
   const deckDir = path.join(targetRoot, "deck");
   const deckIndex = path.join(deckDir, "index.html");
   fs.mkdirSync(deckDir, { recursive: true });
-  fs.copyFileSync(indexFile, deckIndex);
-  if (baseHref) setHtmlBase(deckIndex, baseHref);
+  if (!fs.existsSync(deckIndex)) {
+    fs.copyFileSync(indexFile, deckIndex);
+    if (baseHref) setHtmlBase(deckIndex, baseHref);
+  }
 }
 
 fs.rmSync(output, { recursive: true, force: true });

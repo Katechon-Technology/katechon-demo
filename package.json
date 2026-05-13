@@ -11,6 +11,7 @@
     "launch:visual": "node scripts/launch-visual.js",
     "launch:qa": "node scripts/launch-qa.js",
     "watch-feed:qa": "node scripts/watch-feed-qa.js",
+    "deck:pdf": "node scripts/export-vc-deck-pdf.js",
     "channel:music": "node scripts/generate-channel-music.js",
     "bwu:visuals": "node scripts/generate-build-with-us-visuals.js",
     "start": "node server.js",
