@@ -210,6 +210,24 @@
       });
     }
 
+    let vegaRuntimePromise = null;
+    function ensureVegaRuntime() {
+      if (typeof window.vega?.View === "function" && typeof window.vega?.parse === "function") {
+        return Promise.resolve(true);
+      }
+      const src = window.KATECHON_VEGA_SRC;
+      if (!src) return Promise.resolve(false);
+      if (!vegaRuntimePromise) {
+        vegaRuntimePromise = loadScript(src)
+          .then(() => typeof window.vega?.View === "function" && typeof window.vega?.parse === "function")
+          .catch((err) => {
+            console.warn("Vega runtime unavailable:", err);
+            return false;
+          });
+      }
+      return vegaRuntimePromise;
+    }
+
     async function loadDashboardIdentity() {
       loadStylesheet(identity.css);
       if (identity.script) await loadScript(identity.script);
@@ -2610,7 +2628,12 @@
           await ensureChartPayload(component);
         } catch (_) {}
         const rows = chartRowsForBinding(component);
-        if (!rows.length || typeof window.vega?.View !== "function" || typeof window.vega?.parse !== "function") {
+        if (!rows.length) {
+          node.innerHTML = fallbackChartHtml(rows);
+          continue;
+        }
+        const hasVega = await ensureVegaRuntime();
+        if (!hasVega) {
           node.innerHTML = fallbackChartHtml(rows);
           continue;
         }

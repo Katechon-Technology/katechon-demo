@@ -111,8 +111,10 @@
 .aa-root .score-text { fill: var(--aa-soft); font: 10px "SFMono-Regular", Consolas, monospace; }
 
 .aa-root .cand-thumb video {
+  display: block;
   width: 100%; height: 100%;
   object-fit: cover;
+  background: #020406;
   border-radius: 5px;
   border: 1px solid rgba(255,255,255,0.10);
   opacity: 0.55;
@@ -189,8 +191,10 @@
 
 .aa-root .surface-video-frame { fill: rgba(0,0,0,0.45); stroke: rgba(247,201,92,0.45); stroke-width: 1; }
 .aa-root .surface-video video {
+  display: block;
   width: 100%; height: 100%;
   object-fit: cover;
+  background: #020406;
   border-radius: 8px;
   filter: contrast(1.05) saturate(1.12) brightness(0.96);
 }

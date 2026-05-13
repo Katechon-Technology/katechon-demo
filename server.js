@@ -2912,11 +2912,28 @@ function sendDashboardSharePage(req, res) {
 
 app.get(["/share/:dashboard", "/app/share/:dashboard"], sendDashboardSharePage);
 
+function sendIndexHtml(req, res, options = {}) {
+  const indexPath = path.join(__dirname, "public", "index.html");
+  const baseHref = options.baseHref;
+  if (!baseHref) return res.sendFile(indexPath);
+  fs.readFile(indexPath, "utf8", (err, html) => {
+    if (err) {
+      console.error("index page read failed:", err.message);
+      res.status(500).send("Unable to load index page");
+      return;
+    }
+    const htmlWithBase = html.includes("<base ")
+      ? html
+      : html.replace("<head>", `<head>\n  <base href="${baseHref}">`);
+    res.type("html").send(htmlWithBase);
+  });
+}
+
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  sendIndexHtml(req, res);
 });
 app.get(/^\/deck\/?$/, (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  sendIndexHtml(req, res, { baseHref: "/" });
 });
 
 app.get("/stream.m3u8", proxyHls);

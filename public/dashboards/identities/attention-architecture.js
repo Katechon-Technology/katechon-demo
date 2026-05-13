@@ -13,6 +13,8 @@
 
   function buildHtml(uid, appUrl) {
     const v = (name) => escapeHtml(appUrl("videos/" + name));
+    const video = (name) =>
+      `<video xmlns="http://www.w3.org/1999/xhtml" data-aa-video data-aa-src="${v(name)}" autoplay muted loop playsinline preload="metadata"></video>`;
     return `<div class="aa-root" data-aa-root="${escapeHtml(uid)}" tabindex="0">
       <div class="aa-grid"></div>
 
@@ -109,7 +111,7 @@
         <g class="cand-row" data-cand="1" transform="translate(412,108)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("crypto-trading.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+            ${video("crypto-trading.mp4")}
           </foreignObject>
           <text class="cand-title" x="96" y="28">BTC liquidity</text>
           <g transform="translate(96,40)">
@@ -122,7 +124,7 @@
         <g class="cand-row" data-cand="2" transform="translate(412,196)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("meme-coin.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+            ${video("meme-coin.mp4")}
           </foreignObject>
           <text class="cand-title" x="96" y="28">Pump.fun graduation</text>
           <g transform="translate(96,40)">
@@ -135,7 +137,7 @@
         <g class="cand-row" data-cand="3" data-winner="true" transform="translate(412,284)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+            ${video("iran.mp4")}
           </foreignObject>
           <text class="cand-title" x="96" y="28">Hormuz tanker risk</text>
           <g transform="translate(96,40)">
@@ -148,7 +150,7 @@
         <g class="cand-row" data-cand="4" transform="translate(412,372)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("polyrec.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+            ${video("polyrec.mp4")}
           </foreignObject>
           <text class="cand-title" x="96" y="28">Polymarket close odds</text>
           <g transform="translate(96,40)">
@@ -161,7 +163,7 @@
         <g class="cand-row" data-cand="5" transform="translate(412,460)">
           <rect class="cand-bg" x="0" y="0" width="340" height="74" rx="8"/>
           <foreignObject class="cand-thumb" x="12" y="14" width="72" height="46">
-            <video xmlns="http://www.w3.org/1999/xhtml" src="${v("spectre.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+            ${video("spectre.mp4")}
           </foreignObject>
           <text class="cand-title" x="96" y="28">SPECTRE cluster</text>
           <g transform="translate(96,40)">
@@ -208,7 +210,7 @@
           <g id="aa-s-stage" class="stage-elem">
             <rect class="surface-video-frame" x="20" y="108" width="420" height="294" rx="10"/>
             <foreignObject class="surface-video" x="22" y="110" width="416" height="290">
-              <video xmlns="http://www.w3.org/1999/xhtml" src="${v("iran.mp4")}" autoplay muted loop playsinline preload="auto"></video>
+              ${video("iran.mp4")}
             </foreignObject>
 
             <g transform="translate(36,122)">
@@ -339,6 +341,37 @@
     const later = (fn, ms) => { const t = setTimeout(fn, ms); timeouts.push(t); return t; };
     const clearAll = () => { timeouts.forEach(clearTimeout); timeouts = []; };
     const tracked  = (id) => { intervals.push(id); return id; };
+
+    function primeVideo(video) {
+      if (!video) return;
+      const src = video.dataset.aaSrc;
+      if (src && !video.getAttribute("src")) video.src = src;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
+      if (!video.readyState) {
+        try { video.load(); } catch (_) {}
+      }
+      video.play?.().catch(() => {});
+    }
+
+    function primeAttentionVideos() {
+      const videos = [...root.querySelectorAll("video[data-aa-video]")];
+      videos.forEach((video, index) => {
+        later(() => primeVideo(video), index * 120);
+      });
+    }
+
+    function resumeAttentionVideos() {
+      if (document.visibilityState === "hidden") return;
+      root.querySelectorAll("video[data-aa-video]").forEach(primeVideo);
+    }
+
+    document.addEventListener("visibilitychange", resumeAttentionVideos);
+    window.addEventListener("pageshow", resumeAttentionVideos);
 
     // ===== sparkline =====
     const SPARK_W = 184, SPARK_H = 44, SPARK_PAD = 4, SPARK_N = 36;
@@ -679,6 +712,8 @@
       intervals.forEach(clearInterval);
       intervals.length = 0;
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("visibilitychange", resumeAttentionVideos);
+      window.removeEventListener("pageshow", resumeAttentionVideos);
       if (parentDoc) {
         try { parentDoc.removeEventListener("keydown", onKey); } catch (_) {}
       }
@@ -689,6 +724,7 @@
     };
 
     runLoop();
+    primeAttentionVideos();
   }
 
   window.KATECHON_DASHBOARD_RENDERERS = window.KATECHON_DASHBOARD_RENDERERS || {};

@@ -11,13 +11,13 @@
   <link rel="manifest" href="/brand/site.webmanifest">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-  <link rel="preload" href="libs/live2dcubismcore.min.js" as="script">
-  <link rel="preload" href="libs/live2d.min.js" as="script">
-  <link rel="preload" href="libs/pixi.min.js" as="script">
-  <link rel="preload" href="libs/pixi-live2d-display.min.js" as="script">
-  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.fast.model3.json" as="fetch" type="application/json" crossorigin>
-  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.moc3" as="fetch" crossorigin>
-  <link rel="preload" href="live2d-models/zhongxingshekongdlc/zhongxingshekong.2048/texture_00.png" as="image" type="image/png" fetchpriority="high">
+  <link data-avatar-preload href="libs/live2dcubismcore.min.js" as="script">
+  <link data-avatar-preload href="libs/live2d.min.js" as="script">
+  <link data-avatar-preload href="libs/pixi.min.js" as="script">
+  <link data-avatar-preload href="libs/pixi-live2d-display.min.js" as="script">
+  <link data-avatar-preload href="live2d-models/zhongxingshekongdlc/zhongxingshekong.fast.model3.json" as="fetch" type="application/json" crossorigin>
+  <link data-avatar-preload href="live2d-models/zhongxingshekongdlc/zhongxingshekong.moc3" as="fetch" crossorigin>
+  <link data-avatar-preload href="live2d-models/zhongxingshekongdlc/zhongxingshekong.2048/texture_00.png" as="image" type="image/png" fetchpriority="low">
   <style>
     :root {
       --bg: #050608;
@@ -2197,7 +2197,7 @@
   <video id="v" autoplay muted playsinline></video>
   <div id="status"><span class="status-dot"></span><span id="status-text">connecting...</span></div>
   <div id="browser-avatar-wrap" aria-hidden="true">
-    <iframe id="browser-avatar" src="avatar-pet.html?model=0&xFactor=0.8&v=8" allow="autoplay" loading="eager" fetchpriority="high"></iframe>
+    <iframe id="browser-avatar" data-src="avatar-pet.html?model=0&xFactor=0.8&v=8" allow="autoplay" loading="lazy" fetchpriority="low"></iframe>
   </div>
   <div id="kat-narrator" class="hidden" aria-live="polite">
     <div class="kat-portrait" aria-hidden="true"></div>
@@ -3061,7 +3061,7 @@
 
     let motionRuntimeBooted = false;
     function loadMotionRuntime() {
-      if (reduceMotion || isMobileGated() || motionRuntimeBooted) return;
+      if (reduceMotion || isMobileGated() || motionRuntimeBooted || hasSharedDashboardLaunch()) return;
       motionRuntimeBooted = true;
       if (canMotion) {
         runIntroMotion();
@@ -3089,7 +3089,7 @@
       return `${APP_BASE_PATH}${path}`;
     }
 
-    const DECK_VIDEO_PRELOAD_PATHS = [
+    const LANDING_VIDEO_PRELOAD_PATHS = [
       '/videos/crypto-trading.mp4',
       '/videos/meme-coin.mp4',
       '/videos/iran.mp4',
@@ -3099,19 +3099,36 @@
       '/videos/build-with-us/strait-of-hormuz.mp4',
       '/videos/build-with-us/tanker.mp4',
     ];
-    let deckVideoAssetsPreloaded = false;
+    const BUILD_WITH_US_VIDEO_PRELOAD_PATHS = [
+      '/videos/build-with-us/iran.mp4',
+      '/videos/build-with-us/strait-of-hormuz.mp4',
+      '/videos/build-with-us/tanker.mp4',
+      '/videos/build-with-us/tanker-night.mp4',
+    ];
+    const BUILD_WITH_US_WARMUP_RADIUS = 3;
+    let landingVideoAssetsPreloaded = false;
+    let buildWithUsVideoAssetsPrefetched = false;
+    const videoHintedUrls = new Set();
 
-    function preloadDeckVideoAssets() {
-      if (deckVideoAssetsPreloaded || isMobileGated()) return;
-      deckVideoAssetsPreloaded = true;
-      DECK_VIDEO_PRELOAD_PATHS.forEach(path => {
+    function addVideoResourceHint(path, rel = 'prefetch') {
+      const url = appUrl(path);
+      if (!url || videoHintedUrls.has(url)) return false;
+      videoHintedUrls.add(url);
+      const link = document.createElement('link');
+      link.rel = rel;
+      link.as = 'video';
+      link.href = url;
+      document.head.appendChild(link);
+      return true;
+    }
+
+    function preloadLandingVideoAssets() {
+      if (landingVideoAssetsPreloaded || isMobileGated() || hasSharedDashboardLaunch()) return;
+      landingVideoAssetsPreloaded = true;
+      LANDING_VIDEO_PRELOAD_PATHS.forEach(path => {
         const url = appUrl(path);
         if (!url) return;
-        const link = document.createElement('link');
-        link.rel = 'preload';
-        link.as = 'video';
-        link.href = url;
-        document.head.appendChild(link);
+        addVideoResourceHint(path, 'preload');
 
         const video = document.createElement('video');
         video.muted = true;
@@ -3126,7 +3143,30 @@
       });
     }
 
-    afterNextPaint(() => whenIdle(preloadDeckVideoAssets, 900), 220);
+    function prefetchBuildWithUsVideoAssets() {
+      if (buildWithUsVideoAssetsPrefetched || isMobileGated()) return;
+      buildWithUsVideoAssetsPrefetched = true;
+      BUILD_WITH_US_VIDEO_PRELOAD_PATHS.forEach(path => addVideoResourceHint(path, 'prefetch'));
+    }
+
+    function warmDeckResourcesForDashboard(dashboardId) {
+      if (!isDeckRoute || !dashboardId) return;
+      const ids = DECK_CHANNEL_IDS;
+      const currentIndex = ids.indexOf(dashboardId);
+      const buildWithUsIndex = ids.indexOf('build-with-us');
+      if (currentIndex < 0 || buildWithUsIndex < 0) return;
+      const slidesUntilBuildWithUs = buildWithUsIndex - currentIndex;
+      if (slidesUntilBuildWithUs >= 0 && slidesUntilBuildWithUs <= BUILD_WITH_US_WARMUP_RADIUS) {
+        prefetchBuildWithUsVideoAssets();
+      }
+      if (slidesUntilBuildWithUs >= 0 && slidesUntilBuildWithUs <= 2) {
+        loadBrowserAvatarFrame().catch(err => {
+          console.warn('avatar warmup failed:', err);
+        });
+      }
+    }
+
+    afterNextPaint(() => whenIdle(preloadLandingVideoAssets, 900), 220);
 
     let channelPreviewMediaStarted = false;
     let channelPreviewMediaObserver = null;
@@ -3266,7 +3306,7 @@
 
     if (pageParams.get('tools') === '1') document.body.classList.add('debug-tools');
 
-    if (pageParams.get('demo') === '1' || localDevSkipEntryGate) {
+    if ((pageParams.get('demo') === '1' || localDevSkipEntryGate) && !hasSharedDashboardLaunch()) {
       document.getElementById('email-overlay').classList.add('hidden');
       const main = document.getElementById('main-overlay');
       main.classList.remove('hidden');
@@ -3281,7 +3321,7 @@
 
     // Reset stream to landing state after the first frame has had a chance to paint.
     afterNextPaint(() => {
-      if (!isMobileGated()) fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
+      if (!isMobileGated() && !hasSharedDashboardLaunch()) fetch(appUrl('/api/switch/landing'), { method: 'POST' }).catch(() => {});
     });
 
     const desktopFallback = document.getElementById('desktop-fallback');
@@ -3335,7 +3375,7 @@
     }
 
     function loadDesktopFallbackFrame() {
-      if (isMobileGated()) return;
+      if (isMobileGated() || hasSharedDashboardLaunch()) return;
       loadDeferredFrame(desktopFallback);
     }
 
@@ -3715,6 +3755,9 @@
     let currentDashboardUrl = '';
     let avatarReady = false;
     let avatarReadyResolver = null;
+    let avatarFrameLoadStarted = false;
+    let avatarFrameLoadPromise = null;
+    let avatarAssetPreloadsStarted = false;
     let avatarPlacement = loadAvatarPlacement();
     let homeTransitionTimer = null;
     let landingCaptureTimer = null;
@@ -3744,10 +3787,14 @@
       const value = String(id || '').toLowerCase().replace(/[^\w-]/g, '');
       if (value) document.body.dataset.currentDashboard = value;
       else delete document.body.dataset.currentDashboard;
+      warmDeckResourcesForDashboard(value);
       if (value !== 'build-with-us') {
         document.body.classList.remove('seed-channel-cut');
         seedChannelAudioCache = null;
       } else {
+        loadBrowserAvatarFrame().catch(err => {
+          console.warn('avatar load failed:', err);
+        });
         preloadSeedChannelAudio();
       }
     }
@@ -3843,7 +3890,7 @@
 
     let streamRuntimeStarted = false;
     function loadStreamRuntime() {
-      if (isMobileGated() || streamRuntimeStarted) return;
+      if (isMobileGated() || streamRuntimeStarted || hasSharedDashboardLaunch()) return;
       streamRuntimeStarted = true;
       if (window.Hls || v.canPlayType('application/vnd.apple.mpegurl')) {
         startStreamPlayback();
@@ -4011,6 +4058,9 @@
     if (AVATAR_DESKTOP_MEDIA.addEventListener) AVATAR_DESKTOP_MEDIA.addEventListener('change', applyAvatarPlacement);
     else AVATAR_DESKTOP_MEDIA.addListener?.(applyAvatarPlacement);
     applyAvatarPlacement();
+    afterNextPaint(() => whenIdle(() => {
+      if (!hasSharedDashboardLaunch()) loadBrowserAvatarFrame().catch(() => {});
+    }, 2400), 900);
 
     function postDashboardTargetVoiceStatus(status, label = status) {
       if (!dashboardTargetVoice?.frame) return;
@@ -4175,8 +4225,44 @@
       }
     });
 
+    function preloadBrowserAvatarAssets() {
+      if (avatarAssetPreloadsStarted) return;
+      avatarAssetPreloadsStarted = true;
+      document.querySelectorAll('link[data-avatar-preload]').forEach(link => {
+        if (!link.rel) link.rel = 'preload';
+      });
+    }
+
+    function loadBrowserAvatarFrame() {
+      if (avatarReady) return Promise.resolve(true);
+      if (avatarFrameLoadPromise) return avatarFrameLoadPromise;
+      const frameSrc = browserAvatar?.dataset?.src || '';
+      if (!browserAvatar || (!frameSrc && !browserAvatar.getAttribute('src'))) {
+        avatarFrameLoadPromise = Promise.resolve(false);
+        return avatarFrameLoadPromise;
+      }
+      preloadBrowserAvatarAssets();
+      avatarFrameLoadStarted = true;
+      avatarFrameLoadPromise = new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeout);
+          resolve(true);
+        };
+        const timeout = setTimeout(finish, 8000);
+        browserAvatar.addEventListener('load', finish, { once: true });
+        browserAvatar.addEventListener('error', finish, { once: true });
+        if (!browserAvatar.getAttribute('src') && frameSrc) browserAvatar.src = frameSrc;
+        else if (browserAvatar.contentDocument?.readyState === 'complete') finish();
+      });
+      return avatarFrameLoadPromise;
+    }
+
     function waitForAvatarReady() {
       if (avatarReady) return Promise.resolve();
+      loadBrowserAvatarFrame().catch(() => {});
       return new Promise(resolve => {
         avatarReadyResolver = resolve;
         setTimeout(resolve, 6000);
@@ -4184,6 +4270,7 @@
     }
 
     function postToAvatar(message) {
+      if (!avatarFrameLoadStarted && !browserAvatar?.getAttribute('src')) return;
       browserAvatar.contentWindow?.postMessage(message, '*');
     }
 
@@ -4314,6 +4401,7 @@
     }
 
     async function unlockBrowserAvatarAudio() {
+      await loadBrowserAvatarFrame();
       postToAvatar({ type: 'unlock' });
     }
 
@@ -5566,7 +5654,7 @@
       currentDashboardId = workspace;
       setCurrentDashboardAttr(workspace);
       clearHomeTransitionMask();
-      unlockBrowserAvatarAudio().catch(() => {});
+      if (!isDeckRoute || workspace === 'build-with-us') unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url(options);
       const rapidNavigation = options.rapid === true;
       trackLaunchEvent('channel_opened', {

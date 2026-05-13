@@ -536,8 +536,8 @@
       <!-- Scene 2: Strait of Hormuz -->
       <div class="bwu-scene bwu-scene-strait" data-bwu-scene-el="strait">
         <video class="bwu-video" data-bwu-video="strait"
-          src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          data-bwu-src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
+          muted playsinline loop preload="metadata"></video>
         <div class="bwu-video-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="strait">
@@ -575,8 +575,8 @@
       <!-- Scene 3: Tanker deep dive -->
       <div class="bwu-scene bwu-scene-tanker" data-bwu-scene-el="tanker">
         <video class="bwu-video" data-bwu-video="tanker"
-          src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          data-bwu-src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
+          muted playsinline loop preload="metadata"></video>
         <div class="bwu-video-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="tanker">
@@ -619,8 +619,8 @@
       <!-- Scene 4: Replicate + ByteDance Seedream schematic -->
       <div class="bwu-scene bwu-scene-schematic" data-bwu-scene-el="schematic">
         <video class="bwu-video bwu-schematic-video" data-bwu-video="schematic"
-          src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          data-bwu-src="${escapeHtml(videoSrc(appUrl, 'tanker.mp4'))}"
+          muted playsinline loop preload="metadata"></video>
         <div class="bwu-video-grad bwu-schematic-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="schematic">
@@ -682,8 +682,8 @@
       <!-- Scene 5: zoom back out to Hormuz live channel state -->
       <div class="bwu-scene bwu-scene-channel" data-bwu-scene-el="channel">
         <video class="bwu-video bwu-channel-video" data-bwu-video="channel"
-          src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
-          muted playsinline loop preload="auto"></video>
+          data-bwu-src="${escapeHtml(videoSrc(appUrl, 'strait-of-hormuz.mp4'))}"
+          muted playsinline loop preload="metadata"></video>
         <div class="bwu-video-grad bwu-channel-grad"></div>
 
         <div class="bwu-headline" data-bwu-headline="channel">
@@ -719,8 +719,8 @@
       <!-- Scene 6: clean closing video -->
       <div class="bwu-scene bwu-scene-night" data-bwu-scene-el="night">
         <video class="bwu-video bwu-night-video" data-bwu-video="night"
-          src="${escapeHtml(videoSrc(appUrl, NIGHT_VIDEO_FILE))}"
-          muted playsinline loop preload="auto"></video>
+          data-bwu-src="${escapeHtml(videoSrc(appUrl, NIGHT_VIDEO_FILE))}"
+          muted playsinline loop preload="metadata"></video>
         <div class="bwu-night-vignette"></div>
       </div>
 
@@ -1053,7 +1053,8 @@
     // in the legacy root-level mp4 where one exists.
     root.querySelectorAll("[data-bwu-video]").forEach((vid) => {
       vid.addEventListener("error", () => {
-        const cur = (vid.getAttribute("src") || "").split("/").pop();
+        const source = vid.currentSrc || vid.getAttribute("src") || vid.dataset.bwuSrc || "";
+        const cur = source.split("/").pop();
         const fallback = FALLBACK[cur];
         if (fallback && vid.dataset.bwuFallbackTried !== "1") {
           vid.dataset.bwuFallbackTried = "1";
@@ -1066,21 +1067,74 @@
       });
     });
 
+    function ensureVideoSource(vid) {
+      if (!vid) return "";
+      const pending = vid.dataset.bwuSrc;
+      if (pending && !vid.getAttribute("src")) vid.src = pending;
+      vid.muted = true;
+      vid.defaultMuted = true;
+      vid.playsInline = true;
+      vid.setAttribute("muted", "");
+      vid.setAttribute("playsinline", "");
+      vid.setAttribute("webkit-playsinline", "");
+      return vid.currentSrc || vid.getAttribute("src") || "";
+    }
+
+    function primeVideo(vid, options = {}) {
+      if (!vid) return;
+      const src = ensureVideoSource(vid);
+      if (!src) return;
+      vid.preload = options.preload || "auto";
+      if (!vid.readyState) {
+        try { vid.load(); } catch (_) {}
+      }
+      if (options.play) {
+        vid.play?.().catch(() => {});
+      }
+    }
+
+    const sceneVideoMap = {
+      iran: "iran",
+      strait: "strait",
+      tanker: "tanker",
+      schematic: "schematic",
+      channel: "channel",
+      night: "night",
+    };
+    function playSceneVideo(scene) {
+      const key = sceneVideoMap[scene || root.getAttribute("data-bwu-scene")];
+      if (!key) return;
+      primeVideo(root.querySelector(`[data-bwu-video="${key}"]`), { play: true });
+    }
+
+    function prebufferLaterVideos() {
+      [straitVideo, tankerVideo, schematicVideo, channelVideo, nightVideo].forEach((vid, index) => {
+        schedule(220 + index * 360, () => primeVideo(vid, { preload: "auto" }));
+      });
+    }
+
+    function resumeActiveVideo() {
+      if (document.visibilityState === "hidden") return;
+      playSceneVideo(root.getAttribute("data-bwu-scene"));
+    }
+
     // Kick the Iran video immediately so the establishing shot plays
     // while we wait for narration audio.
     const iranVideo = root.querySelector('[data-bwu-video="iran"]');
-    if (iranVideo) iranVideo.play?.().catch(() => {});
+    primeVideo(iranVideo, { play: true });
     // Pre-buffer the later videos so each scene swap is instant.
     const straitVideo = root.querySelector('[data-bwu-video="strait"]');
-    if (straitVideo) { try { straitVideo.load(); } catch (_) {} }
     const tankerVideo = root.querySelector('[data-bwu-video="tanker"]');
-    if (tankerVideo) { try { tankerVideo.load(); } catch (_) {} }
     const schematicVideo = root.querySelector('[data-bwu-video="schematic"]');
-    if (schematicVideo) { try { schematicVideo.load(); } catch (_) {} }
     const channelVideo = root.querySelector('[data-bwu-video="channel"]');
-    if (channelVideo) { try { channelVideo.load(); } catch (_) {} }
     const nightVideo = root.querySelector('[data-bwu-video="night"]');
-    if (nightVideo) { try { nightVideo.load(); } catch (_) {} }
+    prebufferLaterVideos();
+    document.addEventListener("visibilitychange", resumeActiveVideo);
+    window.addEventListener("pageshow", resumeActiveVideo);
+    state.cleanups.push(() => {
+      document.removeEventListener("visibilitychange", resumeActiveVideo);
+      window.removeEventListener("pageshow", resumeActiveVideo);
+    });
 
     const schematicImg = root.querySelector("[data-bwu-schematic-img]");
     if (schematicImg) {
@@ -1121,7 +1175,7 @@
     function showSchematicScene() {
       if (state.schematicShown) return;
       state.schematicShown = true;
-      if (schematicVideo) schematicVideo.play?.().catch(() => {});
+      playSceneVideo("schematic");
       root.setAttribute("data-bwu-scene", "schematic");
       root.classList.add("is-generating-schematic");
       root.classList.remove("is-schematic-ready");
@@ -1138,7 +1192,7 @@
       if (state.channelShown) return;
       state.channelShown = true;
       root.classList.add("is-schematic-pinned");
-      if (channelVideo) channelVideo.play?.().catch(() => {});
+      playSceneVideo("channel");
       root.setAttribute("data-bwu-scene", "channel");
       root.querySelector('[data-bwu-headline="channel"]')?.classList.add("is-in");
     }
@@ -1154,7 +1208,7 @@
     function showNightScene() {
       if (state.nightShown) return;
       state.nightShown = true;
-      if (nightVideo) nightVideo.play?.().catch(() => {});
+      playSceneVideo("night");
       root.classList.add("is-clean-closing");
       root.setAttribute("data-bwu-scene", "night");
     }
@@ -1229,7 +1283,7 @@
       // ---- Iran -> Hormuz ----------------------------------------------
       schedule(IRAN_TO_STRAIT_MS - SCENE_TRANSITION_LEAD_MS, () => requestBuildTransition("strait"));
       schedule(IRAN_TO_STRAIT_MS, () => {
-        if (straitVideo) straitVideo.play?.().catch(() => {});
+        playSceneVideo("strait");
         root.setAttribute("data-bwu-scene", "strait");
         setGlobeFrame(root, state, "strait", 1200);
       });
@@ -1260,7 +1314,7 @@
       // ---- Hormuz -> Tanker deep dive ----------------------------------
       schedule(STRAIT_TO_TANKER_MS - SCENE_TRANSITION_LEAD_MS, () => requestBuildTransition("tanker"));
       schedule(STRAIT_TO_TANKER_MS, () => {
-        if (tankerVideo) tankerVideo.play?.().catch(() => {});
+        playSceneVideo("tanker");
         root.setAttribute("data-bwu-scene", "tanker");
         setGlobeFrame(root, state, "tanker", 1200);
       });
