@@ -1357,7 +1357,7 @@
       title: "// KATECHON - CHANNELS",
       channel: "24 / KATECHON",
       route: "prototype",
-      narration: true,
+      narration: false,
       tile: {
         group: "dashboard",
         kicker: "24 / KATECHON",
@@ -1476,7 +1476,6 @@
   // the thesis slides stay quiet while the channel object gets a softer
   // future-techno bed.
   const channelMusic = {
-    channels: channelGraphicMusic,
     "build-with-us": channelGraphicMusic,
   };
 
