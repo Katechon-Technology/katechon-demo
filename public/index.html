@@ -1243,6 +1243,91 @@
       background: var(--green);
       box-shadow: 0 0 14px rgba(0,232,123,0.62);
     }
+    body.deck-route #dashboard-overlay .frame-bar {
+      position: absolute;
+      top: max(14px, env(safe-area-inset-top));
+      right: max(14px, env(safe-area-inset-right));
+      z-index: 8;
+      height: auto;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      pointer-events: none;
+    }
+    body.deck-route #dashboard-overlay .frame-dot,
+    body.deck-route #dashboard-title,
+    body.deck-route #dashboard-back,
+    body.deck-route #dashboard-music-toggle,
+    body.deck-route #dashboard-share,
+    body.deck-route #dashboard-fullscreen {
+      display: none !important;
+    }
+    body.deck-route #status,
+    body.deck-route #transcript {
+      display: none !important;
+    }
+    body.deck-route #dashboard-position {
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(5, 8, 9, 0.62);
+      color: rgba(242,244,247,0.74);
+      box-shadow: 0 14px 42px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px);
+      pointer-events: none;
+    }
+    #deck-nav-hint {
+      position: absolute;
+      left: max(18px, env(safe-area-inset-left));
+      bottom: max(18px, env(safe-area-inset-bottom));
+      z-index: 9;
+      width: min(260px, calc(100vw - 36px));
+      padding: 12px 13px;
+      border: 1px solid rgba(0,232,123,0.24);
+      border-radius: 8px;
+      background: rgba(5, 8, 9, 0.76);
+      color: rgba(242,244,247,0.82);
+      box-shadow: 0 18px 54px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px);
+      pointer-events: none;
+    }
+    #deck-nav-hint[hidden] {
+      display: none !important;
+    }
+    #deck-nav-hint strong {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--green);
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+    #deck-nav-hint span {
+      display: block;
+      color: rgba(242,244,247,0.70);
+      font-size: 12px;
+      line-height: 1.38;
+    }
+    .deck-key-row {
+      display: inline-flex;
+      gap: 5px;
+      margin-top: 9px;
+    }
+    .deck-key {
+      min-width: 26px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 5px;
+      background: rgba(255,255,255,0.055);
+      color: rgba(242,244,247,0.88);
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1;
+    }
 
     #avatar-tools {
       position: fixed;
@@ -2535,6 +2620,14 @@
         <span class="build-scan"></span>
       </div>
     </div>
+    <aside id="deck-nav-hint" aria-live="polite" hidden>
+      <strong>Navigation</strong>
+      <span>Use the up and down arrow keys to navigate.</span>
+      <span class="deck-key-row" aria-hidden="true">
+        <span class="deck-key">↑</span>
+        <span class="deck-key">↓</span>
+      </span>
+    </aside>
   </div>
   <div id="watch-input-layer" aria-hidden="true"></div>
   <section id="watch-shell" data-testid="watch-feed-shell" hidden>
@@ -2639,6 +2732,7 @@
     const isDeckRoute =
       /^\/(?:app\/)?deck(?:\/|$)/.test(window.location.pathname) ||
       truthyPageParam('deck');
+    if (isDeckRoute) document.body.classList.add('deck-route');
 
     function hasSharedDashboardLaunch() {
       return Boolean(isDeckRoute || pageParams.get('dashboard') || pageParams.get('channel') || pageParams.get('watch'));
@@ -3391,6 +3485,7 @@
         const value = options[key] ?? pageParams.get(key);
         if (value) forwarded[key] = value;
       });
+      if (isDeckRoute) forwarded.deck = '1';
       if (options.prompt) forwarded.prompt = options.prompt;
       return forwarded;
     }
@@ -4586,6 +4681,10 @@
     }
 
     async function startChannelMusic(dashboardId = currentDashboardId, options = {}) {
+      if (isDeckRoute) {
+        stopChannelMusic(true);
+        return false;
+      }
       const url = channelMusicUrl(dashboardId);
       if (!channelMusicEnabled || !url) {
         if (!url) stopChannelMusic(true);
@@ -5210,6 +5309,15 @@
       dashboardPosition.textContent = index >= 0
         ? `${String(index + 1).padStart(2, '0')} / ${ids.length}`
         : `-- / ${ids.length}`;
+      if (isDeckRoute && index >= 0) document.body.dataset.deckSlide = String(index + 1);
+      else delete document.body.dataset.deckSlide;
+      updateDeckNavHint(index);
+    }
+
+    function updateDeckNavHint(index = -1) {
+      const hint = document.getElementById('deck-nav-hint');
+      if (!hint) return;
+      hint.hidden = !(isDeckRoute && index === 0 && !dashboardOverlay.classList.contains('hidden'));
     }
 
     function postRemoteWorkspaceSwitch(workspace) {
@@ -5666,6 +5774,7 @@
       dashboardTitle.textContent = dashboard.title || `// ${dashboard.label}`;
       updateDashboardPosition();
       dashboardOverlay.classList.remove('hidden');
+      updateDashboardPosition();
       if (options.fullscreen) setDashboardFullscreen(true, false);
       showKatNarrator(workspace, `Watching ${dashboard.label}.`);
       if (watchActive) syncWatchChrome(workspace);

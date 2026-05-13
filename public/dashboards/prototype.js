@@ -18,6 +18,7 @@
       .slice(0, 96);
     const initialPrompt = String(dashboardParams.get("prompt") || "").trim().slice(0, 700);
     const replayRequested = /^(1|true|yes)$/i.test(String(dashboardParams.get("replay") || ""));
+    const deckPresentationMode = /^(1|true|yes)$/i.test(String(dashboardParams.get("deck") || ""));
 
     const catalog = window.KATECHON_DASHBOARD_CATALOG || { palettes: {}, dashboards: {} };
     const palettes = catalog.palettes || {};
@@ -30,6 +31,7 @@
     const baseChannelTitle = baseConfig.title || config.title || "Katechon";
     const identity = config.identity || {};
     document.body.dataset.dashboard = dashboardId;
+    document.body.classList.toggle("deck-presentation-mode", deckPresentationMode);
     if (identity.className) document.body.classList.add(identity.className);
     const palette = palettes[config.palette] || palettes.acid;
     const generatedSlotNames = ["rail", "stageOverlay", "modal"];
@@ -640,8 +642,9 @@
       }
       const shareButton = $("command-share");
       if (shareButton) {
+        shareButton.hidden = deckPresentationMode;
         shareButton.disabled = state.commandRunning;
-        shareButton.onclick = () => shareChannelState();
+        shareButton.onclick = deckPresentationMode ? null : () => shareChannelState();
       }
     }
 
@@ -2845,7 +2848,7 @@
         </div>
         <footer class="generated-page-actions" data-testid="generated-page-actions">
           ${actions.map((prompt) => `<button class="generated-page-action" type="button" data-testid="channel-hero-prompt" data-prompt="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`).join("")}
-          <button class="generated-page-action generated-page-share" type="button" data-testid="channel-share" data-share-current>Share</button>
+          ${deckPresentationMode ? "" : `<button class="generated-page-action generated-page-share" type="button" data-testid="channel-share" data-share-current>Share</button>`}
         </footer>
       `;
       pageNode.querySelectorAll("[data-prompt]").forEach((button) => {
