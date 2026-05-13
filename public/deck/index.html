@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Katechon Technology - VC Deck</title>
+  <meta name="description" content="Katechon Technology VC deck.">
+  <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/brand/favicon.ico">
+  <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png">
+  <link rel="stylesheet" href="./deck.css">
+</head>
+<body>
+  <main class="deck-shell" aria-label="Katechon Technology VC deck">
+    <iframe id="deck-frame" title="Katechon deck slide" allow="fullscreen; autoplay"></iframe>
+
+    <div class="deck-top">
+      <div class="deck-title">
+        <span id="deck-kicker">VC deck</span>
+        <strong id="slide-title">Katechon Technology</strong>
+      </div>
+      <a class="pdf-link" id="pdf-link" href="./katechon-vc-deck.pdf">PDF</a>
+    </div>
+
+    <div class="deck-bottom">
+      <button class="nav-btn" id="prev-slide" type="button" aria-label="Previous slide" title="Previous slide">
+        <span aria-hidden="true">&lt;</span>
+      </button>
+      <button class="play-btn" id="play-toggle" type="button" aria-label="Pause autoplay" title="Pause autoplay">
+        <span id="play-label">Pause</span>
+      </button>
+      <button class="nav-btn" id="next-slide" type="button" aria-label="Next slide" title="Next slide">
+        <span aria-hidden="true">&gt;</span>
+      </button>
+      <div class="deck-meter" aria-hidden="true">
+        <span id="deck-progress"></span>
+      </div>
+      <div class="deck-count" id="slide-count">18 / 27</div>
+    </div>
+  </main>
+  <script src="./deck.js"></script>
+</body>
+</html>

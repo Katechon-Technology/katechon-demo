@@ -1,0 +1,63 @@
+{
+  "title": "Katechon Technology",
+  "subtitle": "VC deck",
+  "defaultSecondsPerSlide": 14,
+  "pdfPath": "/deck/katechon-vc-deck.pdf",
+  "slides": [
+    {
+      "number": 18,
+      "id": "dune-deck",
+      "title": "Katechon Technology"
+    },
+    {
+      "number": 19,
+      "id": "three-internets",
+      "title": "Three Internets"
+    },
+    {
+      "number": 20,
+      "id": "every-age-thinks-its-the-last",
+      "title": "Every Age Thinks It's the Last"
+    },
+    {
+      "number": 21,
+      "id": "what-comes-after-the-feed",
+      "title": "What Comes After the Feed"
+    },
+    {
+      "number": 22,
+      "id": "live-generated-states",
+      "title": "Live Generated States"
+    },
+    {
+      "number": 23,
+      "id": "what-is-a-channel",
+      "title": "What Is a Channel"
+    },
+    {
+      "number": 24,
+      "id": "channels",
+      "title": "Channels"
+    },
+    {
+      "number": 25,
+      "id": "what-should-exist-next",
+      "title": "Generating Content in Realtime"
+    },
+    {
+      "number": 26,
+      "id": "attention-architecture",
+      "title": "Attention Architecture"
+    },
+    {
+      "number": 27,
+      "id": "reality-glix",
+      "title": "Reality Glitch"
+    },
+    {
+      "number": 28,
+      "id": "seed-round",
+      "title": "Seed Round"
+    }
+  ]
+}
