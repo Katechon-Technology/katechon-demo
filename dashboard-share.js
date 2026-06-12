@@ -67,7 +67,7 @@ const DASHBOARD_SHARE_CATALOG = {
     label: "Dark Forest",
     description: "Anomalous astronomy monitor for stellar dimming, catalog irregularities, silence, and clusters.",
   },
-  "dune-deck": {
+  "katechon-technology": {
     label: "Katechon Technology",
     description: "Platform channel for the Katechon runtime: live software objects, Kat, specialist agents, mutable surfaces, and share/fork state.",
   },
@@ -136,7 +136,8 @@ function dashboardShareMetadata(value) {
 function dashboardLaunchPath(value, basePath = "") {
   const id = normalizeDashboardId(value) || DEFAULT_DASHBOARD_ID;
   const prefix = normalizeBasePath(basePath);
-  return `${prefix}/?dashboard=${encodeURIComponent(id)}&fullscreen=1&autoplay=1`;
+  const appPrefix = prefix || "/app";
+  return `${appPrefix}/?dashboard=${encodeURIComponent(id)}&fullscreen=1&autoplay=1`;
 }
 
 function dashboardSharePath(value, basePath = "") {

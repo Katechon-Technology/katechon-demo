@@ -10,7 +10,7 @@
 
 ## Demo Choreography
 
-The Dune deck should behave like the prelude, not the whole pitch. The strongest live sequence is:
+The mobile deck should behave like the prelude, not the whole pitch. The strongest live sequence is:
 
 1. Start on `Katechon Technology` as channel 18 to state the thesis.
 2. Exit into the channel grid so investors see the claim become interface.

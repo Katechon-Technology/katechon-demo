@@ -168,3 +168,42 @@
     grid-auto-rows: minmax(220px, 1fr);
   }
 }
+
+@media (max-width: 680px) {
+  body.deck-presentation-mode .three-internets-identity {
+    gap: 12px;
+    padding: 12px;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+
+  body.deck-presentation-mode .ti-panel {
+    padding: 16px 18px;
+    gap: 10px;
+  }
+
+  body.deck-presentation-mode .ti-panel-head {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  body.deck-presentation-mode .ti-era-range {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  body.deck-presentation-mode .ti-era-label {
+    min-width: 0;
+    max-width: 42%;
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  body.deck-presentation-mode .ti-footer {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+}

@@ -1094,7 +1094,7 @@ Avoid touching:
 
 - channel-specific ranking logic unless needed for integration,
 - channel-specific data adapters owned by Agents 1-3,
-- Dune deck visuals unless a demo script explicitly requires it.
+- thesis deck visuals unless a demo script explicitly requires it.
 
 ## Component Part 5: Generated Component QA Agent
 
@@ -1686,7 +1686,7 @@ Avoid touching:
 
 - provider adapters except to request clearer fields,
 - share route persistence unless needed for share preview layout,
-- unrelated Dune deck work.
+- unrelated thesis deck work.
 
 ## Component Part 7: Full-Surface Morph Runtime Agent
 

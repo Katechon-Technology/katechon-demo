@@ -389,7 +389,6 @@
     body.watch-mode #kat-narrator {
       display: none !important;
     }
-
     /* Final slide: tuck Kat into the lower-right corner of the
        centered 3/4-sized "live channel" box. The box is rendered by
        the iframe's identity CSS; the avatar is parent-positioned so it
@@ -401,12 +400,15 @@
     /* Hide Kat everywhere in the deck except on the live channel reel
        (build-with-us). The presentation should be silent and clean on
        every thesis slide; only the channel scene shows Kat in-frame. */
-    body[data-current-dashboard]:not([data-current-dashboard="build-with-us"]) #browser-avatar-wrap {
+    body[data-current-dashboard]:not([data-current-dashboard="build-with-us"]):not([data-current-dashboard="planetary-solvency"]):not([data-current-dashboard="cloud-canary"]):not([data-current-dashboard="runtime-governance"]) #browser-avatar-wrap {
       opacity: 0 !important;
       pointer-events: none !important;
       transition: opacity 200ms ease;
     }
-    body[data-current-dashboard="build-with-us"] #browser-avatar-wrap {
+    body[data-current-dashboard="build-with-us"] #browser-avatar-wrap,
+    body[data-current-dashboard="planetary-solvency"] #browser-avatar-wrap,
+    body[data-current-dashboard="cloud-canary"] #browser-avatar-wrap,
+    body[data-current-dashboard="runtime-governance"] #browser-avatar-wrap {
       right: 33% !important;
       bottom: 14% !important;
       width: clamp(260px, calc(20vw + 30px), 420px) !important;
@@ -415,16 +417,28 @@
       opacity: 1;
       transition: opacity 80ms linear;
     }
-    body[data-current-dashboard="build-with-us"] #kat-narrator {
+    body[data-current-dashboard="build-with-us"] #kat-narrator,
+    body[data-current-dashboard="planetary-solvency"] #kat-narrator,
+    body[data-current-dashboard="cloud-canary"] #kat-narrator,
+    body[data-current-dashboard="runtime-governance"] #kat-narrator {
       display: none !important;
     }
-    body[data-current-dashboard="build-with-us"] #dashboard-overlay .frame-bar {
+    body[data-current-dashboard="build-with-us"] #dashboard-overlay .frame-bar,
+    body[data-current-dashboard="planetary-solvency"] #dashboard-overlay .frame-bar,
+    body[data-current-dashboard="cloud-canary"] #dashboard-overlay .frame-bar,
+    body[data-current-dashboard="runtime-governance"] #dashboard-overlay .frame-bar {
       display: none !important;
     }
-    body[data-current-dashboard="build-with-us"] #status {
+    body[data-current-dashboard="build-with-us"] #status,
+    body[data-current-dashboard="planetary-solvency"] #status,
+    body[data-current-dashboard="cloud-canary"] #status,
+    body[data-current-dashboard="runtime-governance"] #status {
       display: none !important;
     }
-    body[data-current-dashboard="build-with-us"].dashboard-fullscreen #browser-avatar-wrap {
+    body[data-current-dashboard="build-with-us"].dashboard-fullscreen #browser-avatar-wrap,
+    body[data-current-dashboard="planetary-solvency"].dashboard-fullscreen #browser-avatar-wrap,
+    body[data-current-dashboard="cloud-canary"].dashboard-fullscreen #browser-avatar-wrap,
+    body[data-current-dashboard="runtime-governance"].dashboard-fullscreen #browser-avatar-wrap {
       right: 14% !important;
       bottom: 14% !important;
       width: clamp(280px, calc(22vw + 30px), 460px) !important;
@@ -1244,15 +1258,22 @@
       box-shadow: 0 0 14px rgba(0,232,123,0.62);
     }
     body.deck-route #dashboard-overlay .frame-bar {
-      position: absolute;
+      position: fixed;
       top: max(14px, env(safe-area-inset-top));
-      right: max(14px, env(safe-area-inset-right));
+      left: calc(14px + env(safe-area-inset-left, 0px));
+      right: auto;
+      width: calc(100vw - 28px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
       z-index: 8;
       height: auto;
       padding: 0;
       border: 0;
       background: transparent;
       pointer-events: none;
+      justify-content: flex-end;
+    }
+    body.deck-route.dashboard-fullscreen #dashboard-overlay {
+      height: 100vh;
+      height: 100dvh;
     }
     body.deck-route #dashboard-overlay .frame-dot,
     body.deck-route #dashboard-title,
@@ -1266,8 +1287,21 @@
     body.deck-route #transcript {
       display: none !important;
     }
+    body.deck-route #dashboard-overlay:has(#dashboard-frame-stage.materialize-active) #dashboard-position,
+    body.deck-route #dashboard-overlay:has(#dashboard-frame-stage.materialize-active) #deck-nav-hint {
+      opacity: 0;
+    }
+    body.deck-route #dashboard-overlay:not(:has(.dashboard-frame.active)) #dashboard-position,
+    body.deck-route #dashboard-overlay:not(:has(.dashboard-frame.active)) #deck-nav-hint {
+      display: none;
+    }
     body.deck-route #dashboard-position {
-      padding: 8px 10px;
+      min-width: 0;
+      flex-shrink: 1;
+      display: block;
+      position: relative;
+      max-width: min(360px, 100%);
+      padding: 8px 10px 8px 25px;
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 8px;
       background: rgba(5, 8, 9, 0.62);
@@ -1275,6 +1309,40 @@
       box-shadow: 0 14px 42px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.06);
       backdrop-filter: blur(14px);
       pointer-events: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.deck-route #dashboard-position::before {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    @media (max-width: 620px) {
+      body.deck-route #dashboard-position {
+        max-width: min(230px, 100%);
+        padding: 7px 9px;
+        font-size: 9px;
+        letter-spacing: 0.14em;
+      }
+      body.deck-route #dashboard-position::before {
+        display: none;
+      }
+    }
+    #deck-swipe-layer {
+      display: none;
+    }
+    @media (pointer: coarse), (max-width: 760px) {
+      body.deck-route #deck-swipe-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 7;
+        display: block;
+        pointer-events: auto;
+        touch-action: none;
+        background: transparent;
+      }
     }
     #deck-nav-hint {
       position: absolute;
@@ -1327,6 +1395,69 @@
       font-family: monospace;
       font-size: 13px;
       line-height: 1;
+    }
+    #mobile-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      display: grid;
+      place-items: center;
+      padding: max(28px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+      background:
+        radial-gradient(ellipse at 22% 16%, rgba(125,232,255,0.09), transparent 34%),
+        radial-gradient(ellipse at 78% 30%, rgba(0,232,123,0.08), transparent 38%),
+        linear-gradient(180deg, rgba(5,6,8,0.96), rgba(0,0,0,0.98));
+      color: var(--text);
+      text-align: center;
+    }
+    #mobile-gate[hidden] {
+      display: none !important;
+    }
+    .mobile-gate-card {
+      width: min(420px, 100%);
+      padding: 24px 22px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(8, 10, 12, 0.78);
+      box-shadow: 0 24px 72px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(14px);
+    }
+    .mobile-gate-kicker {
+      color: var(--green);
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      line-height: 1.2;
+      text-transform: uppercase;
+    }
+    .mobile-gate-title {
+      margin-top: 12px;
+      font-size: 26px;
+      line-height: 1.05;
+      font-weight: 700;
+    }
+    .mobile-gate-copy {
+      margin-top: 12px;
+      color: rgba(242,244,247,0.68);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    body.mobile-gated #desktop-fallback,
+    body.mobile-gated #landing-frame-cache,
+    body.mobile-gated #v,
+    body.mobile-gated #status,
+    body.mobile-gated #browser-avatar-wrap,
+    body.mobile-gated #kat-narrator,
+    body.mobile-gated #email-overlay,
+    body.mobile-gated #main-overlay,
+    body.mobile-gated #dashboard-overlay,
+    body.mobile-gated #watch-input-layer,
+    body.mobile-gated #watch-shell,
+    body.mobile-gated #transcript,
+    body.mobile-gated #startup-audio,
+    body.mobile-gated #avatar-tools,
+    body.mobile-gated .keyboard-voice-controls {
+      display: none !important;
     }
 
     #avatar-tools {
@@ -2292,6 +2423,13 @@
       <div id="kat-line">Watching the live surface.</div>
     </div>
   </div>
+  <section id="mobile-gate" hidden>
+    <div class="mobile-gate-card" role="status" aria-live="polite">
+      <div class="mobile-gate-kicker">Desktop required</div>
+      <div class="mobile-gate-title">Open the deck on a desktop browser.</div>
+      <div class="mobile-gate-copy">This presentation is built for a desktop viewport and keyboard navigation.</div>
+    </div>
+  </section>
 
   <!-- landing: email input -->
   <div id="email-overlay" class="overlay hidden">
@@ -2519,7 +2657,7 @@
             <video data-src="videos/dark-forest.mp4" aria-label="Dark Forest" autoplay muted loop playsinline preload="none" onerror="this.removeAttribute('src'); this.load();"></video>
             <div class="gif-label">Dark Forest</div>
           </div>
-          <div class="gif-box channel-preview channel-open" onclick="switchWs('dune-deck')" aria-label="Katechon Technology">
+          <div class="gif-box channel-preview channel-open" onclick="switchWs('katechon-technology')" aria-label="Katechon Technology">
             <div class="tile-kicker">18 / KATECHON</div>
             <div class="tile-preview" aria-hidden="true">
               <div class="tile-preview-inner">
@@ -2527,7 +2665,7 @@
                 <div class="tile-preview-title">katechon technology</div>
               </div>
             </div>
-            <img data-src="decks/dune/assets/visuals/00-dashboard-header.jpg" data-fallback-src="decks/dune/assets/visuals/01-live-software-channel.jpg" alt="">
+            <img data-src="share-thumbnails/katechon-technology.jpg" data-fallback-src="share-thumbnails/three-internets.jpg" alt="">
             <div class="gif-label">Katechon Technology</div>
           </div>
         </div>
@@ -2619,10 +2757,11 @@
         <span class="build-cursor build-cursor-b"></span>
         <span class="build-scan"></span>
       </div>
+      <div id="deck-swipe-layer" aria-hidden="true"></div>
     </div>
     <aside id="deck-nav-hint" aria-live="polite" hidden>
-      <strong>Navigation</strong>
-      <span>Use the up and down arrow keys to navigate.</span>
+      <strong>Swipe</strong>
+      <span>Swipe up or down to move through the deck.</span>
       <span class="deck-key-row" aria-hidden="true">
         <span class="deck-key">↑</span>
         <span class="deck-key">↓</span>
@@ -2716,7 +2855,7 @@
     const AUTO_WELCOME_NARRATION_ENABLED = false;
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
     const DECK_CHANNEL_IDS = [
-      'dune-deck',
+      'katechon-technology',
       'three-internets',
       'every-age-thinks-its-the-last',
       'what-comes-after-the-feed',
@@ -2733,20 +2872,29 @@
       /^\/(?:app\/)?deck(?:\/|$)/.test(window.location.pathname) ||
       truthyPageParam('deck');
     if (isDeckRoute) document.body.classList.add('deck-route');
+    const mobileGateMedia = window.matchMedia('(max-width: 860px), (pointer: coarse)');
 
     function hasSharedDashboardLaunch() {
       return Boolean(isDeckRoute || pageParams.get('dashboard') || pageParams.get('channel') || pageParams.get('watch'));
     }
 
     function isMobileGated() {
-      return false;
+      return isDeckRoute && mobileGateMedia.matches;
     }
 
     function syncMobileGate() {
       document.body.classList.toggle('shared-dashboard-launch', hasSharedDashboardLaunch());
+      const gated = isMobileGated();
+      document.body.classList.toggle('mobile-gated', gated);
+      const gate = document.getElementById('mobile-gate');
+      if (gate) gate.hidden = !gated;
     }
 
     syncMobileGate();
+    mobileGateMedia.addEventListener?.('change', () => {
+      syncMobileGate();
+      if (!isMobileGated() && requestedDashboardId()) launchRequestedDashboard();
+    });
 
     function loadExternalScript(src) {
       return new Promise((resolve, reject) => {
@@ -2785,7 +2933,8 @@
 
     let animeApi = window.anime || {};
     const reduceMotion = !forceMotion && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const reduceDashboardMotion = !dashboardTransitionsEnabled;
+    const deckMobileViewport = isDeckRoute && window.matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+    const reduceDashboardMotion = !dashboardTransitionsEnabled || deckMobileViewport;
     let canMotion = !reduceMotion && typeof animeApi.animate === 'function';
     let canTimeline = canMotion && typeof animeApi.createTimeline === 'function';
     function refreshMotionRuntime() {
@@ -3890,6 +4039,9 @@
     let startupAudioDashboardId = null;
     let startupAudioPayload = null;
     let watchTouchGesture = null;
+    let deckSwipeGesture = null;
+    let deckSwipeHintDismissed = false;
+    let deckSwipeHintTimer = null;
     const CHANNEL_MUSIC_STORAGE_KEY = 'katechon.channelMusic.enabled.v1';
     const CHANNEL_MUSIC_VOLUME = 0.24;
     const CHANNEL_MUSIC_DUCKED_VOLUME = 0.08;
@@ -3908,6 +4060,9 @@
     const DASHBOARD_NAV_MAX_PENDING_STEPS = 10;
     const DASHBOARD_WHEEL_STEP_DELTA = 96;
     const WATCH_TOUCH_STEP_DELTA = 72;
+    const DECK_SWIPE_STEP_DELTA = 48;
+    const DECK_SWIPE_HORIZONTAL_RATIO = 1.15;
+    const DECK_SWIPE_HINT_TIMEOUT = 3600;
     const DASHBOARD_INPUT_BURST_MS = 220;
     const DASHBOARD_REMOTE_SWITCH_DEBOUNCE = 150;
     const DASHBOARD_NARRATION_DEBOUNCE = 360;
@@ -5281,9 +5436,22 @@
     function updateDashboardPosition() {
       const ids = channelIds();
       const index = ids.indexOf(currentDashboardId);
-      dashboardPosition.textContent = index >= 0
-        ? `${String(index + 1).padStart(2, '0')} / ${ids.length}`
-        : `-- / ${ids.length}`;
+      if (isDeckRoute) {
+        const dashboard = DASHBOARDS[currentDashboardId] || {};
+        const compactDeckHud = window.matchMedia && window.matchMedia('(max-width: 620px)').matches;
+        const channelLabel = dashboard.channel || String(index + 18).padStart(2, '0');
+        const dashboardLabel = dashboard.label || currentDashboardId;
+        dashboardPosition.textContent = index >= 0
+          ? compactDeckHud
+            ? channelLabel
+            : `${channelLabel} · ${dashboardLabel}`
+          : `-- / KATECHON`;
+        dashboardPosition.title = index >= 0 ? `${channelLabel} · ${dashboardLabel}` : '';
+      } else {
+        dashboardPosition.textContent = index >= 0
+          ? `${String(index + 1).padStart(2, '0')} / ${ids.length}`
+          : `-- / ${ids.length}`;
+      }
       if (isDeckRoute && index >= 0) document.body.dataset.deckSlide = String(index + 1);
       else delete document.body.dataset.deckSlide;
       updateDeckNavHint(index);
@@ -5292,7 +5460,22 @@
     function updateDeckNavHint(index = -1) {
       const hint = document.getElementById('deck-nav-hint');
       if (!hint) return;
-      hint.hidden = !(isDeckRoute && index === 0 && !dashboardOverlay.classList.contains('hidden'));
+      const shouldShow = isDeckRoute && !deckSwipeHintDismissed && index === 0 && !dashboardOverlay.classList.contains('hidden');
+      hint.hidden = !shouldShow;
+      if (shouldShow && !deckSwipeHintTimer) {
+        deckSwipeHintTimer = setTimeout(() => {
+          deckSwipeHintTimer = null;
+          dismissDeckSwipeHint();
+        }, DECK_SWIPE_HINT_TIMEOUT);
+      }
+    }
+
+    function dismissDeckSwipeHint() {
+      deckSwipeHintDismissed = true;
+      if (deckSwipeHintTimer) clearTimeout(deckSwipeHintTimer);
+      deckSwipeHintTimer = null;
+      const hint = document.getElementById('deck-nav-hint');
+      if (hint) hint.hidden = true;
     }
 
     function postRemoteWorkspaceSwitch(workspace) {
@@ -5542,6 +5725,84 @@
       watchTouchGesture = null;
     }
 
+    function startDeckSwipeGesture(clientX, clientY, pointerId = null) {
+      if (!isDeckRoute || dashboardOverlay.classList.contains('hidden')) return;
+      deckSwipeGesture = {
+        pointerId,
+        startX: clientX,
+        startY: clientY,
+        lastX: clientX,
+        lastY: clientY,
+      };
+    }
+
+    function moveDeckSwipeGesture(clientX, clientY) {
+      if (!deckSwipeGesture) return;
+      deckSwipeGesture.lastX = clientX;
+      deckSwipeGesture.lastY = clientY;
+    }
+
+    function finishDeckSwipeGesture(clientX, clientY) {
+      if (!deckSwipeGesture) return false;
+      const gesture = deckSwipeGesture;
+      deckSwipeGesture = null;
+      const dx = clientX - gesture.startX;
+      const dy = clientY - gesture.startY;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      if (absY < DECK_SWIPE_STEP_DELTA || absY < absX * DECK_SWIPE_HORIZONTAL_RATIO) return false;
+      const direction = dy < 0 ? 1 : -1;
+      const queued = enqueueDashboardSteps(direction, 1);
+      if (queued) dismissDeckSwipeHint();
+      return queued;
+    }
+
+    const deckSwipeLayer = document.getElementById('deck-swipe-layer');
+    if (window.PointerEvent) {
+      deckSwipeLayer?.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        deckSwipeLayer.setPointerCapture?.(event.pointerId);
+        startDeckSwipeGesture(event.clientX, event.clientY, event.pointerId);
+        event.preventDefault();
+      });
+      deckSwipeLayer?.addEventListener('pointermove', (event) => {
+        if (!deckSwipeGesture || deckSwipeGesture.pointerId !== event.pointerId) return;
+        moveDeckSwipeGesture(event.clientX, event.clientY);
+        event.preventDefault();
+      });
+      deckSwipeLayer?.addEventListener('pointerup', (event) => {
+        if (!deckSwipeGesture || deckSwipeGesture.pointerId !== event.pointerId) return;
+        finishDeckSwipeGesture(event.clientX, event.clientY);
+        event.preventDefault();
+      });
+      deckSwipeLayer?.addEventListener('pointercancel', () => {
+        deckSwipeGesture = null;
+      });
+    } else {
+      deckSwipeLayer?.addEventListener('touchstart', (event) => {
+        if (event.touches.length !== 1) {
+          deckSwipeGesture = null;
+          return;
+        }
+        const touch = event.touches[0];
+        startDeckSwipeGesture(touch.clientX, touch.clientY);
+      }, { passive: true });
+      deckSwipeLayer?.addEventListener('touchmove', (event) => {
+        if (!deckSwipeGesture || event.touches.length !== 1) return;
+        const touch = event.touches[0];
+        moveDeckSwipeGesture(touch.clientX, touch.clientY);
+        event.preventDefault();
+      }, { passive: false });
+      deckSwipeLayer?.addEventListener('touchend', (event) => {
+        if (!deckSwipeGesture) return;
+        const touch = event.changedTouches[0] || {};
+        finishDeckSwipeGesture(touch.clientX ?? deckSwipeGesture.lastX, touch.clientY ?? deckSwipeGesture.lastY);
+      }, { passive: true });
+      deckSwipeLayer?.addEventListener('touchcancel', () => {
+        deckSwipeGesture = null;
+      }, { passive: true });
+    }
+
     function syncFullscreenButton() {
       const fullscreen = document.body.classList.contains('dashboard-fullscreen');
       fullscreenButton.classList.toggle('is-fullscreen', fullscreen);
@@ -5769,7 +6030,7 @@
           force: watchActive && watchMode.played,
         });
       }
-      if (options.sharedLaunch && !localDevPauseAutoNarration) showStartupAudioPrompt(workspace);
+      if (options.sharedLaunch && !options.skipNarration && !localDevPauseAutoNarration) showStartupAudioPrompt(workspace);
       scheduleDashboardNeighborPrefetch(workspace);
       sendRealtimeDashboardContext(workspace).catch(() => {});
       if (!rapidNavigation || !dashboardPendingStepCount) showToast(`→ ${dashboard.label}`, '#00e87b');
@@ -6793,23 +7054,6 @@
       showToast(command.speech || command.reply || 'command not recognized', '#6b6b78');
     }
 
-    function isDuneDeckSlideCommand(text) {
-      if (currentDashboardId !== 'dune-deck') return false;
-      const command = String(text || '');
-      if (!/\b(?:generate|create|make|build|show)\b/i.test(command) || !/\b(?:slide|frame)\b/i.test(command)) return false;
-      return /\b(?:founder|builder|simon|inflection|why now|camera moment|screenshots?|state not pixels|broken container|live software channels?|channel object|what is a channel|specialist agents?|agent routing|kat|discovery graph|software feed|moat)\b/i.test(command);
-    }
-
-    function sendDuneDeckSlideCommand(text) {
-      const frame = activeDashboardFrame();
-      frame?.contentWindow?.postMessage({
-        type: 'dune-generate-slide',
-        dashboard: 'dune-deck',
-        prompt: text,
-        source: 'kat-voice',
-      }, window.location.origin);
-    }
-
     async function handleCommand(text) {
       showToast(`"${text}"`, '#e8e8ec');
       if (dashboardTargetVoice?.frame && dashboardTargetVoice?.dashboard) {
@@ -6829,11 +7073,6 @@
           source: 'target-voice',
         }, window.location.origin);
         showToast('Kat is mutating the selected region', '#00e87b');
-        return;
-      }
-      if (isDuneDeckSlideCommand(text)) {
-        sendDuneDeckSlideCommand(text);
-        showToast('Kat is morphing the channel', '#00e87b');
         return;
       }
       const r = await fetch(appUrl('/api/agent'), {

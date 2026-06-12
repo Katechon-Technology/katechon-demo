@@ -1,6 +1,6 @@
 # Dashboard Editing
 
-The non-Dune dashboards share one stable shell and one runtime engine:
+The dashboards share one stable shell and one runtime engine:
 
 - `catalog.js` owns dashboard copy, tabs, metrics, feed rows, palette, scene choice, videos, thumbnails, channel picker tiles, channel order, and optional identity assets.
 - `prototype.js` owns the shared rendering/runtime behavior.

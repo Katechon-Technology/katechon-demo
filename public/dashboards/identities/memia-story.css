@@ -1,0 +1,454 @@
+body[data-dashboard="planetary-solvency"],
+body[data-dashboard="cloud-canary"],
+body[data-dashboard="runtime-governance"] {
+  background: #040506;
+}
+
+body[data-dashboard="planetary-solvency"] #stage,
+body[data-dashboard="cloud-canary"] #stage,
+body[data-dashboard="runtime-governance"] #stage {
+  overflow: hidden;
+}
+
+body[data-dashboard="planetary-solvency"] #stage > .scene-grid,
+body[data-dashboard="planetary-solvency"] #stage > .scan-line,
+body[data-dashboard="cloud-canary"] #stage > .scene-grid,
+body[data-dashboard="cloud-canary"] #stage > .scan-line,
+body[data-dashboard="runtime-governance"] #stage > .scene-grid,
+body[data-dashboard="runtime-governance"] #stage > .scan-line {
+  display: none;
+}
+
+.memia-trial-identity {
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+  overflow: hidden;
+  color: #f8fafc;
+  background: #050607;
+  isolation: isolate;
+}
+
+.memia-scenes,
+.memia-scene,
+.memia-video,
+.memia-video-shade {
+  position: absolute;
+  inset: 0;
+}
+
+.memia-scene {
+  opacity: 0;
+  transition: opacity 520ms ease;
+  pointer-events: none;
+  background-position: center;
+  background-size: cover;
+}
+
+.memia-scene.is-active {
+  opacity: 1;
+}
+
+.memia-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  filter: saturate(1.08) contrast(1.06);
+  transform: scale(1.01);
+  transition: opacity 300ms ease;
+}
+
+.memia-video[data-ready="1"] {
+  opacity: 1;
+}
+
+.memia-video-shade {
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.28) 46%, rgba(0, 0, 0, 0.72)),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.18) 44%, rgba(0, 0, 0, 0.54));
+}
+
+.memia-topline {
+  position: absolute;
+  top: 34px;
+  left: 40px;
+  right: 40px;
+  z-index: 4;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.memia-eyebrow,
+.memia-kicker,
+.memia-source span,
+.memia-story span,
+.memia-status,
+.memia-ticker,
+.memia-beat span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.memia-eyebrow {
+  color: #7de8ff;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.memia-topline h1 {
+  margin: 8px 0 0;
+  max-width: 760px;
+  color: #ffffff;
+  font-size: 56px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.memia-status {
+  flex: 0 0 auto;
+  border: 1px solid rgba(244, 211, 94, 0.48);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.42);
+  color: #f4d35e;
+  font-size: 12px;
+}
+
+.memia-deck {
+  position: absolute;
+  left: 42px;
+  top: 158px;
+  z-index: 4;
+  max-width: 560px;
+  color: rgba(248, 250, 252, 0.78);
+  font-size: 17px;
+  line-height: 1.42;
+}
+
+.memia-caption-block {
+  position: absolute;
+  left: 42px;
+  bottom: 78px;
+  z-index: 5;
+  width: min(58%, 720px);
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(3, 5, 6, 0.74);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.32);
+}
+
+.memia-kicker {
+  color: #f4d35e;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.memia-caption-block h2 {
+  margin: 8px 0 8px;
+  color: #ffffff;
+  font-size: 33px;
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.memia-caption-block p {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.78);
+  font-size: 16px;
+  line-height: 1.42;
+}
+
+.memia-evidence-chip {
+  position: absolute;
+  left: 42px;
+  bottom: 26px;
+  z-index: 5;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(125, 232, 255, 0.12);
+  color: #c9f6ff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.memia-rail {
+  position: absolute;
+  top: 146px;
+  right: 42px;
+  z-index: 4;
+  width: 330px;
+  display: grid;
+  gap: 8px;
+}
+
+.memia-source,
+.memia-story,
+.memia-beat {
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(16px);
+}
+
+.memia-source,
+.memia-story {
+  padding: 11px 12px;
+}
+
+.memia-source span,
+.memia-story span {
+  display: block;
+  margin-bottom: 6px;
+  color: #7de8ff;
+  font-size: 11px;
+}
+
+.memia-source strong {
+  display: block;
+  color: #ffffff;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.memia-story p {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.76);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.memia-rail .memia-story {
+  display: none;
+}
+
+.memia-beats {
+  display: grid;
+  gap: 8px;
+}
+
+.memia-beat {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 10px;
+}
+
+.memia-beat.is-active {
+  border-color: rgba(244, 211, 94, 0.7);
+  background: rgba(244, 211, 94, 0.12);
+}
+
+.memia-beat span {
+  color: #f4d35e;
+  font-size: 12px;
+}
+
+.memia-beat strong {
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.memia-actions {
+  position: absolute;
+  right: 42px;
+  bottom: 30px;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.memia-inline-kat {
+  position: absolute;
+  right: 7.5%;
+  bottom: 7%;
+  z-index: 6;
+  width: min(28%, 380px);
+  height: 58%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.memia-inline-kat iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+body.memia-embedded-dashboard .memia-inline-kat {
+  display: none;
+}
+
+.memia-actions a,
+.memia-actions span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.56);
+  color: #ffffff;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.memia-actions a:first-child {
+  border-color: rgba(244, 211, 94, 0.7);
+  color: #f4d35e;
+}
+
+.memia-avatar-safe {
+  position: absolute;
+  right: 22px;
+  bottom: 68px;
+  z-index: 3;
+  width: 30%;
+  max-width: 400px;
+  height: 43%;
+  min-height: 260px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.26));
+  pointer-events: none;
+}
+
+.memia-ticker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  height: 24px;
+  padding: 0 42px;
+  overflow: hidden;
+  background: rgba(4, 5, 6, 0.92);
+  color: rgba(248, 250, 252, 0.62);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.memia-ticker span {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 900px) {
+  .memia-topline {
+    top: 22px;
+    left: 18px;
+    right: 18px;
+    gap: 14px;
+  }
+
+  .memia-topline h1 {
+    max-width: 260px;
+    font-size: 34px;
+    line-height: 1.1;
+  }
+
+  .memia-status {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .memia-deck {
+    left: 18px;
+    right: 18px;
+    top: 104px;
+    max-width: none;
+    font-size: 14px;
+    line-height: 1.32;
+  }
+
+  .memia-rail {
+    top: auto;
+    left: 18px;
+    right: 18px;
+    bottom: 200px;
+    width: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .memia-source,
+  .memia-story {
+    display: none;
+  }
+
+  .memia-beats {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .memia-beat {
+    min-height: 42px;
+    padding: 8px 10px;
+  }
+
+  .memia-beat:not(.is-active) {
+    display: none;
+  }
+
+  .memia-caption-block {
+    left: 18px;
+    right: 18px;
+    bottom: 70px;
+    width: auto;
+    padding: 14px;
+  }
+
+  .memia-caption-block h2 {
+    font-size: 24px;
+    line-height: 1.06;
+  }
+
+  .memia-caption-block p {
+    font-size: 14px;
+    line-height: 1.34;
+  }
+
+  .memia-evidence-chip {
+    display: none;
+  }
+
+  .memia-actions {
+    left: 18px;
+    right: 18px;
+    bottom: 30px;
+    justify-content: flex-start;
+  }
+
+  .memia-actions a,
+  .memia-actions span {
+    min-height: 32px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .memia-avatar-safe {
+    display: none;
+  }
+
+  .memia-ticker {
+    height: 22px;
+    padding: 0 18px;
+    gap: 16px;
+    font-size: 10px;
+  }
+}

@@ -13,6 +13,20 @@ function loadEnvKeyFromFile(file, key) {
 }
 
 const katechonAppEnv = path.join(__dirname, "..", "katechon-app", ".env.local");
+const katechonRootEnv = path.join(__dirname, "..", ".env.local");
+[
+  "OPENAI_API_KEY",
+  "STITCH_API_KEY",
+  "PIPEDREAM_CLIENT_ID",
+  "PIPEDREAM_CLIENT_SECRET",
+  "PIPEDREAM_PROJECT_ID",
+  "PIPEDREAM_ENVIRONMENT",
+  "REPLICATE_API_TOKEN",
+  "REPLICATE_API_KEY",
+  "VERCEL_TOKEN",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "CLOUDFLARE_API_TOKEN",
+].forEach((key) => loadEnvKeyFromFile(katechonRootEnv, key));
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_API_KEY");
 loadEnvKeyFromFile(katechonAppEnv, "ELEVENLABS_MODEL_ID");
 loadEnvKeyFromFile(katechonAppEnv, "ANTHROPIC_API_KEY");
@@ -53,6 +67,7 @@ const app = express();
 app.use(express.text({ type: ["application/sdp", "text/plain"], limit: "1mb" }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/app", express.static(path.join(__dirname, "public")));
 
 const BROKER_URL = "https://api.claudetorio.ai";
 const BROKER_KEY = "tjkwns%gow214";
@@ -91,6 +106,7 @@ const SPEECH_CACHE_MAX = Number(process.env.SPEECH_CACHE_MAX || 250);
 const DASHBOARD_OVERRIDES_FILE = path.resolve(__dirname, process.env.DASHBOARD_OVERRIDES_FILE || "data/dashboard-overrides.json");
 const CHANNEL_SESSIONS_FILE = path.resolve(__dirname, process.env.CHANNEL_SESSIONS_FILE || "data/channel-sessions.json");
 const CHANNEL_SHARES_FILE = path.resolve(__dirname, process.env.CHANNEL_SHARES_FILE || "data/channel-shares.json");
+const TRIAL_CAPSULES_DIR = path.resolve(__dirname, process.env.TRIAL_CAPSULES_DIR || "data/trial-capsules");
 const PROVIDER_CACHE_FILE = path.resolve(__dirname, process.env.PROVIDER_CACHE_FILE || "data/provider-cache.json");
 const LAUNCH_EVENT_TYPES = new Set([
   "visit",
@@ -108,7 +124,6 @@ const LAUNCH_EVENT_TYPES = new Set([
 ]);
 const PITCH_DECK_URL = process.env.PITCH_DECK_URL || "http://127.0.0.1:5174/deck/";
 const PITCH_DECK_DIST_DIR = path.resolve(__dirname, process.env.PITCH_DECK_DIST_DIR || "../katechon-pitch/dist");
-const DUNE_DECK_DIR = path.join(__dirname, "public", "decks", "dune");
 const KATECHON_COMPANY_CONTEXT_FILE = path.join(__dirname, "docs", "katechon-company-context.md");
 const OPEN_SLIDE_WORKSPACE_DIR = path.join(__dirname, "open-slide", "katechon-investor");
 const OPEN_SLIDE_GENERATED_SLIDE_ID = process.env.OPEN_SLIDE_GENERATED_SLIDE_ID || "live-generated";
@@ -429,7 +444,7 @@ const PANELS = [
     description: "Fermi paradox signal monitor — anomalous stellar event tracking and unexplained astronomical dimming.",
   },
   {
-    id: "dune-deck",
+    id: "katechon-technology",
     label: "Katechon Technology",
     description: "Katechon platform channel summarizing the channel runtime, Kat, specialist agents, mutable surfaces, and share/fork state graph.",
   },
@@ -491,7 +506,7 @@ const PANELS = [
 ];
 
 const KATECHON_THESIS_DASHBOARD_IDS = new Set([
-  "dune-deck",
+  "katechon-technology",
   "three-internets",
   "every-age-thinks-its-the-last",
   "what-comes-after-the-feed",
@@ -941,7 +956,7 @@ function domainForChannel(channel) {
       defaultTimeframes: ["now", "5m", "24h"],
     };
   }
-  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "katechon-platform") {
     return {
       entities: ["channel runtime", "Kat", "specialist agents", "mutable surfaces", "share graph", "generated content"],
       vocabulary: ["live software object", "channel layer", "stateful surface", "watch", "command", "share", "fork", "specialist channel agents", "provenance"],
@@ -974,7 +989,7 @@ function channelBaseTopic(channel) {
     "power-grid": "load, forecast, and grid strain",
     viral: "transmission risk and detection lag",
     "dark-forest": "the anomaly that refuses to disappear",
-    "dune-deck": "the channel layer that turns generated software into live objects",
+    "katechon-technology": "the channel layer that turns generated software into live objects",
     "three-internets": "the shift from pages to feeds to channels",
     "every-age-thinks-its-the-last": "the historical frame for the next software container",
     "what-comes-after-the-feed": "the software state that comes after passive feeds",
@@ -1006,7 +1021,7 @@ function openingPathsForChannel(channel) {
   if (channel.id === "meme-coin" || channel.liveProvider === "pumpfun") {
     return ["graduation watch", "fresh mint firehose", "largest trade tape", "creator sell pressure", "liquidity risk"];
   }
-  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "katechon-platform") {
     return ["runtime architecture", "Kat and specialist agents", "share and fork loop", "generated surface grammar", "investor proof board"];
   }
   return ["overview", "events", "rankings", "entity detail", "relationship map"];
@@ -2935,6 +2950,12 @@ app.get("/", (req, res) => {
 app.get(/^\/deck\/?$/, (req, res) => {
   sendIndexHtml(req, res, { baseHref: "/" });
 });
+app.get(/^\/app\/?$/, (req, res) => {
+  sendIndexHtml(req, res, { baseHref: "/app/" });
+});
+app.get(/^\/app\/deck\/?$/, (req, res) => {
+  sendIndexHtml(req, res, { baseHref: "/app/" });
+});
 
 app.get("/stream.m3u8", proxyHls);
 app.get(/^\/seg\d+\.ts$/, proxyHls);
@@ -3356,8 +3377,7 @@ function openSlideContextFiles() {
 function buildDeckGenerationContext() {
   const docs = deckContextFiles();
   const openSlideFiles = openSlideContextFiles();
-  const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
-  const filesForKey = [...docs, ...openSlideFiles, deckFile, path.join(DUNE_DECK_DIR, "app.js"), path.join(__dirname, "server.js")].filter((file) =>
+  const filesForKey = [...docs, ...openSlideFiles, path.join(__dirname, "server.js")].filter((file) =>
     fs.existsSync(file)
   );
   const key = filesForKey
@@ -3370,7 +3390,6 @@ function buildDeckGenerationContext() {
   if (deckContextCache.key === key && deckContextCache.expiresAt > now) return deckContextCache.value;
 
   const repoFiles = listRelativeFiles(__dirname).slice(0, 360).join("\n");
-  const deckJson = safeReadText(deckFile, 12000);
   const companyContext = safeReadText(KATECHON_COMPANY_CONTEXT_FILE, 16000);
   const openSlideContext = openSlideFiles
     .map((file) => `FILE: ${path.relative(__dirname, file)}\n${safeReadText(file, file.endsWith("SKILL.md") ? 9000 : 7000)}`)
@@ -3385,9 +3404,6 @@ function buildDeckGenerationContext() {
   const value = [
     "REPO FILE MAP (non-binary, trimmed):",
     repoFiles,
-    "",
-    "CURRENT DUNE DECK JSON:",
-    deckJson,
     "",
     "AUTHORITATIVE KATECHON COMPANY CONTEXT:",
     companyContext,
@@ -4081,7 +4097,7 @@ function deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, slideCount, op
     input,
     max_output_tokens: 1700,
     store: false,
-    prompt_cache_key: "katechon-dune-generative-deck-v2",
+    prompt_cache_key: "katechon-generative-deck-v3",
     text: {
       verbosity: "low",
       format: {
@@ -5936,10 +5952,7 @@ async function getGithubActionsLiveData(req, channel) {
   };
 }
 
-async function getLocalDeckLiveData(req, channel) {
-  const file = path.join(DUNE_DECK_DIR, "deck.json");
-  const deck = JSON.parse(fs.readFileSync(file, "utf8"));
-  const slides = Array.isArray(deck.slides) ? deck.slides : [];
+async function getKatechonPlatformLiveData(req, channel) {
   const technologyStack = [
     { layer: "Channel runtime", role: "Normalized state, context, docs, manifest, query, update, share, replay, and fork routes.", status: "active" },
     { layer: "Kat continuity layer", role: "One voice-native guide that routes work to specialist channel agents and explains state changes.", status: "active" },
@@ -5954,53 +5967,35 @@ async function getLocalDeckLiveData(req, channel) {
     { step: "Morph", detail: "Replace the surface with validated components, bindings, and provenance.", signal: "surface" },
     { step: "Share", detail: "Persist the resulting software state so another viewer can replay and fork it.", signal: "graph" },
   ];
-  const defaultContentSeeds = [
+  const contentSeeds = [
     { title: "What is a Katechon channel?", source: "object model", status: "seed" },
     { title: "How Kat routes to specialist agents", source: "agent runtime", status: "seed" },
     { title: "Why generated software needs state", source: "category thesis", status: "seed" },
     { title: "How share, replay, and fork create distribution", source: "growth loop", status: "seed" },
     { title: "What makes the channel layer defensible", source: "moat map", status: "seed" },
   ];
-  const contentSeeds = slides.length
-    ? slides.slice(0, 8).map((slide, index) => ({
-        title: slide.headline || slide.eyebrow || `Generated slide ${index + 1}`,
-        source: slide.slug || "generated deck",
-        status: slide.eyebrow || "slide",
-      }))
-    : defaultContentSeeds;
   const feed = [
     ["now", "Katechon is the channel layer for generated software: live state, specialist agents, mutable surfaces, and replayable history.", "platform thesis"],
     ["02m", "Kat provides continuity across channels while specialist agents own domain context and surface composition.", "agent model"],
     ["05m", "The runtime routes every channel through normalized live, context, docs, manifest, query, turn, and update contracts.", "channel API"],
     ["08m", "Generated views are validated component specs with data bindings and provenance, not arbitrary page code.", "surface grammar"],
-    ["12m", "The deck is now source material for a dashboard channel that can generate deeper Katechon content over time.", "content engine"],
+    ["12m", "The thesis opens as a dashboard channel that can generate deeper Katechon content over time.", "content engine"],
   ];
   return {
     kind: channel.contract,
-    mode: "local-deck-json",
-    title: deck.title || channel.label,
-    assetVersion: deck.assetVersion || "",
-    targetRuntime: deck.targetRuntime || "",
+    mode: "katechon-platform-context",
+    title: channel.label,
     technologyStack,
     runtimeLoop,
     contentSeeds,
-    slides: slides.map((slide, index) => ({
-      index,
-      slug: slide.slug,
-      eyebrow: slide.eyebrow,
-      headline: slide.headline,
-      line: slide.line,
-      narration: slide.narration,
-    })),
     metrics: [["Channels", "18", "sequence"], ["Runtime", "v1", "channel API"], ["Surfaces", "5", "mutable slots"]],
     feed,
     highlights: [
       "Katechon packages generated software as live, stateful channels.",
       "Kat routes requests across specialist agents while maintaining one continuous user experience.",
       "Generated dashboard surfaces are composed from validated components with source provenance.",
-      ...slides.slice(0, 2).map((slide) => `${slide.eyebrow || "Slide"}: ${String(slide.headline || "").replace(/\s+/g, " ")}.`),
     ].slice(0, 6),
-    updatedAt: fs.statSync(file).mtimeMs,
+    updatedAt: Date.now(),
   };
 }
 
@@ -6026,7 +6021,7 @@ const PUBLIC_PROVIDER_ADAPTERS = {
     cadenceMs: 30000,
     ttlMs: 30000,
     staleTtlMs: LIVE_API_STALE_TTL_MS,
-    capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
+    capabilities: ["snapshot", "events", "rankings", "entity_detail", "relationships", "search"],
     docsUrl: providerById("polymarket")?.docsUrl,
     publicSourceUrls: ["https://gamma-api.polymarket.com/markets"],
     fetchLive: getPolymarketLiveData,
@@ -6180,16 +6175,16 @@ const PUBLIC_PROVIDER_ADAPTERS = {
     ],
     fetchLive: getArenaSotaLiveData,
   },
-  "local-deck-json": {
-    id: "local-deck-json",
+  "katechon-platform": {
+    id: "katechon-platform",
     auth: "none",
     cadenceMs: 60 * 1000,
     ttlMs: 60 * 1000,
     staleTtlMs: 24 * 60 * 60 * 1000,
     capabilities: ["snapshot", "events", "rankings", "entity_detail", "search"],
-    docsUrl: providerById("local-deck-json")?.docsUrl,
-    publicSourceUrls: ["/decks/dune/deck.json"],
-    fetchLive: getLocalDeckLiveData,
+    docsUrl: providerById("katechon-platform")?.docsUrl,
+    publicSourceUrls: ["/docs/channel-apis.md"],
+    fetchLive: getKatechonPlatformLiveData,
   },
 };
 PUBLIC_PROVIDER_ADAPTERS.pumpfun = PUBLIC_PROVIDER_ADAPTERS["coingecko-pumpfun"];
@@ -6452,7 +6447,7 @@ function channelLiveKey(channel, req) {
   if (provider === "cdc-socrata") return `${provider}:${channel.id}:${clampText(req.query.query || "catalog", 80).replace(/\s+/g, "_")}`;
   if (provider === "github-actions") return `${provider}:${channel.id}:${clampText(process.env.ARENA_GITHUB_REPO || req.query.repo || process.env.ARENA_DEFAULT_GITHUB_REPO || "vercel/next.js", 120).replace(/\s+/g, "_")}`;
   if (provider === "ai-sota") return `${provider}:${channel.id}:latest`;
-  if (provider === "local-deck-json") return `${provider}:${channel.id}:${channel.contract || "deck"}:technology-summary`;
+  if (provider === "katechon-platform") return `${provider}:${channel.id}:${channel.contract || "platform"}:technology-summary`;
   return `${provider}:${channel.id}`;
 }
 
@@ -7791,7 +7786,7 @@ function initialHeadlineHook(channel) {
     "power-grid": "Margin Watch Is On",
     viral: "Detection Lag Widens",
     "dark-forest": "The Dimming Persists",
-    "dune-deck": "Generated Software Gets a Channel",
+    "katechon-technology": "Generated Software Gets a Channel",
   }[channel.id] || "Signal Breaks Pattern";
 }
 
@@ -7997,7 +7992,7 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     return candidates;
   }
 
-  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "katechon-platform") {
     if (/\b(agent|kat|specialist)\b/.test(`${intent.intent || ""} ${intent.topic || ""}`)) {
       addHeadlineCandidate(candidates, "Kat Routes the Work");
       addHeadlineCandidate(candidates, "Specialist Agents Take the Channel");
@@ -8025,7 +8020,7 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     "deep-sea": ["Sensor Breaks Pattern", "Abyssal Signal Jumps"],
     viral: ["Detection Lag Widens", "R0 Refuses to Drop", "Contacts Cluster Fast"],
     "dark-forest": ["The Dimming Persists", "Catalog Anomaly Holds"],
-    "dune-deck": ["Generated Software Gets a Channel", "Runtime Becomes the Product"],
+    "katechon-technology": ["Generated Software Gets a Channel", "Runtime Becomes the Product"],
     "three-internets": ["The Third Internet Is State", "Pages Yield to Channels"],
     "every-age-thinks-its-the-last": ["The Last Age Breaks", "A New Container Appears"],
     "what-comes-after-the-feed": ["The Feed Becomes Software", "State Comes After Media"],
@@ -8140,9 +8135,9 @@ function nextActionsForIntent(channel, intent) {
     if (intent.intent === "narrative_decay") return ["Find fresh spikes", "Compare liquidity risk", "Build viral but fragile board"];
     return ["Show what is about to graduate", "Find fresh mints under one minute", "Find the loudest buy"];
   }
-  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "local-deck-json") {
+  if (KATECHON_THESIS_DASHBOARD_IDS.has(channel.id) || channel.liveProvider === "katechon-platform") {
     if (intent.layout === "relationship_map") return ["Map Kat and specialist agents", "Show the share/fork graph", "Explain the runtime contract"];
-    if (intent.layout === "investor") return ["Build investor proof board", "Show the moat map", "Turn this into content for Dune"];
+    if (intent.layout === "investor") return ["Build investor proof board", "Show the moat map", "Turn this into a channel thesis"];
     return ["Show channel runtime architecture", "Generate a deeper technology explainer", "Map Kat and specialist agents"];
   }
   return ["Open overview", "Show events", "Inspect top entity", "Map relationships"];
@@ -9873,6 +9868,71 @@ function resolveLiveChannelHeadline(channel, sessionId, envelope) {
   return headline;
 }
 
+function trialCapsuleFiles() {
+  const files = [];
+  function walk(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile() && entry.name.endsWith(".json")) {
+        files.push(full);
+      }
+    }
+  }
+  walk(TRIAL_CAPSULES_DIR);
+  return files;
+}
+
+function readTrialCapsule(slug) {
+  const normalized = normalizeDashboardId(slug || "");
+  if (!normalized) return null;
+  for (const file of trialCapsuleFiles()) {
+    try {
+      const capsule = JSON.parse(fs.readFileSync(file, "utf8"));
+      const ids = [
+        capsule?.id,
+        capsule?.channelId,
+        capsule?.story?.slug,
+        capsule?.share?.slug,
+      ].map((value) => normalizeDashboardId(value || ""));
+      if (ids.includes(normalized)) return { file, capsule };
+    } catch (_) {
+      // Ignore malformed draft capsules; the generator and QA scripts report those directly.
+    }
+  }
+  return null;
+}
+
+app.get("/api/trial-capsules", (req, res) => {
+  const capsules = trialCapsuleFiles().flatMap((file) => {
+    try {
+      const capsule = JSON.parse(fs.readFileSync(file, "utf8"));
+      return [{
+        id: capsule.id,
+        channelId: capsule.channelId,
+        title: capsule.story?.title || capsule.title,
+        sourceUrl: capsule.source?.url,
+        durationMs: capsule.sceneSpec?.durationMs,
+        scenes: Array.isArray(capsule.sceneSpec?.scenes) ? capsule.sceneSpec.scenes.length : 0,
+        clip: capsule.share?.clip,
+      }];
+    } catch (_) {
+      return [];
+    }
+  });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, root: path.relative(__dirname, TRIAL_CAPSULES_DIR), capsules });
+});
+
+app.get("/api/trial-capsules/:slug", (req, res) => {
+  const found = readTrialCapsule(req.params.slug);
+  if (!found) return res.status(404).json({ ok: false, error: "trial capsule not found" });
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({ ok: true, capsule: found.capsule });
+});
+
 app.get("/api/channels", (req, res) => {
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.json({
@@ -10173,7 +10233,7 @@ function shareHeadline(channel, state, prompt) {
     if (/\b(attention|liquidity|risk|mismatch|social|narrative)\b/.test(text)) return formatPunchHeadline(channel, "Hype Outruns Liquidity");
     return formatPunchHeadline(channel, "Fresh Tape Hits");
   }
-  if (channel.id === "dune-deck") {
+  if (channel.id === "katechon-technology") {
     if (/\b(agent|kat|specialist)\b/.test(text)) return formatPunchHeadline(channel, "Kat Routes the Work");
     if (/\b(share|fork|replay|distribution)\b/.test(text)) return formatPunchHeadline(channel, "Channel States Spread");
     if (/\b(runtime|architecture|api|surface)\b/.test(text)) return formatPunchHeadline(channel, "Runtime Becomes the Product");
@@ -10479,10 +10539,7 @@ function sendPitchDeckSnapshotIndex(req, res) {
 app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
 app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
 app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
-app.get(/^\/dashboards\/dune-deck\/?$/, (req, res) => sendPrototypeDashboard(res));
-app.use("/dashboards/dune-deck/slides", express.static(DUNE_DECK_DIR));
-app.use("/dashboards/dune-deck", express.static(DUNE_DECK_DIR));
-app.get(/^\/dashboards\/(?:three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us|seed-round)\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.get(/^\/dashboards\/(?:katechon-technology|three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us|seed-round|planetary-solvency|cloud-canary|runtime-governance)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
@@ -10724,196 +10781,6 @@ app.get("/api/realtime/status", (req, res) => {
       elevenLabsModel: ELEVENLABS_MODEL_ID,
     },
   });
-});
-
-app.get("/api/decks/dune/generative-status", (req, res) => {
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.json({
-    ok: true,
-    configured: Boolean(process.env.OPENAI_API_KEY),
-    model: OPENAI_DECK_MODEL,
-    reasoningEffort: OPENAI_DECK_REASONING_EFFORT,
-    primitives: DECK_GENERATION_PRIMITIVES,
-    openSlide: {
-      workspace: path.relative(__dirname, OPEN_SLIDE_WORKSPACE_DIR),
-      generatedSlide: path.relative(__dirname, OPEN_SLIDE_GENERATED_SLIDE_FILE),
-      writesEnabled: OPEN_SLIDE_WRITE_GENERATED,
-    },
-  });
-});
-
-app.post("/api/decks/dune/generate-slide", async (req, res) => {
-  try {
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const prompt = clampText(body.prompt || body.userText || body.text, 900);
-    if (!prompt) return res.status(400).json({ ok: false, error: "prompt is required" });
-
-    const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
-    const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
-    const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
-    const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
-    const slideIndex = Number.isFinite(requestedIndex)
-      ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
-      : 0;
-    const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
-    const startedAt = Date.now();
-    const openaiResponse = await callOpenAIForDeckSlide(prompt, currentSlide, slideIndex, deckSlides.length || 1);
-    const parsed = parseJsonObject(extractOpenAIText(openaiResponse));
-    const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
-    attachOpenSlideArtifact(slide, prompt, slideIndex);
-    recordDeckGeneration(prompt, slide);
-
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.json({
-      ok: true,
-      slide,
-      prompt,
-      model: openaiResponse.model || OPENAI_DECK_MODEL,
-      responseId: openaiResponse.id || "",
-      latencyMs: Date.now() - startedAt,
-    });
-  } catch (err) {
-    console.error("dune deck generation failed:", err.message);
-    res.status(500).json({ ok: false, error: err.message, model: OPENAI_DECK_MODEL });
-  }
-});
-
-app.post("/api/decks/dune/generate-slide/stream", async (req, res) => {
-  const startedAt = Date.now();
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof res.flushHeaders === "function") res.flushHeaders();
-
-  const emit = (payload) => writeJsonLine(res, payload);
-
-  try {
-    const body = req.body && typeof req.body === "object" ? req.body : {};
-    const prompt = clampText(body.prompt || body.userText || body.text, 900);
-    if (!prompt) {
-      emit({ type: "error", error: "prompt is required" });
-      return res.end();
-    }
-
-    emit({ type: "status", text: "reading repo context and planning docs" });
-    const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
-    const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
-    const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
-    const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
-    const slideIndex = Number.isFinite(requestedIndex)
-      ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
-      : 0;
-    const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
-    const requestBody = deckSlideOpenAIRequest(prompt, currentSlide, slideIndex, deckSlides.length || 1, { stream: true });
-
-    emit({ type: "status", text: `routing prompt to ${OPENAI_DECK_MODEL}` });
-    const response = await sendOpenAIResponse(requestBody);
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI ${response.status}: ${text.slice(0, 500)}`);
-    }
-
-    emit({ type: "status", text: "streaming slide schema deltas" });
-    let rawText = "";
-    let responseId = "";
-    let responseModel = OPENAI_DECK_MODEL;
-    let sseBuffer = "";
-
-    const handleEvent = (event) => {
-      if (!event || typeof event !== "object") return;
-      if (event.type === "response.created") {
-        responseId = event.response?.id || responseId;
-        responseModel = event.response?.model || responseModel;
-        emit({ type: "meta", responseId, model: responseModel });
-      }
-      if (event.type === "response.output_text.delta" && event.delta) {
-        rawText += event.delta;
-        emit({ type: "delta", text: event.delta });
-      }
-      if (event.type === "response.output_text.done" && event.text && !rawText.trim()) {
-        rawText = event.text;
-        emit({ type: "delta", text: event.text });
-      }
-      if (event.type === "response.completed") {
-        responseId = event.response?.id || responseId;
-        responseModel = event.response?.model || responseModel;
-      }
-      if (event.type === "response.failed") {
-        throw new Error(event.response?.error?.message || "OpenAI stream failed");
-      }
-    };
-
-    for await (const chunk of response.body) {
-      sseBuffer += Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk);
-      const blocks = sseBuffer.split(/\n\n/);
-      sseBuffer = blocks.pop() || "";
-      blocks.forEach((block) => {
-        const event = parseOpenAISseBlock(block);
-        if (event) handleEvent(event);
-      });
-    }
-    if (sseBuffer.trim()) {
-      const event = parseOpenAISseBlock(sseBuffer);
-      if (event) handleEvent(event);
-    }
-
-    emit({ type: "status", text: "validating generated slide schema" });
-    const parsed = parseJsonObject(rawText);
-    const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
-    const openSlide = attachOpenSlideArtifact(slide, prompt, slideIndex);
-    recordDeckGeneration(prompt, slide);
-    emit({ type: "status", text: openSlide.written ? "writing open-slide react page" : "materializing open-slide react page" });
-    chunkText(openSlide.source).forEach((chunk) => emit({ type: "code", path: openSlide.path, text: chunk }));
-    emit({
-      type: "slide",
-      ok: true,
-      slide,
-      prompt,
-      model: responseModel,
-      responseId,
-      latencyMs: Date.now() - startedAt,
-    });
-    emit({ type: "done" });
-    res.end();
-  } catch (err) {
-    console.error("dune deck stream generation failed:", err.message);
-    emit({ type: "status", text: "stream failed; trying single response fallback" });
-    try {
-      const body = req.body && typeof req.body === "object" ? req.body : {};
-      const prompt = clampText(body.prompt || body.userText || body.text, 900);
-      const deckFile = path.join(DUNE_DECK_DIR, "deck.json");
-      const deckConfig = fs.existsSync(deckFile) ? JSON.parse(fs.readFileSync(deckFile, "utf8")) : { slides: [] };
-      const deckSlides = Array.isArray(deckConfig.slides) ? deckConfig.slides : [];
-      const requestedIndex = Number.parseInt(body.slideIndex ?? body.index ?? 0, 10);
-      const slideIndex = Number.isFinite(requestedIndex)
-        ? Math.max(0, Math.min(Math.max(0, deckSlides.length - 1), requestedIndex))
-        : 0;
-      const currentSlide = body.currentSlide && typeof body.currentSlide === "object" ? body.currentSlide : deckSlides[slideIndex] || null;
-      const openaiResponse = await callOpenAIForDeckSlide(prompt, currentSlide, slideIndex, deckSlides.length || 1);
-      const rawText = extractOpenAIText(openaiResponse);
-      emit({ type: "delta", text: rawText });
-      const parsed = parseJsonObject(rawText);
-      const slide = sanitizeGeneratedDeckSlide(parsed, prompt, slideIndex);
-      const openSlide = attachOpenSlideArtifact(slide, prompt, slideIndex);
-      recordDeckGeneration(prompt, slide);
-      emit({ type: "status", text: openSlide.written ? "writing open-slide react page" : "materializing open-slide react page" });
-      chunkText(openSlide.source).forEach((chunk) => emit({ type: "code", path: openSlide.path, text: chunk }));
-      emit({
-        type: "slide",
-        ok: true,
-        slide,
-        prompt,
-        model: openaiResponse.model || OPENAI_DECK_MODEL,
-        responseId: openaiResponse.id || "",
-        latencyMs: Date.now() - startedAt,
-      });
-      emit({ type: "done" });
-    } catch (fallbackErr) {
-      emit({ type: "error", error: fallbackErr.message || err.message, model: OPENAI_DECK_MODEL });
-    } finally {
-      res.end();
-    }
-  }
 });
 
 app.post("/api/realtime/session", async (req, res) => {
@@ -11289,7 +11156,7 @@ function findDashboardInTranscript(normalizedText) {
     ["crypto-trading", /\b(crypto\s*trading|trading\s*dashboard|backtest|backtesting|binance|coinbase|kraken)\b/],
     ["polyrec", /\b(polyrec|polymarket|prediction\s*market|order\s*book|btc)\b/],
     ["dashboard123", /\b(dashboard\s*123|portfolio\s*123|p123|macro|sentiment|technicals|stocks?)\b/],
-    ["dune-deck", /\b(dune|pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
+    ["katechon-technology", /\b(katechon\s*technology|pitch\s*deck|fundraise|fundraising|slides?|deck)\b/],
   ];
   const matchedAlias = dashboardMatches.find(([, pattern]) => pattern.test(normalizedText));
   if (matchedAlias) return matchedAlias[0];

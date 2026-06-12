@@ -34,7 +34,7 @@ Synthetic data is allowed only behind local/dev fixtures and tests. Public demo 
 | 3 | `viral` | CDC Open Data/Socrata | WHO Athena later | public health surveillance context |
 | 3 | `dark-forest` | NASA Exoplanet Archive TAP | SIMBAD/VizieR later | stellar/catalog anomaly watch |
 | 3 | `arena` | GitHub Actions | local benchmark JSON later | model/run scoreboards |
-| 3 | `dune-deck` | local deck JSON | product analytics later | pitch progress and engagement |
+| 3 | `katechon-technology` | platform context | product analytics later | pitch progress and engagement |
 
 ## Runtime Requirements
 

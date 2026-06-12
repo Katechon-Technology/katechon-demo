@@ -13,13 +13,11 @@
     "watch-feed:qa": "node scripts/watch-feed-qa.js",
     "channel:music": "node scripts/generate-channel-music.js",
     "bwu:visuals": "node scripts/generate-build-with-us-visuals.js",
+    "trial:generate": "node scripts/generate-trial-channels.js",
+    "trial:clips": "node scripts/render-trial-clips.js",
+    "trial:qa": "node scripts/trial-format-review.js",
     "start": "node server.js",
     "dev": "node server.js",
-    "dune:audio": "public/decks/dune/scripts/generate-elevenlabs-narration.sh",
-    "dune:visuals": "python3 public/decks/dune/scripts/generate-replicate-visuals.py",
-    "dune:voiceover": "node public/decks/dune/scripts/write-voiceover-script.js",
-    "dune:slides:dev": "npm --prefix open-slide/katechon-investor run dev",
-    "dune:slides:build": "npm --prefix open-slide/katechon-investor run build",
     "pitch:dev": "npm --prefix ../katechon-pitch run dev -- --host 127.0.0.1 --port 5174 --strictPort"
   },
   "dependencies": {

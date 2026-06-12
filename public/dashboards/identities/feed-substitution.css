@@ -462,3 +462,91 @@ body.escalating[data-dashboard="what-comes-after-the-feed"] h1 .fs-title-q {
   color: #00e87b;
   text-shadow: 0 0 32px color-mix(in srgb, #00e87b 60%, transparent);
 }
+
+@media (max-width: 680px) {
+  body.deck-presentation-mode .scene.feed-sub-identity {
+    padding: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows:
+      auto minmax(0, 1fr) 18px minmax(0, 1fr)
+      auto minmax(0, 1fr) 18px minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 8px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .q-precedent { grid-column: 1; grid-row: 1; }
+  body.deck-presentation-mode .feed-sub-identity .c-google { grid-column: 1; grid-row: 2; }
+  body.deck-presentation-mode .feed-sub-identity .ct-precedent { grid-column: 1; grid-row: 3; }
+  body.deck-presentation-mode .feed-sub-identity .c-claude { grid-column: 1; grid-row: 4; }
+  body.deck-presentation-mode .feed-sub-identity .q-repeat { grid-column: 1; grid-row: 5; }
+  body.deck-presentation-mode .feed-sub-identity .c-feed { grid-column: 1; grid-row: 6; }
+  body.deck-presentation-mode .feed-sub-identity .ct-repeat { grid-column: 1; grid-row: 7; }
+  body.deck-presentation-mode .feed-sub-identity .c-puzzle { grid-column: 1; grid-row: 8; }
+
+  body.deck-presentation-mode .feed-sub-identity .query {
+    padding: 8px 10px;
+    font-size: 11px;
+    gap: 8px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .query::before {
+    font-size: 16px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .query .key,
+  body.deck-presentation-mode .feed-sub-identity .cell .brand {
+    font-size: 8px;
+    letter-spacing: 0.18em;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .cell {
+    border-radius: 8px;
+    min-height: 0;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .serp,
+  body.deck-presentation-mode .feed-sub-identity .claude {
+    padding: 28px 12px 12px;
+    gap: 8px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .serp {
+    gap: 5px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .serp-row {
+    padding-right: 14px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .serp-url,
+  body.deck-presentation-mode .feed-sub-identity .claude-pills span {
+    font-size: 8px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .claude-pills {
+    gap: 6px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .claude-pills span {
+    padding: 4px 7px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .fs-feed-scroller {
+    padding: 0 12px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .fs-feed-row {
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 9px;
+    padding: 7px 0;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .fs-feed-av {
+    width: 20px;
+    height: 20px;
+  }
+
+  body.deck-presentation-mode .feed-sub-identity .puzzle-q-big {
+    font-size: clamp(54px, 18vw, 96px);
+  }
+}

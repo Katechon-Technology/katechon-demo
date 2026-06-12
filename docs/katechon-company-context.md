@@ -141,8 +141,8 @@ The repo already contains:
 - legacy narration and TTS paths;
 - channel turn routes and generated-surface rendering;
 - share/replay/fork concepts for generated channel states;
-- the Dune investor deck route at `/dashboards/dune-deck/`;
-- realtime slide generation endpoints for the deck;
+- the mobile thesis route at `/deck`;
+- the Katechon Technology dashboard route at `/dashboards/katechon-technology/`;
 - an Open Slide workspace at `open-slide/katechon-investor`.
 
 The current demo is still a prototype. Slides should not claim production-scale usage, revenue, signed customers, regulated trading, live wallet execution, audited model reliability, or any metric that is not present in the repo context.

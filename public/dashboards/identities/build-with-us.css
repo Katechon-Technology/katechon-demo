@@ -59,6 +59,15 @@ body[data-dashboard="build-with-us"] .stage {
   transition: box-shadow 420ms ease, filter 420ms ease;
 }
 
+body.deck-presentation-mode[data-dashboard="build-with-us"] .stage {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 body[data-dashboard="build-with-us"] .small-multiples,
 body[data-dashboard="build-with-us"] .stage-thesis,
 body[data-dashboard="build-with-us"] .section-head,
@@ -1836,4 +1845,101 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
 
 .bwu-root.is-cut .bwu-cut {
   opacity: 1;
+}
+
+@media (max-width: 680px) {
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-iran,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-strait,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-tanker,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-schematic,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-channel,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-night {
+    padding: 0;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video {
+    object-fit: cover;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video-grad {
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0.72) 100%),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.54), rgba(0, 0, 0, 0.08) 48%, rgba(0, 0, 0, 0.48) 100%);
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-headline {
+    left: 14px;
+    right: 14px;
+    top: 14px;
+    min-width: 0;
+    max-width: none;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-headline-text {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-head {
+    left: 14px;
+    right: 14px;
+    top: 58px;
+    width: auto;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-tag {
+    left: 14px;
+    right: 14px;
+    top: 88px;
+    width: auto;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-feed,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-markets,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-ticker,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-hud,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-hud-targeting,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video-click-target,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-globe-panel,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-click,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-seedream-console,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-summary {
+    display: none !important;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-workspace,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-hero {
+    position: absolute;
+    inset: 126px 14px 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-board,
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-map {
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-board-head {
+    font-size: 8px;
+    letter-spacing: 0.12em;
+  }
+
+  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-diagram {
+    min-height: 0;
+  }
 }

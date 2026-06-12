@@ -11,3 +11,4 @@ recordings/
 artifacts/
 .vercel
 .env*.local
+outputs/

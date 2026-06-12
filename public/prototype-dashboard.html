@@ -4313,28 +4313,56 @@
     body.blank-dashboard .asset-plane {
       opacity: 0.18;
     }
-    body.blank-dashboard[data-dashboard="dune-deck"] .stage {
+    body.blank-dashboard[data-dashboard="katechon-technology"] .stage {
       display: grid;
       place-items: center;
     }
     .blank-brand-lockup {
       position: relative;
       z-index: 3;
-      width: min(72vw, 920px);
-      aspect-ratio: 372 / 72;
+      width: min(78vw, 780px);
+      min-height: min(52vw, 460px);
       display: grid;
       place-items: center;
+      align-content: center;
+      gap: clamp(10px, 2vh, 18px);
       pointer-events: none;
+    }
+    .blank-brand-mark {
+      position: relative;
+      z-index: 2;
+      width: clamp(98px, 13vw, 190px);
+      height: auto;
+      display: block;
+      filter:
+        drop-shadow(0 0 30px color-mix(in srgb, var(--accent) 28%, transparent))
+        drop-shadow(0 22px 54px rgba(0,0,0,0.58));
     }
     .blank-brand-wordmark {
       position: relative;
       z-index: 2;
-      width: 100%;
-      height: auto;
-      display: block;
-      filter:
-        drop-shadow(0 0 30px color-mix(in srgb, var(--accent) 22%, transparent))
-        drop-shadow(0 22px 54px rgba(0,0,0,0.56));
+      color: rgba(243,246,248,0.96);
+      font-size: clamp(34px, 6.2vw, 86px);
+      font-weight: 760;
+      letter-spacing: 0.28em;
+      line-height: 0.92;
+      text-indent: 0.28em;
+      text-shadow:
+        0 0 30px color-mix(in srgb, var(--accent) 22%, transparent),
+        0 22px 54px rgba(0,0,0,0.56);
+      white-space: nowrap;
+    }
+    .blank-brand-tagline {
+      position: relative;
+      z-index: 2;
+      color: rgba(243,246,248,0.48);
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: clamp(10px, 1.1vw, 14px);
+      font-weight: 760;
+      letter-spacing: 0.22em;
+      line-height: 1.25;
+      text-transform: uppercase;
+      text-align: center;
     }
     .blank-brand-ring {
       position: absolute;
@@ -4370,7 +4398,134 @@
         min-height: 0;
       }
       .blank-brand-lockup {
-        width: min(84vw, 620px);
+        width: min(86vw, 620px);
+        min-height: min(76vw, 420px);
+      }
+    }
+    body.deck-presentation-mode {
+      overflow: hidden;
+      background: #030506;
+    }
+    html.deck-presentation-root,
+    body.deck-presentation-mode {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+    }
+    body.deck-presentation-mode .app {
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      padding: 0;
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+    }
+    body.deck-presentation-mode .topbar,
+    body.deck-presentation-mode .kicker,
+    body.deck-presentation-mode .command-panel,
+    body.deck-presentation-mode .topbar-meta,
+    body.deck-presentation-mode .generated-breadcrumb,
+    body.deck-presentation-mode .generated-page,
+    body.deck-presentation-mode .pitch-morph,
+    body.deck-presentation-mode .pulse-strip,
+    body.deck-presentation-mode .metrics,
+    body.deck-presentation-mode .stage-thesis,
+    body.deck-presentation-mode .section-head,
+    body.deck-presentation-mode .small-multiples,
+    body.deck-presentation-mode .rail,
+    body.deck-presentation-mode .action-rail,
+    body.deck-presentation-mode .kat-target-ring,
+    body.deck-presentation-mode .kat-target-modal,
+    body.deck-presentation-mode .generated-modal,
+    body.deck-presentation-mode .narration-ticker {
+      display: none !important;
+    }
+    body.deck-presentation-mode .workspace,
+    body.deck-presentation-mode .main {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 0;
+    }
+    body.deck-presentation-mode .stage-wrap.cockpit {
+      min-width: 0;
+      min-height: 0;
+      padding: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    body.deck-presentation-mode .stage {
+      width: 100%;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    body.deck-presentation-mode.blank-dashboard .stage {
+      background:
+        linear-gradient(rgba(255,255,255,0.024) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.020) 1px, transparent 1px),
+        radial-gradient(circle at 22% 18%, color-mix(in srgb, var(--accent2) 14%, transparent), transparent 34%),
+        radial-gradient(circle at 74% 78%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 38%),
+        rgba(0,0,0,0.30);
+      background-size: 38px 38px, 38px 38px, auto, auto, auto;
+    }
+    body.deck-presentation-mode .quote-scene {
+      min-height: 100%;
+      padding: clamp(22px, 5vw, 72px);
+    }
+    body.deck-presentation-mode .quote-lockup {
+      width: min(92vw, 1180px);
+    }
+    body.deck-presentation-mode .quote-text {
+      font-size: clamp(38px, 7vw, 104px);
+    }
+    body.deck-presentation-mode .quote-text-multiline {
+      font-size: clamp(31px, 5.8vw, 82px);
+      white-space: normal;
+    }
+    @media (max-width: 620px) {
+      body.deck-presentation-mode .quote-scene {
+        padding: 18px;
+      }
+      body.deck-presentation-mode .quote-lockup {
+        padding: 24px 14px;
+      }
+      body.deck-presentation-mode .quote-lockup::before {
+        inset: -18px -10px;
+      }
+      body.deck-presentation-mode .quote-text {
+        font-size: clamp(34px, 12vw, 52px);
+        line-height: 1.02;
+      }
+      body.deck-presentation-mode .quote-text-multiline {
+        font-size: clamp(26px, 9.5vw, 42px);
+        gap: 8px;
+      }
+      body.deck-presentation-mode .blank-brand-lockup {
+        width: min(88vw, 360px);
+        min-height: 62vh;
+      }
+      body.deck-presentation-mode .blank-brand-mark {
+        width: clamp(106px, 36vw, 148px);
+      }
+      body.deck-presentation-mode .blank-brand-wordmark {
+        font-size: clamp(27px, 8.2vw, 34px);
+        letter-spacing: 0.16em;
+        text-indent: 0.16em;
+      }
+      body.deck-presentation-mode .blank-brand-tagline {
+        max-width: 22ch;
+        font-size: 10px;
       }
     }
   </style>
@@ -4401,7 +4556,6 @@
     <section class="workspace">
       <nav class="generated-breadcrumb" id="generated-breadcrumb" data-testid="generated-breadcrumb" hidden></nav>
       <section class="generated-page" id="generated-page" hidden></section>
-      <section class="pitch-morph" id="pitch-morph" data-testid="pitch-morph" aria-live="polite" hidden></section>
       <div class="main">
         <section class="module pulse-strip" id="pulse-strip" data-testid="pulse-strip">
           <div class="pulse-strip-label">

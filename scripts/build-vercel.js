@@ -33,7 +33,7 @@ const dashboardIds = [
   "power-grid",
   "viral",
   "dark-forest",
-  "dune-deck",
+  "katechon-technology",
   "three-internets",
   "every-age-thinks-its-the-last",
   "what-comes-after-the-feed",
@@ -99,6 +99,10 @@ function materializeDeckEntrypoint(targetRoot, indexFile, baseHref = "") {
   if (baseHref) setHtmlBase(deckIndex, baseHref);
 }
 
+function materializeRootLanding() {
+  fs.copyFileSync(path.join(siteSource, "index.html"), path.join(output, "index.html"));
+}
+
 fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(siteSource, output, { recursive: true });
 fs.cpSync(appSource, output, { recursive: true, force: true });
@@ -109,7 +113,7 @@ fs.cpSync(path.join(appSource, "share-cards"), path.join(output, "share-cards"),
 const rootPrototypeDashboard = path.join(output, "prototype-dashboard.html");
 materializeDashboardRoutes(output, rootPrototypeDashboard);
 materializeDeckEntrypoint(output, path.join(output, "index.html"), "/");
-setHtmlBase(path.join(output, "decks", "dune", "index.html"), "/decks/dune/");
+materializeRootLanding();
 
 const appIndex = path.join(appOutput, "index.html");
 const appIndexHtml = fs.readFileSync(appIndex, "utf8");
@@ -118,8 +122,6 @@ const appPrototypeDashboard = path.join(appOutput, "prototype-dashboard.html");
 rewriteAppPrototypeScripts(appPrototypeDashboard);
 materializeDashboardRoutes(appOutput, appPrototypeDashboard);
 materializeDeckEntrypoint(appOutput, appIndex);
-
-setHtmlBase(path.join(appOutput, "decks", "dune", "index.html"), "/app/decks/dune/");
 
 writeSharePages(output, "");
 writeSharePages(appOutput, "/app");

@@ -24,6 +24,14 @@ function requireContains(file, pattern, label) {
   }
 }
 
+function requireNotContains(file, pattern, label) {
+  const content = read(file);
+  const ok = pattern instanceof RegExp ? pattern.test(content) : content.includes(pattern);
+  if (ok) {
+    throw new Error(`${file} unexpectedly contains ${label || pattern}`);
+  }
+}
+
 function requireNotHtml(file) {
   const content = read(file).trimStart();
   if (/^<!doctype html/i.test(content) || /^<html/i.test(content)) {
@@ -37,6 +45,8 @@ const requiredFiles = [
   "dist/data/index.html",
   "dist/pdf/index.html",
   "dist/katechon.pdf",
+  "dist/whitepaper/index.html",
+  "dist/whitepaper/katechon-whitepaper.pdf",
   "dist/og-data.jpg",
   "dist/brand/katechon-motion.gif",
   "dist/prototype-dashboard.html",
@@ -44,11 +54,10 @@ const requiredFiles = [
   "dist/dashboards/prototype.js",
   "dist/dashboards/spectre/index.html",
   "dist/dashboards/news/index.html",
-  "dist/dashboards/dune-deck/index.html",
+  "dist/dashboards/katechon-technology/index.html",
   "dist/dashboards/what-is-a-channel/index.html",
   "dist/dashboards/live-generated-states/index.html",
   "dist/dashboards/what-should-exist-next/index.html",
-  "dist/decks/dune/deck.json",
   "dist/app/index.html",
   "dist/app/deck/index.html",
   "dist/app/brand/katechon-motion.gif",
@@ -57,19 +66,14 @@ const requiredFiles = [
   "dist/app/dashboards/prototype.js",
   "dist/app/dashboards/spectre/index.html",
   "dist/app/dashboards/news/index.html",
-  "dist/app/dashboards/dune-deck/index.html",
+  "dist/app/dashboards/katechon-technology/index.html",
   "dist/app/dashboards/what-is-a-channel/index.html",
   "dist/app/dashboards/live-generated-states/index.html",
   "dist/app/dashboards/what-should-exist-next/index.html",
-  "dist/app/decks/dune/deck.json",
-  "dist/app/decks/dune/assets/narration/dune-01-founder-v2.mp3",
-  "dist/app/decks/dune/assets/narration/dune-02-inflection-v2.mp3",
-  "dist/app/decks/dune/assets/narration/dune-03-container-v2.mp3",
-  "dist/app/decks/dune/assets/narration/dune-04-channels-v2.mp3",
-  "dist/app/decks/dune/assets/narration/dune-05-monetization-v2.mp3",
   "dist/app/share/spectre/index.html",
-  "dist/app/share/dune-deck/index.html",
+  "dist/app/share/katechon-technology/index.html",
   "dist/share/spectre/index.html",
+  "dist/share/katechon-technology/index.html",
   "dist/app/share-cards/spectre.jpg",
   "dist/share-cards/spectre.jpg",
   "dist/share-thumbnails/spectre.jpg",
@@ -93,7 +97,6 @@ const channelMusicIds = [
   "power-grid",
   "viral",
   "dark-forest",
-  "dune-deck",
 ];
 
 for (const id of channelMusicIds) {
@@ -109,27 +112,30 @@ for (const file of requiredFiles) {
   requireFile(file);
 }
 
-requireContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
+requireContains("dist/index.html", "Katechon Technology", "brand-only root landing page");
+requireNotContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
+requireNotContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
+requireNotContains("dist/index.html", "pump.fun", "pump.fun channel copy");
+requireNotContains("dist/index.html", "href=\"/app", "root app entry link");
 requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag");
 requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
-requireContains("dist/deck/index.html", "dune-deck", "deck starts at dashboard 18");
+requireContains("dist/deck/index.html", "katechon-technology", "deck starts at dashboard 18");
 requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
 requireContains("dist/deck/index.html", "seed-round", "deck includes seed round closer");
-requireContains("dist/index.html", "build-terminal-row", "root app terminal transition markup");
-requireContains("dist/index.html", "dashboard-music-toggle", "root app channel music toggle");
-requireContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
 requireContains("dist/data/index.html", "https://katechon.technology/data/", "canonical data-room URL");
-requireContains("dist/data/index.html", "/app/dashboards/dune-deck/", "data-room deck link");
+requireContains("dist/data/index.html", "/app/deck/", "data-room deck link");
 requireContains("dist/pdf/index.html", "/katechon.pdf", "one-pager PDF link");
+requireContains("dist/whitepaper/index.html", "From inference to real time content", "whitepaper title");
+requireContains("dist/whitepaper/index.html", "/api/whitepaper-auth", "whitepaper auth endpoint");
 requireContains("dist/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG", "root dashboard catalog registration");
 requireContains("dist/dashboards/prototype.js", "function appUrl", "root dashboard appUrl helper");
 requireContains("dist/prototype-dashboard.html", "/dashboards/catalog.js", "root catalog script include");
 requireContains("dist/dashboards/spectre/index.html", "/dashboards/catalog.js", "root dashboard catalog script include");
 requireContains("dist/share/spectre/index.html", "https://katechon.technology/share/spectre", "canonical root share URL");
-requireContains("dist/share/spectre/index.html", "https://katechon.technology/?dashboard=spectre", "root share launch URL");
+requireContains("dist/share/spectre/index.html", "https://katechon.technology/app/?dashboard=spectre", "root share launch URL");
 requireContains("dist/share/spectre/index.html", "https://katechon.technology/share-cards/spectre.jpg", "branded root share card");
-requireContains("dist/share/dune-deck/index.html", "https://katechon.technology/share/dune-deck", "Dune deck root share URL");
-requireContains("dist/dashboards/dune-deck/index.html", "/dashboards/catalog.js", "Dune deck root prototype dashboard");
+requireContains("dist/share/katechon-technology/index.html", "https://katechon.technology/share/katechon-technology", "Katechon Technology root share URL");
+requireContains("dist/dashboards/katechon-technology/index.html", "/dashboards/catalog.js", "Katechon Technology root prototype dashboard");
 requireContains("dist/dashboards/what-is-a-channel/index.html", "/dashboards/catalog.js", "What Is a Channel root prototype dashboard");
 requireContains("dist/dashboards/live-generated-states/index.html", "/dashboards/catalog.js", "Live Generated States root prototype dashboard");
 requireContains("dist/dashboards/what-should-exist-next/index.html", "/dashboards/catalog.js", "What Should Exist Next root prototype dashboard");
@@ -144,11 +150,10 @@ requireContains("dist/app/prototype-dashboard.html", "/app/dashboards/catalog.js
 requireContains("dist/app/dashboards/spectre/index.html", "/app/dashboards/catalog.js", "app dashboard catalog script include");
 requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share/spectre", "canonical /app share URL");
 requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share-cards/spectre.jpg", "branded /app share card");
-requireContains("dist/app/share/dune-deck/index.html", "https://katechon.technology/app/share/dune-deck", "Dune deck /app share URL");
-requireContains("dist/app/dashboards/dune-deck/index.html", "/app/dashboards/catalog.js", "Dune deck /app prototype dashboard");
+requireContains("dist/app/share/katechon-technology/index.html", "https://katechon.technology/app/share/katechon-technology", "Katechon Technology /app share URL");
+requireContains("dist/app/dashboards/katechon-technology/index.html", "/app/dashboards/catalog.js", "Katechon Technology /app prototype dashboard");
 requireContains("dist/app/dashboards/what-is-a-channel/index.html", "/app/dashboards/catalog.js", "What Is a Channel /app prototype dashboard");
 requireContains("dist/app/dashboards/what-should-exist-next/index.html", "/app/dashboards/catalog.js", "What Should Exist Next /app prototype dashboard");
-requireContains("dist/app/decks/dune/deck.json", '"slides"', "Dune deck slides manifest");
 requireNotHtml("dist/dashboards/catalog.js");
 requireNotHtml("dist/dashboards/prototype.js");
 requireNotHtml("dist/app/dashboards/catalog.js");

@@ -340,7 +340,7 @@ Rules:
 | `deep-sea` | `noaa-ndbc` | `sensor-feed-v1` | NOAA NDBC realtime files |
 | `viral` | `cdc-socrata` | `model-feed-v1` | CDC Open Data/Socrata catalog/data |
 | `arena` | `github-actions` | `agent-match-v1` | Public GitHub Actions when configured; otherwise unavailable |
-| `dune-deck` | `local-deck-json` | `deck-state-v1` | Checked-in deck JSON |
+| `katechon-technology` | `katechon-platform` | `katechon-technology-v1` | Platform architecture and channel runtime context |
 
 ## Provider Notes
 
@@ -534,7 +534,7 @@ These are recommended provider directions behind the normalized channel layer. K
 | `power-grid` | EIA, NREL, NOAA weather |
 | `viral` | CDC, WHO, public mobility/open datasets |
 | `dark-forest` | MAST, NASA Exoplanet Archive, SIMBAD/VizieR |
-| `dune-deck` | local deck JSON, product analytics |
+| `katechon-technology` | platform context, product analytics |
 
 ## Fast Dashboard Mutation Contract
 

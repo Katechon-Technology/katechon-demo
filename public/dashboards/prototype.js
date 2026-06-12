@@ -32,6 +32,7 @@
     const identity = config.identity || {};
     document.body.dataset.dashboard = dashboardId;
     document.body.classList.toggle("deck-presentation-mode", deckPresentationMode);
+    document.documentElement.classList.toggle("deck-presentation-root", deckPresentationMode);
     if (identity.className) document.body.classList.add(identity.className);
     const palette = palettes[config.palette] || palettes.acid;
     const generatedSlotNames = ["rail", "stageOverlay", "modal"];
@@ -49,8 +50,6 @@
       lastPrompt: config.primaryPrompt || "",
       currentShareId: channelShareId || "",
       headline: null,
-      pitchMorph: null,
-      pitchMorphNonce: 0,
     };
     const katTarget = {
       mode: false,
@@ -68,129 +67,9 @@
     let dashboardRendered = false;
     let initialPromptRan = false;
     let replayStarted = false;
-    const PITCH_MORPH_FRAMES = [
-      {
-        id: "founder-fit",
-        topic: "founder-market fit",
-        sentence: "Katechon is built by people who have already lived this market.",
-        visual: "lineage",
-        labels: ["Index Coop", "Ingonyama", "EPFL", "Katechon"],
-        keywords: ["founder market fit", "founder", "builder", "simon", "index coop", "ingonyama", "epfl"],
-      },
-      {
-        id: "inflection",
-        topic: "AI software inflection",
-        sentence: "AI has turned software from static pages into generated state.",
-        visual: "firehose",
-        labels: ["AI", "data", "code", "UI", "state"],
-        keywords: ["ai software inflection", "inflection", "why now", "ai software", "generated state"],
-      },
-      {
-        id: "state-not-pixels",
-        topic: "state, not pixels",
-        sentence: "Screenshots are the broken container for software state.",
-        visual: "stateLoss",
-        labels: ["screenshot", "video", "post", "state"],
-        keywords: ["camera moment", "screenshot", "screenshots", "state not pixels", "broken container", "pixels"],
-      },
-      {
-        id: "channel-object",
-        topic: "live software channels",
-        sentence: "A channel is a live object with data, agents, memory, and UI.",
-        visual: "channelOrbit",
-        labels: ["feed", "agent", "state", "surface", "memory", "share"],
-        keywords: ["live software channel", "live software channels", "channel object", "what is a channel", "shared channel"],
-      },
-      {
-        id: "kat-agents",
-        topic: "Kat and specialist agents",
-        sentence: "Kat routes intent to specialist agents that mutate the channel.",
-        visual: "agentMesh",
-        labels: ["planner", "data", "layout", "copy", "provenance", "share"],
-        keywords: ["specialist agent", "specialist agents", "agent routing", "kat", "channel agents"],
-      },
-      {
-        id: "discovery-graph",
-        topic: "discovery graph",
-        sentence: "Every generated state becomes a node in the software feed.",
-        visual: "discoveryGraph",
-        labels: ["watch", "command", "share", "fork", "act", "feed"],
-        keywords: ["discovery graph", "software feed", "moat", "graph", "feed"],
-      },
-    ];
-    const PITCH_MORPH_KEYWORDS = PITCH_MORPH_FRAMES.map((frame) => ({
-      ...frame,
-      normalizedKeywords: frame.keywords.map((keyword) => normalizeDunePitchText(keyword)),
-    }));
-
     function animate(target, params) {
       if (!canMotion) return null;
       return animeApi.animate(target, params);
-    }
-
-    function normalizeDunePitchText(value) {
-      return String(value || "")
-        .toLowerCase()
-        .replace(/['’]/g, "")
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-    }
-
-    function hasDunePitchIntent(normalized) {
-      return /\b(?:generate|create|make|build|show|open|go|take)\b/.test(normalized) &&
-        /\b(?:slide|frame|pitch)\b/.test(normalized);
-    }
-
-    function matchDunePitchMorph(prompt, options = {}) {
-      if (dashboardId !== "dune-deck") return null;
-      const normalized = normalizeDunePitchText(prompt);
-      if (!normalized) return null;
-      if (!options.allowTopicOnly && !hasDunePitchIntent(normalized)) return null;
-      let best = null;
-      let bestScore = 0;
-      PITCH_MORPH_KEYWORDS.forEach((frame) => {
-        const score = frame.normalizedKeywords.reduce((sum, keyword) => {
-          if (!keyword || !normalized.includes(keyword)) return sum;
-          return sum + Math.max(1, keyword.split(" ").length);
-        }, 0);
-        if (score > bestScore) {
-          best = frame;
-          bestScore = score;
-        }
-      });
-      return best;
-    }
-
-    function isDunePitchMorphMessage(message) {
-      if (dashboardId !== "dune-deck" || !message) return false;
-      return message.type === "dune-generate-slide" ||
-        message.type === "deck-generate-slide" ||
-        message.type === "kat-deck-prompt";
-    }
-
-    function activateDunePitchMorph(prompt, options = {}) {
-      const frame = matchDunePitchMorph(prompt, { allowTopicOnly: options.allowTopicOnly });
-      if (!frame) return false;
-      state.pitchMorph = frame;
-      state.pitchMorphNonce += 1;
-      state.lastPrompt = String(prompt || `generate a slide on ${frame.topic}`).trim();
-      state.commandRunning = false;
-      setCommandStatus(`morphed channel: ${frame.topic}`);
-      render();
-      return true;
-    }
-
-    function clearDunePitchMorph() {
-      if (!state.pitchMorph) return;
-      state.pitchMorph = null;
-      const morph = $("pitch-morph");
-      if (morph) {
-        morph.hidden = true;
-        morph.innerHTML = "";
-        morph.removeAttribute("data-render-key");
-      }
-      document.body.classList.remove("pitch-morph-active");
-      delete document.body.dataset.pitchMorph;
     }
 
     function loadStylesheet(href) {
@@ -512,16 +391,6 @@
       const target = serializeKatTarget(options.target);
       const userText = targetInstructionText(rawPrompt, target);
       if (!userText || state.commandRunning) return;
-      if (!target && activateDunePitchMorph(rawPrompt)) {
-        state.lastPrompt = rawPrompt;
-        trackLaunchEvent("prompt_submitted", {
-          prompt: rawPrompt,
-          source: options.source || "command",
-          target: null,
-        });
-        return;
-      }
-      clearDunePitchMorph();
       state.commandRunning = true;
       state.lastPrompt = rawPrompt || userText;
       trackLaunchEvent("prompt_submitted", {
@@ -926,7 +795,6 @@
       { field: "sensors", label: "sensor stations", singular: "station", provider: "NOAA" },
       { field: "datasets", label: "public datasets", singular: "dataset", provider: "CDC" },
       { field: "runs", label: "workflow runs", singular: "run", provider: "GitHub" },
-      { field: "slides", label: "deck slides", singular: "slide", provider: "local JSON" },
       { field: "arenaBoards", label: "Arena boards", singular: "board", provider: "LMArena" },
       { field: "frontierModels", label: "frontier models", singular: "model", provider: "LMArena" },
       { field: "capabilityMatrix", label: "capability matrix", singular: "model", provider: "Arena SOTA" },
@@ -1625,123 +1493,6 @@
       return "Data unavailable";
     }
 
-    function pitchVisualHtml(frame) {
-      const labels = frame.labels || [];
-      if (frame.visual === "lineage") {
-        return `
-          <div class="pitch-visual pitch-lineage" aria-hidden="true">
-            <div class="pitch-lineage-sources">
-              ${labels.slice(0, 3).map((label, index) => `<span class="pitch-node" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-            </div>
-            <div class="pitch-lineage-paths">
-              <span class="pitch-path"></span><span class="pitch-path"></span><span class="pitch-path"></span>
-            </div>
-            <div class="pitch-core">${escapeHtml(labels[3] || "Katechon")}</div>
-          </div>`;
-      }
-      if (frame.visual === "firehose") {
-        return `
-          <div class="pitch-visual pitch-firehose" aria-hidden="true">
-            <div class="pitch-token-stream">
-              ${labels.map((label, index) => `<span class="pitch-token" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-            </div>
-            <div class="pitch-state-cube">
-              <span></span><span></span><span></span><span></span>
-            </div>
-          </div>`;
-      }
-      if (frame.visual === "stateLoss") {
-        return `
-          <div class="pitch-visual pitch-state-loss" aria-hidden="true">
-            <div class="pitch-capture-stack">
-              ${labels.slice(0, 3).map((label, index) => `<span class="pitch-capture pitch-node" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-            </div>
-            <div class="pitch-compressor"><span></span></div>
-            <div class="pitch-state-object">
-              <strong>${escapeHtml(labels[3] || "state")}</strong>
-              <i></i><i></i><i></i>
-            </div>
-          </div>`;
-      }
-      if (frame.visual === "channelOrbit") {
-        return `
-          <div class="pitch-visual pitch-channel-orbit" aria-hidden="true">
-            <div class="pitch-orbit-ring"></div>
-            <div class="pitch-core pitch-orbit-core">channel</div>
-            ${labels.map((label, index) => `<span class="pitch-orbit-node pitch-node" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-          </div>`;
-      }
-      if (frame.visual === "agentMesh") {
-        return `
-          <div class="pitch-visual pitch-agent-mesh" aria-hidden="true">
-            <div class="pitch-kat-core">Kat</div>
-            ${labels.map((label, index) => `<span class="pitch-agent-node pitch-node" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-            <span class="pitch-beam pitch-beam-a"></span>
-            <span class="pitch-beam pitch-beam-b"></span>
-            <span class="pitch-beam pitch-beam-c"></span>
-          </div>`;
-      }
-      return `
-        <div class="pitch-visual pitch-discovery-graph" aria-hidden="true">
-          ${labels.map((label, index) => `<span class="pitch-graph-node pitch-node" style="--i:${index}">${escapeHtml(label)}</span>`).join("")}
-          <span class="pitch-edge pitch-edge-a"></span>
-          <span class="pitch-edge pitch-edge-b"></span>
-          <span class="pitch-edge pitch-edge-c"></span>
-          <span class="pitch-edge pitch-edge-d"></span>
-        </div>`;
-    }
-
-    function animatePitchMorph() {
-      const root = $("pitch-morph");
-      if (!root || root.hidden) return;
-      animate(root.querySelector(".pitch-sentence"), {
-        opacity: [0, 1],
-        y: [16, 0],
-        duration: 560,
-        ease: "out(3)",
-      });
-      animate(root.querySelectorAll(".pitch-node, .pitch-core, .pitch-token, .pitch-state-object, .pitch-kat-core"), {
-        opacity: [0, 1],
-        scale: [0.94, 1],
-        y: [10, 0],
-        delay: stagger(62),
-        duration: 620,
-        ease: "out(3)",
-      });
-      animate(root.querySelectorAll(".pitch-path, .pitch-beam, .pitch-edge"), {
-        opacity: [0, 1],
-        delay: stagger(76),
-        duration: 680,
-        ease: "out(3)",
-      });
-    }
-
-    function renderPitchMorph() {
-      const root = $("pitch-morph");
-      const frame = dashboardId === "dune-deck" ? state.pitchMorph : null;
-      document.body.classList.toggle("pitch-morph-active", Boolean(frame));
-      if (frame) document.body.dataset.pitchMorph = frame.id;
-      else delete document.body.dataset.pitchMorph;
-      if (!root) return;
-      if (!frame) {
-        root.hidden = true;
-        root.innerHTML = "";
-        root.removeAttribute("data-render-key");
-        return;
-      }
-      const renderKey = `${frame.id}-${state.pitchMorphNonce}`;
-      if (!root.hidden && root.dataset.renderKey === renderKey) return;
-      root.hidden = false;
-      root.dataset.renderKey = renderKey;
-      root.dataset.pitchId = frame.id;
-      root.innerHTML = `
-        <article class="pitch-frame pitch-frame-${escapeHtml(frame.id)}" data-testid="pitch-morph-frame">
-          <h2 class="pitch-sentence">${escapeHtml(frame.sentence)}</h2>
-          ${pitchVisualHtml(frame)}
-        </article>`;
-      requestAnimationFrame(animatePitchMorph);
-    }
-
     function render() {
       setTheme();
       if (blankDashboardMode) {
@@ -1749,8 +1500,7 @@
         return;
       }
       const page = activeGeneratedPage();
-      const pitchMorph = dashboardId === "dune-deck" ? state.pitchMorph : null;
-      const title = pitchMorph ? baseChannelTitle : page?.thesis?.title || config.title;
+      const title = page?.thesis?.title || config.title;
       document.title = `${title} - Katechon`;
       document.body.dataset.generatedView = state.generated.view || "default";
       document.body.dataset.generatedMode = page ? "generated_page" : "slot_overrides";
@@ -1762,7 +1512,6 @@
       $("visual-copy").textContent = page?.thesis?.summary || config.visualCopy;
       $("feed-label").textContent = config.feedLabel;
       renderCommandPanel();
-      renderPitchMorph();
       requestAnimationFrame(() => {
         startShareReplay();
         maybeRunInitialPrompt();
@@ -1836,7 +1585,6 @@
         "generated-rail",
         "generated-page",
         "generated-breadcrumb",
-        "pitch-morph",
         "generated-modal",
       ].forEach((id) => {
         const node = $(id);
@@ -1994,10 +1742,6 @@
       if (event.origin !== window.location.origin) return;
       const message = event.data || {};
       if (message.dashboard && message.dashboard !== dashboardId) return;
-      if (isDunePitchMorphMessage(message)) {
-        activateDunePitchMorph(message.prompt || message.text || "", { allowTopicOnly: true });
-        return;
-      }
       if (message.type === "watch-run-prompt") {
         const targeted = Boolean(message.target);
         if (targeted) updateKatTargetStatus("building voice mutation");
@@ -2119,7 +1863,7 @@
       const data = component._chartPayload?.data || state.livePayload?.data || {};
       if (Array.isArray(chart.data) && chart.data.length) return chart.data.slice(0, 96);
 
-      const liveCollectionMatch = String(binding).match(/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|arenaBoards|frontierModels|capabilityMatrix|polymarketMarkets|marketSignals|divergence|technologyStack|runtimeLoop|contentSeeds|records)$/);
+      const liveCollectionMatch = String(binding).match(/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|arenaBoards|frontierModels|capabilityMatrix|polymarketMarkets|marketSignals|divergence|technologyStack|runtimeLoop|contentSeeds|records)$/);
       if (liveCollectionMatch) {
         const collection = liveCollectionFromData(data, liveCollectionMatch[1] === "records" ? "" : liveCollectionMatch[1]);
         return liveCollectionChartRows(collection);
@@ -2272,7 +2016,7 @@
       if (binding === "liveData.tokens") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "change" };
       if (binding === "liveData.fuelMix") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "value" };
       if (binding === "liveData.corridors") return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || "stressPct" };
-      if (/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|slides|technologyStack|runtimeLoop|contentSeeds|records)$/.test(binding)) return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
+      if (/^liveData\.(articles|items|hn|studies|objects|papers|sensors|datasets|runs|technologyStack|runtimeLoop|contentSeeds|records)$/.test(binding)) return { type: chart.type || "horizontal-bar", x: chart.x || "value", y: chart.y || "label" };
       const first = rows[0] || {};
       return { type: chart.type || "bar", x: chart.x || "label", y: chart.y || (Object.prototype.hasOwnProperty.call(first, "value") ? "value" : "index") };
     }
@@ -3056,12 +2800,14 @@
     function renderBlankStage() {
       const stage = $("stage");
       if (!stage) return;
-      if (dashboardId === "dune-deck") {
+      if (dashboardId === "katechon-technology") {
         stage.innerHTML = `
           <div class="blank-brand-lockup" aria-label="Katechon">
             <span class="blank-brand-ring blank-brand-ring-a" aria-hidden="true"></span>
             <span class="blank-brand-ring blank-brand-ring-b" aria-hidden="true"></span>
-            <img class="blank-brand-wordmark" src="${escapeHtml(appUrl("brand/katechon-wordmark.svg"))}" alt="Katechon">
+            <img class="blank-brand-mark" src="${escapeHtml(appUrl("brand/katechon-mark.svg"))}" alt="">
+            <span class="blank-brand-wordmark">KATECHON</span>
+            <span class="blank-brand-tagline">Live software channels</span>
           </div>`;
         return;
       }

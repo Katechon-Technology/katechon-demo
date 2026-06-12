@@ -79,10 +79,6 @@ Edit `.env` and fill in:
 | `OPENAI_REALTIME_MODEL` | No | Defaults to `gpt-realtime-2` |
 | `OPENAI_REALTIME_VOICE` | No | Defaults to `marin` |
 | `OPENAI_REALTIME_TRANSCRIBE_MODEL` | No | Defaults to `gpt-4o-mini-transcribe` for input transcript events |
-| `OPENAI_DECK_MODEL` | No | Defaults to `gpt-5.4-nano` for realtime Dune slide generation |
-| `OPENAI_DECK_REASONING_EFFORT` | No | Defaults to `none`; tune if generated slides need more planning |
-| `OPENAI_DECK_TIMEOUT_MS` | No | Defaults to `9000`; caps realtime deck generation latency |
-| `OPEN_SLIDE_WRITE_GENERATED` | No | Defaults to on; set to `0` to stop realtime deck generation from overwriting `open-slide/katechon-investor/slides/live-generated/index.tsx` |
 | `GROQ_API_KEY` | Fallback | Legacy push-to-talk transcription via Groq Whisper when Realtime cannot connect |
 | `ELEVENLABS_API_KEY` | Recommended | Kat's existing TTS voice for dashboard narration, welcome audio, and legacy fallback replies |
 | `KAT_VOICE_SOURCE` | No | Defaults to `pitch`, the `../katechon-pitch` narration voice |
@@ -91,7 +87,6 @@ Edit `.env` and fill in:
 | `ELEVENLABS_TIMEOUT_MS` | No | Defaults to `8000`; caps TTS wait time for welcome and Kat speech |
 | `KATECHON_TTS_PRONUNCIATION` | No | Defaults to `Kat-eh-kon`; TTS-only pronunciation alias for `Katechon` |
 | `KATECHON_WELCOME_MESSAGE` | No | Optional override for the first-login spoken welcome |
-| `REPLICATE_API_KEY` | No | Required only when regenerating Dune deck visuals |
 | `DASHBOARD_NARRATION_REMOTE` | No | Set to `1` to ask Anthropic for dashboard narration; defaults off for deterministic investor demos |
 | `DASHBOARD_NARRATION_TTS` | No | Defaults on. Set to `0` to disable ElevenLabs dashboard narration |
 | `SPEECH_CACHE_MAX` | No | Defaults to `250`; max in-memory ElevenLabs responses cached by text/voice/model |
@@ -220,28 +215,11 @@ The investor path is a focused feed of narrated dashboard channels. By default, 
 | Market Pulse | `/dashboards/dashboard123/` | Macro context |
 | World Monitor | `/dashboards/world-monitor/` | Risk correlation |
 | AI Arena | `/dashboards/arena/` | Speed and accuracy |
-| Katechon x Dune Dashboard | `/dashboards/dune-deck/` | Per-slide avatar narration |
+| Katechon Technology | `/dashboards/katechon-technology/` | Platform channel |
 
 Set `EXTERNAL_DASHBOARD_UPSTREAMS=1` to use the old same-origin proxy behavior for real upstream apps. In that mode optional upstream env vars such as `WORLD_MONITOR_DASHBOARD_URL`, `GLANCE_DASHBOARD_URL`, `CRYPTO_TRADING_DASHBOARD_URL`, `POLYREC_DASHBOARD_URL`, and `DASHBOARD123_DASHBOARD_URL` still work, but those deferred paths are not part of the focused investor walkthrough.
 
-The Katechon x Dune dashboard is copied into `public/decks/dune` and served at `/dashboards/dune-deck/`. The manifest now starts with an empty `slides` array: the first investor-facing slide is generated from the live prompt rather than selected from a preset sequence.
-
-The deck supports realtime slide generation. Type into the deck chat box and slide `0` is created or the active slide is replaced by `POST /api/decks/dune/generate-slide`. The route calls the OpenAI Responses API with context built from this repo, `docs/katechon-company-context.md`, `README.md`, `REFACTOR.md`, `docs/channel-apis.md`, every file in `docs/plans/`, and the Open Slide workspace rules/examples under `open-slide/katechon-investor/`. The generated slide is sanitized into the browser renderer's primitive schema and also materialized as an Open Slide React page at `open-slide/katechon-investor/slides/live-generated/index.tsx`. The UI prefers `POST /api/decks/dune/generate-slide/stream`, which streams status lines, schema deltas, and the final Open Slide source into the visible generation console before mounting the slide; the non-streaming route remains as fallback.
-
-Open Slide iteration commands:
-
-```bash
-npm run dune:slides:dev
-npm run dune:slides:build
-```
-
-Legacy deck asset commands still exist for old narration/visual workflows:
-
-```bash
-npm run dune:voiceover
-npm run dune:audio -- dune-02
-npm run dune:visuals -- --force dune-02
-```
+The mobile presentation route lives at `/deck` and `/app/deck`. It opens the Katechon thesis sequence at `/dashboards/katechon-technology/`, then continues through `seed-round` using the shared dashboard renderer and catalog.
 
 The other dashboard channels use a shared shell in `public/prototype-dashboard.html`, shared runtime in `public/dashboards/prototype.js`, and editable dashboard/channel definitions in `public/dashboards/catalog.js`. The main channel picker reads tile labels, media, order, and routes from the same catalog. For dashboard-specific visual identity, add CSS or a custom stage renderer under `public/dashboards/identities/` and reference it from that dashboard's `identity` block in the catalog.
 

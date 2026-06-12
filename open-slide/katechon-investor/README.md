@@ -1,6 +1,6 @@
 # Katechon Open Slide Workspace
 
-This workspace is the Open Slide authoring target for the realtime Katechon investor deck. The live Express deck at `/dashboards/dune-deck/` generates a validated slide state, renders it immediately in the browser, and also materializes the latest result as an Open Slide React page at `slides/live-generated/index.tsx`.
+This workspace is the Open Slide authoring target for Katechon investor deck experiments. The production mobile deck now opens the shared dashboard sequence at `/deck`, starting with `/dashboards/katechon-technology/`.
 
 Slides are React components. Each slide lives under `slides/<id>/index.tsx` and default-exports an array of page components. The `@open-slide/core` runtime handles layout, scaling, navigation, thumbnails, fullscreen play mode, and export.
 
@@ -16,8 +16,6 @@ The dev server uses port `5175` by default. The generated slide target is `slide
 
 | Command | Description |
 | --- | --- |
-| `npm run dune:slides:dev` | Start the Open Slide dev server from the repo root. |
-| `npm run dune:slides:build` | Build the Open Slide workspace from the repo root. |
 | `npm run dev` | Start the Open Slide dev server from this folder. |
 | `npm run build` | Build a static Open Slide bundle. |
 | `npm run preview` | Preview the built bundle locally. |

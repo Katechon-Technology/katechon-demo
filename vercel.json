@@ -6,6 +6,24 @@
   "cleanUrls": true,
   "headers": [
     {
+      "source": "/whitepaper",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/whitepaper/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
       "source": "/share/:path*",
       "headers": [
         {
@@ -54,6 +72,18 @@
       "permanent": false
     },
     {
+      "source": "/whitepaper/katechon-whitepaper.pdf",
+      "destination": "/whitepaper",
+      "permanent": false,
+      "missing": [
+        {
+          "type": "cookie",
+          "key": "katechon_whitepaper",
+          "value": "whitepaper-open"
+        }
+      ]
+    },
+    {
       "source": "/app",
       "destination": "/app/",
       "permanent": false
@@ -69,6 +99,14 @@
       "destination": "/deck/index.html"
     },
     {
+      "source": "/app/deck",
+      "destination": "/app/deck/index.html"
+    },
+    {
+      "source": "/app/deck/",
+      "destination": "/app/deck/index.html"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://176.57.184.142:4040/api/:path*"
     },
@@ -81,36 +119,8 @@
       "destination": "http://176.57.184.142:4040/:segment"
     },
     {
-      "source": "/dashboards/dune-deck",
-      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
-      "source": "/dashboards/dune-deck/",
-      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
-      "source": "/dashboards/dune-deck/slides/:path*",
-      "destination": "/decks/dune/:path*"
-    },
-    {
-      "source": "/dashboards/dune-deck/:path*",
-      "destination": "/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
       "source": "/dashboards/identities/:path*",
       "destination": "/dashboards/identities/:path*"
-    },
-    {
-      "source": "/dashboards/:dashboard",
-      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
-    },
-    {
-      "source": "/dashboards/:dashboard/",
-      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
-    },
-    {
-      "source": "/dashboards/:dashboard/:path*",
-      "destination": "/prototype-dashboard.html?dashboard=:dashboard"
     },
     {
       "source": "/app/api/:path*",
@@ -125,36 +135,8 @@
       "destination": "http://176.57.184.142:4040/:segment"
     },
     {
-      "source": "/app/dashboards/dune-deck",
-      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
-      "source": "/app/dashboards/dune-deck/",
-      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
-      "source": "/app/dashboards/dune-deck/slides/:path*",
-      "destination": "/app/decks/dune/:path*"
-    },
-    {
-      "source": "/app/dashboards/dune-deck/:path*",
-      "destination": "/app/prototype-dashboard.html?dashboard=dune-deck"
-    },
-    {
       "source": "/app/dashboards/identities/:path*",
       "destination": "/app/dashboards/identities/:path*"
-    },
-    {
-      "source": "/app/dashboards/:dashboard",
-      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
-    },
-    {
-      "source": "/app/dashboards/:dashboard/",
-      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
-    },
-    {
-      "source": "/app/dashboards/:dashboard/:path*",
-      "destination": "/app/prototype-dashboard.html?dashboard=:dashboard"
     },
     {
       "source": "/app/",
