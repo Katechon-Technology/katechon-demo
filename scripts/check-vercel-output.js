@@ -112,17 +112,15 @@ for (const file of requiredFiles) {
   requireFile(file);
 }
 
-requireContains("dist/index.html", "Katechon Technology", "brand-only root landing page");
-requireNotContains("dist/index.html", "dashboard-build-effects", "root app dashboard transition layer");
-requireNotContains("dist/index.html", "channelMusicAudio", "root app channel music runtime");
-requireNotContains("dist/index.html", "pump.fun", "pump.fun channel copy");
-requireNotContains("dist/index.html", "href=\"/app", "root app entry link");
+// The production root landing page now lives in ../katechon-landing-page.
+// This repo may keep dist/index.html as a project-local fallback, but it is not
+// the guardrail for https://www.katechon.technology/.
 requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag");
 requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
 requireContains("dist/deck/index.html", "katechon-technology", "deck starts at dashboard 18");
 requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
 requireContains("dist/deck/index.html", "seed-round", "deck includes seed round closer");
-requireContains("dist/data/index.html", "https://katechon.technology/data/", "canonical data-room URL");
+requireContains("dist/data/index.html", "https://www.katechon.technology/data/", "canonical data-room URL");
 requireContains("dist/data/index.html", "/app/deck/", "data-room deck link");
 requireContains("dist/pdf/index.html", "/katechon.pdf", "one-pager PDF link");
 requireContains("dist/whitepaper/index.html", "From inference to real time content", "whitepaper title");
@@ -131,10 +129,10 @@ requireContains("dist/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CATALOG
 requireContains("dist/dashboards/prototype.js", "function appUrl", "root dashboard appUrl helper");
 requireContains("dist/prototype-dashboard.html", "/dashboards/catalog.js", "root catalog script include");
 requireContains("dist/dashboards/spectre/index.html", "/dashboards/catalog.js", "root dashboard catalog script include");
-requireContains("dist/share/spectre/index.html", "https://katechon.technology/share/spectre", "canonical root share URL");
-requireContains("dist/share/spectre/index.html", "https://katechon.technology/app/?dashboard=spectre", "root share launch URL");
-requireContains("dist/share/spectre/index.html", "https://katechon.technology/share-cards/spectre.jpg", "branded root share card");
-requireContains("dist/share/katechon-technology/index.html", "https://katechon.technology/share/katechon-technology", "Katechon Technology root share URL");
+requireContains("dist/share/spectre/index.html", "https://www.katechon.technology/share/spectre", "canonical root share URL");
+requireContains("dist/share/spectre/index.html", "https://www.katechon.technology/app/?dashboard=spectre", "root share launch URL");
+requireContains("dist/share/spectre/index.html", "https://www.katechon.technology/share-cards/spectre.jpg", "branded root share card");
+requireContains("dist/share/katechon-technology/index.html", "https://www.katechon.technology/share/katechon-technology", "Katechon Technology root share URL");
 requireContains("dist/dashboards/katechon-technology/index.html", "/dashboards/catalog.js", "Katechon Technology root prototype dashboard");
 requireContains("dist/dashboards/what-is-a-channel/index.html", "/dashboards/catalog.js", "What Is a Channel root prototype dashboard");
 requireContains("dist/dashboards/live-generated-states/index.html", "/dashboards/catalog.js", "Live Generated States root prototype dashboard");
@@ -148,9 +146,9 @@ requireContains("dist/app/dashboards/catalog.js", "window.KATECHON_DASHBOARD_CAT
 requireContains("dist/app/dashboards/prototype.js", "function appUrl", "dashboard appUrl helper");
 requireContains("dist/app/prototype-dashboard.html", "/app/dashboards/catalog.js", "app catalog script include");
 requireContains("dist/app/dashboards/spectre/index.html", "/app/dashboards/catalog.js", "app dashboard catalog script include");
-requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share/spectre", "canonical /app share URL");
-requireContains("dist/app/share/spectre/index.html", "https://katechon.technology/app/share-cards/spectre.jpg", "branded /app share card");
-requireContains("dist/app/share/katechon-technology/index.html", "https://katechon.technology/app/share/katechon-technology", "Katechon Technology /app share URL");
+requireContains("dist/app/share/spectre/index.html", "https://www.katechon.technology/app/share/spectre", "canonical /app share URL");
+requireContains("dist/app/share/spectre/index.html", "https://www.katechon.technology/app/share-cards/spectre.jpg", "branded /app share card");
+requireContains("dist/app/share/katechon-technology/index.html", "https://www.katechon.technology/app/share/katechon-technology", "Katechon Technology /app share URL");
 requireContains("dist/app/dashboards/katechon-technology/index.html", "/app/dashboards/catalog.js", "Katechon Technology /app prototype dashboard");
 requireContains("dist/app/dashboards/what-is-a-channel/index.html", "/app/dashboards/catalog.js", "What Is a Channel /app prototype dashboard");
 requireContains("dist/app/dashboards/what-should-exist-next/index.html", "/app/dashboards/catalog.js", "What Should Exist Next /app prototype dashboard");

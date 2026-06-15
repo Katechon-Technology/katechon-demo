@@ -15,6 +15,7 @@ const appSource = path.join(root, "public");
 const siteSource = path.join(root, "site");
 const output = path.join(root, "dist");
 const appOutput = path.join(output, "app");
+const canonicalOrigin = "https://www.katechon.technology";
 const dashboardIds = [
   "spectre",
   "news",
@@ -52,9 +53,9 @@ function publicOrigin() {
     process.env.KATECHON_PUBLIC_URL ||
     process.env.PUBLIC_SHARE_ORIGIN;
   if (configured) return configured.replace(/\/+$/, "");
-  if (process.env.VERCEL_ENV === "production") return "https://katechon.technology";
+  if (process.env.VERCEL_ENV === "production") return canonicalOrigin;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`.replace(/\/+$/, "");
-  return "https://katechon.technology";
+  return canonicalOrigin;
 }
 
 function writeSharePages(outputRoot, basePath) {

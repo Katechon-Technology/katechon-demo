@@ -177,24 +177,26 @@ YouTube stream keys stay on the server in `/opt/katechon/katechon-demo/.env`, wh
 
 ### Vercel `/app` Deployment
 
-This repo owns the deployable public site and app frontend. The stable landing page/data room live under `site/` and are copied to the deployment root. The active demo app lives under `public/` and is copied to `/app/`. Build locally before previewing or deploying:
+This repo owns the demo frontend and the legacy public paths that the standalone landing repo rewrites to `https://katechon-demo.vercel.app`. The production root for `https://www.katechon.technology/` now lives in `../katechon-landing-page`; do not treat this repo as the source of truth for the landing page.
+
+The active demo app lives under `public/` and is copied to `/app/`. The preserved data room, PDF, deck, share pages, dashboard assets, and support files are built into `dist/` so existing same-domain paths keep working through the landing repo rewrites. Build locally before previewing or deploying:
 
 ```bash
 npm run build
 vercel deploy
 ```
 
-`vercel.json` serves `dist/` with the landing page at `/`, data room at `/data/`, one-pager at `/pdf/`, and the demo app at `/app/`. Dashboard iframe routes resolve to the local prototype dashboard, and `/app/api/*`, `/app/stream.m3u8`, and HLS segment requests proxy to the remote demo backend at `http://176.57.184.142:4040`.
+`vercel.json` serves `dist/` for `katechon-demo.vercel.app` and as the legacy path rewrite target. It keeps the data room at `/data/`, one-pager at `/pdf/`, deck at `/deck/`, share/dashboard paths at their existing locations, and the demo app at `/app/`. Dashboard iframe routes resolve to the local prototype dashboard, and `/api/*`, `/app/api/*`, stream manifests, and HLS segment requests proxy to the remote demo backend at `http://176.57.184.142:4040`.
 
-Production should be deployed directly from this repo:
+Production demo deploys should keep flowing to the demo project alias:
 
 ```bash
 vercel deploy --prod
 ```
 
-For production builds, generated share/canonical URLs default to `https://katechon.technology/app/...`. Preview builds default to the deployment URL that Vercel provides. Set `KATECHON_PUBLIC_URL` only when you need to override that behavior.
+For production builds, generated share/canonical URLs default to `https://www.katechon.technology/app/...`. Preview builds default to the deployment URL that Vercel provides. Set `KATECHON_PUBLIC_URL` only when you need to override that behavior.
 
-The old sibling `../katechon-pitch` repo is no longer the production web surface for this sprint. Its stable landing/data-room HTML has been frozen into `site/`; dashboard polish should happen here under `public/`, then ship through this repo's `/app` build.
+The old sibling `../katechon-pitch` repo is no longer the production web surface for this sprint. Dashboard polish should happen here under `public/`, then ship through this repo's `/app` build.
 
 ### Browser Avatar + Audio
 
