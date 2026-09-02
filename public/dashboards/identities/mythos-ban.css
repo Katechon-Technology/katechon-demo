@@ -3,23 +3,23 @@
    a Replicate/Seedream tanker schematic, the Hormuz live state, then
    a clean night tanker video closer. */
 
-body[data-dashboard="build-with-us"] {
+body[data-dashboard="mythos-ban"] {
   background: #000 !important;
 }
 
-body[data-dashboard="build-with-us"] .app {
+body[data-dashboard="mythos-ban"] .app {
   background: #000 !important;
   padding: 0 !important;
   grid-template-rows: minmax(0, 1fr) !important;
 }
 
-body[data-dashboard="build-with-us"] .topbar,
-body[data-dashboard="build-with-us"] h1 {
+body[data-dashboard="mythos-ban"] .topbar,
+body[data-dashboard="mythos-ban"] h1 {
   display: none !important;
 }
 
-body[data-dashboard="build-with-us"] .workspace,
-body[data-dashboard="build-with-us"] .main {
+body[data-dashboard="mythos-ban"] .workspace,
+body[data-dashboard="mythos-ban"] .main {
   background: transparent !important;
   padding: 0 !important;
   display: grid;
@@ -27,7 +27,7 @@ body[data-dashboard="build-with-us"] .main {
   grid-template-rows: minmax(0, 1fr);
 }
 
-body[data-dashboard="build-with-us"] .stage-wrap.cockpit {
+body[data-dashboard="mythos-ban"] .stage-wrap.cockpit {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   place-items: center;
@@ -37,7 +37,7 @@ body[data-dashboard="build-with-us"] .stage-wrap.cockpit {
   padding: 0 !important;
 }
 
-body[data-dashboard="build-with-us"] .stage {
+body[data-dashboard="mythos-ban"] .stage {
   position: relative;
   width: 75%;
   height: 75%;
@@ -45,38 +45,38 @@ body[data-dashboard="build-with-us"] .stage {
   max-height: 100%;
   align-self: center;
   justify-self: center;
-  border: 1px solid color-mix(in srgb, var(--accent, #00e87b) 52%, rgba(255,255,255,0.18));
+  border: 1px solid color-mix(in srgb, var(--accent, #cc785c) 52%, rgba(255,255,255,0.18));
   border-radius: 12px;
   background:
     radial-gradient(circle at 22% 14%, color-mix(in srgb, var(--accent2, #7de8ff) 10%, transparent), transparent 36%),
-    radial-gradient(circle at 76% 82%, color-mix(in srgb, var(--accent, #00e87b) 8%, transparent), transparent 38%),
+    radial-gradient(circle at 76% 82%, color-mix(in srgb, var(--accent, #cc785c) 8%, transparent), transparent 38%),
     rgba(4, 7, 9, 0.92);
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.68),
-    0 0 36px color-mix(in srgb, var(--accent, #00e87b) 18%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent, #cc785c) 18%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
   transition: box-shadow 420ms ease, filter 420ms ease;
 }
 
-body.deck-presentation-mode[data-dashboard="build-with-us"] .stage {
+body.deck-presentation-mode[data-dashboard="mythos-ban"] .stage {
   width: 75%;
   height: 75%;
-  border: 1px solid color-mix(in srgb, var(--accent, #00e87b) 52%, rgba(255,255,255,0.18));
+  border: 1px solid color-mix(in srgb, var(--accent, #cc785c) 52%, rgba(255,255,255,0.18));
   border-radius: 12px;
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.68),
-    0 0 36px color-mix(in srgb, var(--accent, #00e87b) 18%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent, #cc785c) 18%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-body[data-dashboard="build-with-us"] .small-multiples,
-body[data-dashboard="build-with-us"] .stage-thesis,
-body[data-dashboard="build-with-us"] .section-head,
-body[data-dashboard="build-with-us"] .pulse-strip,
-body[data-dashboard="build-with-us"] .metrics,
-body[data-dashboard="build-with-us"] .rail,
-body[data-dashboard="build-with-us"] .action-rail {
+body[data-dashboard="mythos-ban"] .small-multiples,
+body[data-dashboard="mythos-ban"] .stage-thesis,
+body[data-dashboard="mythos-ban"] .section-head,
+body[data-dashboard="mythos-ban"] .pulse-strip,
+body[data-dashboard="mythos-ban"] .metrics,
+body[data-dashboard="mythos-ban"] .rail,
+body[data-dashboard="mythos-ban"] .action-rail {
   display: none !important;
 }
 
@@ -99,7 +99,7 @@ body[data-dashboard="build-with-us"] .action-rail {
   align-content: center;
   gap: clamp(18px, 2.4vh, 30px);
   background:
-    radial-gradient(circle at 50% 48%, rgba(0, 232, 123, 0.08), rgba(0, 0, 0, 0) 36%),
+    radial-gradient(circle at 50% 48%, rgba(204, 120, 92, 0.08), rgba(0, 0, 0, 0) 36%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.98), rgba(1, 8, 5, 0.98)),
     #000;
   opacity: 0;
@@ -109,7 +109,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 .bwu-brand-mark {
   width: clamp(72px, 7.4vw, 118px);
-  filter: drop-shadow(0 0 28px rgba(0, 232, 123, 0.18));
+  filter: drop-shadow(0 0 28px rgba(204, 120, 92, 0.18));
 }
 
 .bwu-brand-wordmark {
@@ -431,7 +431,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-scene-head .bwu-status {
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
   font-size: clamp(10px, 0.8vw, 11px);
   letter-spacing: 0.24em;
 }
@@ -537,8 +537,8 @@ body[data-dashboard="build-with-us"] .action-rail {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent, #00e87b);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #00e87b) 60%, transparent);
+  background: var(--accent, #cc785c);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent, #cc785c) 60%, transparent);
   animation: bwu-row-dot-pulse 1400ms ease-in-out infinite;
 }
 .bwu-feed-row {
@@ -561,7 +561,7 @@ body[data-dashboard="build-with-us"] .action-rail {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.22em;
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
 }
 .bwu-feed-text {
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -886,7 +886,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-root.is-schematic-ready .bwu-schematic-board-head [data-bwu-schematic-state] {
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
 }
 
 .bwu-schematic-diagram {
@@ -926,6 +926,13 @@ body[data-dashboard="build-with-us"] .action-rail {
   transform: scale(0.985);
 }
 
+/* Show the cyan wireframe while generating so the board reads as "building",
+   not empty, before the Seedream image resolves in. */
+.bwu-root.is-generating-schematic .bwu-schematic-svg {
+  opacity: 0.5;
+  filter: blur(2px);
+}
+
 .bwu-root.is-schematic-ready .bwu-schematic-svg {
   opacity: 0.94;
   filter: blur(0);
@@ -962,7 +969,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-schematic-pipe {
-  stroke: rgba(0, 232, 123, 0.68);
+  stroke: rgba(204, 120, 92, 0.68);
   stroke-width: 1.8;
 }
 
@@ -973,8 +980,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-schematic-node {
-  fill: rgba(0, 232, 123, 0.18);
-  stroke: rgba(0, 232, 123, 0.74);
+  fill: rgba(204, 120, 92, 0.18);
+  stroke: rgba(204, 120, 92, 0.74);
   stroke-width: 1.8;
 }
 
@@ -1081,7 +1088,7 @@ body[data-dashboard="build-with-us"] .action-rail {
   display: block;
   width: 0%;
   height: 100%;
-  background: linear-gradient(90deg, var(--accent2, #7de8ff), var(--accent, #00e87b));
+  background: linear-gradient(90deg, var(--accent2, #7de8ff), var(--accent, #cc785c));
   box-shadow: 0 0 16px rgba(125, 232, 255, 0.46);
 }
 
@@ -1124,14 +1131,14 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-scene-channel .bwu-headline {
-  border-color: rgba(0, 232, 123, 0.48);
+  border-color: rgba(204, 120, 92, 0.48);
   background: rgba(0, 18, 12, 0.76);
   max-width: 48%;
   padding: 7px 12px;
 }
 
 .bwu-scene-channel .bwu-headline-pill {
-  background: var(--accent, #00e87b);
+  background: var(--accent, #cc785c);
   color: #02120c;
 }
 
@@ -1196,7 +1203,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 .bwu-channel-map::after {
   background:
-    radial-gradient(circle at 61% 58%, rgba(0, 232, 123, 0.2), transparent 22%),
+    radial-gradient(circle at 61% 58%, rgba(204, 120, 92, 0.2), transparent 22%),
     radial-gradient(circle at 82% 34%, rgba(255, 154, 92, 0.18), transparent 20%),
     linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.36));
   mix-blend-mode: screen;
@@ -1248,7 +1255,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-channel-vessel-main {
-  fill: rgba(0, 232, 123, 0.82);
+  fill: rgba(204, 120, 92, 0.82);
   stroke: rgba(220, 255, 239, 0.9);
 }
 
@@ -1259,8 +1266,8 @@ body[data-dashboard="build-with-us"] .action-rail {
 }
 
 .bwu-channel-pin circle {
-  fill: rgba(0, 232, 123, 0.2);
-  stroke: rgba(0, 232, 123, 0.88);
+  fill: rgba(204, 120, 92, 0.2);
+  stroke: rgba(204, 120, 92, 0.88);
   stroke-width: 2;
 }
 
@@ -1316,7 +1323,7 @@ body[data-dashboard="build-with-us"] .action-rail {
   gap: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid rgba(125, 232, 255, 0.16);
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 10px;
   font-weight: 800;
@@ -1420,7 +1427,7 @@ body[data-dashboard="build-with-us"] .action-rail {
 
 /* ---- Scene 6: clean night video closer ------------------------------- */
 
-body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"]) {
+body[data-dashboard="mythos-ban"] .stage:has(.bwu-root[data-bwu-scene="night"]) {
   border-color: transparent;
   background: #000;
   box-shadow:
@@ -1503,7 +1510,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
   font-weight: 800;
 }
 
-.bwu-market-yes { color: var(--accent, #00e87b); }
+.bwu-market-yes { color: var(--accent, #cc785c); }
 
 .bwu-market-num {
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
@@ -1521,7 +1528,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 }
 
 .bwu-market-tick.is-up {
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
 }
 
 /* ---- Scene 2: Hormuz oil ticker -------------------------------------- */
@@ -1661,7 +1668,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 }
 
 .bwu-status {
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
   font-size: clamp(10px, 0.8vw, 11px);
   letter-spacing: 0.24em;
 }
@@ -1678,7 +1685,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
   color: rgba(243, 246, 248, 0.98);
   letter-spacing: 0.01em;
   font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-  text-shadow: 0 0 20px color-mix(in srgb, var(--accent, #00e87b) 18%, transparent);
+  text-shadow: 0 0 20px color-mix(in srgb, var(--accent, #cc785c) 18%, transparent);
 }
 
 .bwu-amount-label {
@@ -1749,7 +1756,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent, #00e87b) 28%, rgba(243, 246, 248, 0.14));
+  background: color-mix(in srgb, var(--accent, #cc785c) 28%, rgba(243, 246, 248, 0.14));
   justify-self: end;
   animation: bwu-row-dot-pulse 2200ms ease-in-out infinite;
   transition: background 280ms ease, box-shadow 280ms ease;
@@ -1758,18 +1765,18 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 /* Lead row when committed (added at t=1.5s) */
 .bwu-row.is-committed {
   opacity: 1;
-  border-color: color-mix(in srgb, var(--accent, #00e87b) 58%, rgba(255, 255, 255, 0.16));
+  border-color: color-mix(in srgb, var(--accent, #cc785c) 58%, rgba(255, 255, 255, 0.16));
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--accent, #00e87b) 14%, transparent), transparent 60%),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent, #cc785c) 14%, transparent), transparent 60%),
     rgba(2, 12, 8, 0.86);
   box-shadow:
-    0 0 28px color-mix(in srgb, var(--accent, #00e87b) 22%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent, #cc785c) 22%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transform: translateY(0);
 }
 
 .bwu-row.is-committed .bwu-row-tag {
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
 }
 
 .bwu-row.is-committed .bwu-row-name {
@@ -1777,12 +1784,12 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 }
 
 .bwu-row.is-committed .bwu-row-status {
-  color: color-mix(in srgb, var(--accent, #00e87b) 70%, white);
+  color: color-mix(in srgb, var(--accent, #cc785c) 70%, white);
 }
 
 .bwu-row.is-committed .bwu-row-dot {
-  background: var(--accent, #00e87b);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent, #00e87b) 76%, transparent);
+  background: var(--accent, #cc785c);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent, #cc785c) 76%, transparent);
   animation: bwu-row-dot-pulse 1400ms ease-in-out infinite;
 }
 
@@ -1861,11 +1868,11 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root[data-bwu-scene="night"
 .bwu-root.is-peak .bwu-row.is-yours {
   filter: brightness(1.08);
 }
-body[data-dashboard="build-with-us"] .bwu-root.is-peak ~ * .stage,
-body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
+body[data-dashboard="mythos-ban"] .bwu-root.is-peak ~ * .stage,
+body[data-dashboard="mythos-ban"] .stage:has(.bwu-root.is-peak) {
   box-shadow:
     0 28px 90px rgba(0, 0, 0, 0.68),
-    0 0 56px color-mix(in srgb, var(--accent, #00e87b) 30%, transparent),
+    0 0 56px color-mix(in srgb, var(--accent, #cc785c) 30%, transparent),
     0 0 28px color-mix(in srgb, var(--accent2, #7de8ff) 18%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -1877,7 +1884,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
   display: grid;
   place-items: center;
   background: #000;
-  color: var(--accent, #00e87b);
+  color: var(--accent, #cc785c);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: clamp(15px, 1.6vw, 22px);
   letter-spacing: 0.24em;
@@ -1887,7 +1894,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
   transition: opacity 60ms linear;
 }
 .bwu-cut-line {
-  text-shadow: 0 0 22px color-mix(in srgb, var(--accent, #00e87b) 60%, transparent);
+  text-shadow: 0 0 22px color-mix(in srgb, var(--accent, #cc785c) 60%, transparent);
 }
 
 .bwu-root.is-cut .bwu-cut {
@@ -1895,26 +1902,26 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
 }
 
 @media (max-width: 680px) {
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-iran,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-strait,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-tanker,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-schematic,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-channel,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-night {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-iran,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-strait,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-tanker,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-schematic,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-channel,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-night {
     padding: 0;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-video {
     object-fit: cover;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video-grad {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-video-grad {
     background:
       linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.16) 42%, rgba(0, 0, 0, 0.72) 100%),
       linear-gradient(90deg, rgba(0, 0, 0, 0.54), rgba(0, 0, 0, 0.08) 48%, rgba(0, 0, 0, 0.48) 100%);
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-headline {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-headline {
     left: 14px;
     right: 14px;
     top: 14px;
@@ -1922,7 +1929,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
     max-width: none;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-headline-text {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-headline-text {
     display: block;
     min-width: 0;
     max-width: 100%;
@@ -1931,7 +1938,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
     text-overflow: ellipsis;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-head {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-head {
     left: 14px;
     right: 14px;
     top: 58px;
@@ -1940,7 +1947,7 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
     gap: 10px;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-scene-tag {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-scene-tag {
     left: 14px;
     right: 14px;
     top: 88px;
@@ -1950,21 +1957,21 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
     text-overflow: ellipsis;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-feed,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-markets,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-ticker,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-hud,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-hud-targeting,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-video-click-target,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-globe-panel,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-click,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-seedream-console,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-summary {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-feed,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-markets,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-ticker,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-hud,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-hud-targeting,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-video-click-target,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-globe-panel,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-schematic-click,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-seedream-console,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-channel-summary {
     display: none !important;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-workspace,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-hero {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-schematic-workspace,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-channel-hero {
     position: absolute;
     inset: 126px 14px 18px;
     display: grid;
@@ -1973,20 +1980,20 @@ body[data-dashboard="build-with-us"] .stage:has(.bwu-root.is-peak) {
     min-height: 0;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-board,
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-channel-map {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-schematic-board,
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-channel-map {
     min-width: 0;
     min-height: 0;
     width: 100%;
     height: 100%;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-board-head {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-schematic-board-head {
     font-size: 8px;
     letter-spacing: 0.12em;
   }
 
-  body.deck-presentation-mode[data-dashboard="build-with-us"] .bwu-schematic-diagram {
+  body.deck-presentation-mode[data-dashboard="mythos-ban"] .bwu-schematic-diagram {
     min-height: 0;
   }
 }

@@ -19,6 +19,7 @@
     pitchAttention: ["#ff625f", "#f4d35e", "#7dffdf", "#090405", "#180d0c"],
     pitchReality: ["#7dffb5", "#b993ff", "#ffbf5f", "#030806", "#0c1510"],
     pitchBuild: ["#f9e66e", "#ff4fd8", "#62ffbd", "#070807", "#17120c"],
+    mythosBan: ["#cc785c", "#7de8ff", "#ff9a5c", "#04060a", "#0c0e16"],
     memiaTrial: ["#f4d35e", "#7de8ff", "#ff625f", "#040506", "#10151b"],
   };
 
@@ -737,6 +738,32 @@
         script: "dashboards/identities/build-with-us.js",
       },
     },
+    "mythos-ban": {
+      palette: "mythosBan",
+      scene: "katechon-system",
+      api: "replicate",
+      asset: "share-thumbnails/build-with-us.jpg",
+      kicker: "katechon technology / live channel",
+      title: "Mythos Ban",
+      subtitle: "A live channel rebuilding itself around the US order to disable Fable 5 and Mythos 5.",
+      visualLabel: "live channel broadcasting",
+      visualCopy: "A breaking, source-cited event becomes a live channel that generates the state on demand.",
+      feedLabel: "directive rail",
+      lens: "live channel",
+      tabs: ["Directive", "Models", "Jailbreak", "Channel"],
+      metrics: [["Fable 5", "offline", "now"], ["Mythos 5", "offline", "now"], ["Restore", "odds", "3¢"]],
+      feed: [
+        ["now", "US export-control directive disables Fable 5 and Mythos 5.", "directive"],
+        ["why", "Claimed jailbreak: read a codebase, fix its flaws.", "jailbreak"],
+        ["market", "Restored for US customers by Jun 16? 3 percent.", "market"],
+      ],
+      caption: "Kat rebuilds the Fable ban channel from inside a live channel.",
+      renderScene: true,
+      identity: {
+        css: "dashboards/identities/mythos-ban.css",
+        script: "dashboards/identities/mythos-ban.js",
+      },
+    },
     "planetary-solvency": {
       palette: "memiaTrial",
       scene: "memia-story",
@@ -1060,6 +1087,7 @@
     "attention-architecture",
     "reality-glix",
     "build-with-us",
+    "mythos-ban",
     "planetary-solvency",
     "cloud-canary",
     "runtime-governance",
@@ -1616,6 +1644,7 @@
   // future-techno bed.
   const channelMusic = {
     "build-with-us": channelGraphicMusic,
+    "mythos-ban": channelGraphicMusic,
   };
 
   Object.entries(channelMusic).forEach(([id, music]) => {

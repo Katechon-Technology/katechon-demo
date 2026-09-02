@@ -78,6 +78,14 @@ const VOICES = {
 };
 const VOICE_SOURCE = process.env.KAT_VOICE_SOURCE || "pitch";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || VOICES[VOICE_SOURCE] || VOICES.pitch;
+// External demo narrator (distinct from Kat). George by default; override via env.
+const NARRATOR_VOICE_ID = process.env.ELEVENLABS_NARRATOR_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
+// Map a /api/speak `voice` selector to an ElevenLabs voice id.
+function resolveVoiceId(voice) {
+  if (voice === "narrator") return NARRATOR_VOICE_ID;
+  if (voice && VOICES[voice]) return VOICES[voice];
+  return ELEVENLABS_VOICE_ID;
+}
 const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2";
 const ELEVENLABS_TIMEOUT_MS = Number(process.env.ELEVENLABS_TIMEOUT_MS || 8000);
 const KATECHON_TTS_PRONUNCIATION =
@@ -499,6 +507,11 @@ const PANELS = [
     description: "Katechon dashboard inviting collaborators to build channels, agents, surfaces, and the state graph.",
   },
   {
+    id: "mythos-ban",
+    label: "Mythos Ban",
+    description: "Katechon live channel rebuilding itself around the US order to disable Fable 5 and Mythos 5.",
+  },
+  {
     id: "seed-round",
     label: "Seed Round",
     description: "Katechon closer slide: $4M seed round.",
@@ -517,6 +530,7 @@ const KATECHON_THESIS_DASHBOARD_IDS = new Set([
   "attention-architecture",
   "reality-glix",
   "build-with-us",
+  "mythos-ban",
   "seed-round",
 ]);
 
@@ -1000,6 +1014,7 @@ function channelBaseTopic(channel) {
     "attention-architecture": "attention turning into routed software state",
     "reality-glix": "software discovery choosing what to build next",
     "build-with-us": "the builder invitation for the channel layer",
+    "mythos-ban": "the live channel rebuilding around the Fable and Mythos ban",
     "seed-round": "the seed-round closer",
   };
   return topics[channel.id] || "the current channel signal";
@@ -8031,6 +8046,7 @@ function dynamicHeadlineCandidates(channel, intent = {}, result = {}, provenance
     "attention-architecture": ["Attention Routes the Work", "Intent Becomes Architecture"],
     "reality-glix": ["Software Gets Discovered", "Katechon Builds The Next State"],
     "build-with-us": ["Build the Channel Layer", "The Builder Graph Opens"],
+    "mythos-ban": ["Two Models Go Dark", "The Channel Rebuilds the Ban"],
     "seed-round": ["Katechon Seed Round", "$4M Open"],
   }[channel.id] || [initialHeadlineHook(channel), "Signal Breaks Pattern"]).forEach((candidate) => addHeadlineCandidate(candidates, candidate));
   if (leadLabel && !/^signal$/i.test(leadLabel)) addHeadlineCandidate(candidates, `${leadLabel} Breaks Pattern`);
@@ -10539,7 +10555,7 @@ function sendPitchDeckSnapshotIndex(req, res) {
 app.get(/^\/dashboards\/pitch-deck(?:\/.*)?$/, sendPitchDeckDashboard);
 app.get(/^\/dashboards\/pitch-deck-snapshot\/deck\/?(?:index\.html)?$/, sendPitchDeckSnapshotIndex);
 app.use("/dashboards/pitch-deck-snapshot", express.static(PITCH_DECK_DIST_DIR));
-app.get(/^\/dashboards\/(?:katechon-technology|three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us|seed-round|planetary-solvency|cloud-canary|runtime-governance)\/?$/, (req, res) => sendPrototypeDashboard(res));
+app.get(/^\/dashboards\/(?:katechon-technology|three-internets|every-age-thinks-its-the-last|what-comes-after-the-feed|live-generated-states|what-is-a-channel|channels|what-should-exist-next|attention-architecture|reality-glix|build-with-us|mythos-ban|seed-round|planetary-solvency|cloud-canary|runtime-governance)\/?$/, (req, res) => sendPrototypeDashboard(res));
 
 function renderExternalDashboardFallback(id, err) {
   const dashboard = EXTERNAL_DASHBOARDS[id];
@@ -11856,14 +11872,14 @@ const ELEVENLABS_VOICE_SETTINGS = {
   speed: 1.1,
 };
 
-async function synthesizeSpeech(text) {
+async function synthesizeSpeech(text, voiceId = ELEVENLABS_VOICE_ID) {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not configured");
   const ttsText = speechTextForTts(text);
-  const cacheKey = `${ELEVENLABS_VOICE_ID}:${ELEVENLABS_MODEL_ID}:${JSON.stringify(ELEVENLABS_VOICE_SETTINGS)}:${ttsText}`;
+  const cacheKey = `${voiceId}:${ELEVENLABS_MODEL_ID}:${JSON.stringify(ELEVENLABS_VOICE_SETTINGS)}:${ttsText}`;
   if (speechCache.has(cacheKey)) return speechCache.get(cacheKey);
 
-  const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+  const resp = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
     method: "POST",
     headers: {
       "xi-api-key": apiKey,
@@ -12182,9 +12198,11 @@ app.post("/api/speak", async (req, res) => {
     if (!text) return res.status(400).json({ error: "empty text" });
 
     const id = String(req.body?.id || `speech-${Date.now()}`);
+    const voice = String(req.body?.voice || "").trim();
+    const voiceId = resolveVoiceId(voice);
     let audio = "";
     try {
-      audio = await synthesizeSpeech(text);
+      audio = await synthesizeSpeech(text, voiceId);
     } catch (err) {
       console.warn("speech TTS failed:", err.message);
     }
@@ -12195,7 +12213,10 @@ app.post("/api/speak", async (req, res) => {
       audio,
       muted: !audio,
     };
-    const remote = audio ? await dispatchRemoteSpeech(payload) : { ok: false, error: "no audio" };
+    // The narrator is an external VO; never push it to the remote Kat avatar.
+    const remote = audio && voice !== "narrator"
+      ? await dispatchRemoteSpeech(payload)
+      : { ok: false, error: voice === "narrator" ? "narrator: local-only" : "no audio" };
 
     res.json({ ...payload, remote, streamAudio: STREAM_AUDIO_ENABLED });
   } catch (err) {

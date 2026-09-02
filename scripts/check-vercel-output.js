@@ -116,10 +116,9 @@ for (const file of requiredFiles) {
 // This repo may keep dist/index.html as a project-local fallback, but it is not
 // the guardrail for https://www.katechon.technology/.
 requireContains("dist/deck/index.html", '<base href="/">', "root deck base tag");
-requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "deck-mode dashboard subset");
-requireContains("dist/deck/index.html", "katechon-technology", "deck starts at dashboard 18");
-requireContains("dist/deck/index.html", "build-with-us", "deck includes dashboard 27");
-requireContains("dist/deck/index.html", "seed-round", "deck includes seed round closer");
+requireContains("dist/deck/index.html", "DECK_CHANNEL_IDS", "demo deck channel list");
+requireContains("dist/deck/index.html", "build-with-us", "demo deck includes build-with-us");
+requireContains("dist/deck/index.html", /const DECK_CHANNEL_IDS = \[DEMO_HOME_DASHBOARD_ID\];/, "demo deck only contains build-with-us");
 requireContains("dist/data/index.html", "https://www.katechon.technology/data/", "canonical data-room URL");
 requireContains("dist/data/index.html", "/app/deck/", "data-room deck link");
 requireContains("dist/pdf/index.html", "/katechon.pdf", "one-pager PDF link");

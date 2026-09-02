@@ -12,3 +12,10 @@ artifacts/
 .vercel
 .env*.local
 outputs/
+
+# Generated media / model weights (v-2 pass, 2026-09-02). Reproducible or
+# re-downloadable; kept out of git per the umbrella convention.
+/public/videos/mythos-ban/closer.mp4
+/public/videos/mythos-ban/directive.mp4
+/public/videos/mythos-ban/jailbreak.mp4
+/public/videos/mythos-ban/models-offline.mp4

@@ -400,12 +400,13 @@
     /* Hide Kat everywhere in the deck except on the live channel reel
        (build-with-us). The presentation should be silent and clean on
        every thesis slide; only the channel scene shows Kat in-frame. */
-    body[data-current-dashboard]:not([data-current-dashboard="build-with-us"]):not([data-current-dashboard="planetary-solvency"]):not([data-current-dashboard="cloud-canary"]):not([data-current-dashboard="runtime-governance"]) #browser-avatar-wrap {
+    body[data-current-dashboard]:not([data-current-dashboard="build-with-us"]):not([data-current-dashboard="mythos-ban"]):not([data-current-dashboard="planetary-solvency"]):not([data-current-dashboard="cloud-canary"]):not([data-current-dashboard="runtime-governance"]) #browser-avatar-wrap {
       opacity: 0 !important;
       pointer-events: none !important;
       transition: opacity 200ms ease;
     }
     body[data-current-dashboard="build-with-us"] #browser-avatar-wrap,
+    body[data-current-dashboard="mythos-ban"] #browser-avatar-wrap,
     body[data-current-dashboard="planetary-solvency"] #browser-avatar-wrap,
     body[data-current-dashboard="cloud-canary"] #browser-avatar-wrap,
     body[data-current-dashboard="runtime-governance"] #browser-avatar-wrap {
@@ -418,24 +419,28 @@
       transition: opacity 80ms linear;
     }
     body[data-current-dashboard="build-with-us"] #kat-narrator,
+    body[data-current-dashboard="mythos-ban"] #kat-narrator,
     body[data-current-dashboard="planetary-solvency"] #kat-narrator,
     body[data-current-dashboard="cloud-canary"] #kat-narrator,
     body[data-current-dashboard="runtime-governance"] #kat-narrator {
       display: none !important;
     }
     body[data-current-dashboard="build-with-us"] #dashboard-overlay .frame-bar,
+    body[data-current-dashboard="mythos-ban"] #dashboard-overlay .frame-bar,
     body[data-current-dashboard="planetary-solvency"] #dashboard-overlay .frame-bar,
     body[data-current-dashboard="cloud-canary"] #dashboard-overlay .frame-bar,
     body[data-current-dashboard="runtime-governance"] #dashboard-overlay .frame-bar {
       display: none !important;
     }
     body[data-current-dashboard="build-with-us"] #status,
+    body[data-current-dashboard="mythos-ban"] #status,
     body[data-current-dashboard="planetary-solvency"] #status,
     body[data-current-dashboard="cloud-canary"] #status,
     body[data-current-dashboard="runtime-governance"] #status {
       display: none !important;
     }
     body[data-current-dashboard="build-with-us"].dashboard-fullscreen #browser-avatar-wrap,
+    body[data-current-dashboard="mythos-ban"].dashboard-fullscreen #browser-avatar-wrap,
     body[data-current-dashboard="planetary-solvency"].dashboard-fullscreen #browser-avatar-wrap,
     body[data-current-dashboard="cloud-canary"].dashboard-fullscreen #browser-avatar-wrap,
     body[data-current-dashboard="runtime-governance"].dashboard-fullscreen #browser-avatar-wrap {
@@ -447,6 +452,10 @@
     /* Hard-cut state: black out everything except the contact line
        (which is rendered fixed-fullscreen by the identity script). */
     body.seed-channel-cut #browser-avatar-wrap {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+    body.seed-channel-brand #browser-avatar-wrap {
       opacity: 0 !important;
       pointer-events: none !important;
     }
@@ -1058,14 +1067,21 @@
     #dashboard-frame-stage.materialize-active.materialize-backward .build-scan {
       animation-name: build-scan-backward;
     }
-    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] {
+    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"],
+    body[data-current-dashboard="mythos-ban"] #dashboard-build-effects[data-transition="clip"] {
       border-radius: 12px;
       overflow: hidden;
       box-shadow:
         0 28px 90px rgba(0, 0, 0, 0.42),
         0 0 36px rgba(0, 232, 123, 0.14);
     }
-    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] .build-frame {
+    body[data-current-dashboard="mythos-ban"] #dashboard-build-effects[data-transition="clip"] {
+      box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.42),
+        0 0 36px rgba(204, 120, 92, 0.16);
+    }
+    body[data-current-dashboard="build-with-us"] #dashboard-build-effects[data-transition="clip"] .build-frame,
+    body[data-current-dashboard="mythos-ban"] #dashboard-build-effects[data-transition="clip"] .build-frame {
       width: min(640px, calc(100% - clamp(24px, 5vw, 56px)));
       max-height: min(320px, calc(100% - clamp(36px, 9vh, 82px)));
     }
@@ -2854,20 +2870,9 @@
     if (dashboardTransitionsEnabled) document.documentElement.classList.add('dashboard-motion');
     const AUTO_WELCOME_NARRATION_ENABLED = false;
     const APP_BASE_PATH = /^\/app(?:\/|$)/.test(window.location.pathname) ? '/app' : '';
-    const DECK_CHANNEL_IDS = [
-      'katechon-technology',
-      'three-internets',
-      'every-age-thinks-its-the-last',
-      'what-comes-after-the-feed',
-      'live-generated-states',
-      'what-is-a-channel',
-      'channels',
-      'what-should-exist-next',
-      'attention-architecture',
-      'reality-glix',
-      'build-with-us',
-      'seed-round',
-    ];
+    const DEMO_HOME_DASHBOARD_ID = 'build-with-us';
+    const DEMO_FOCUSED_MODE = true;
+    const DECK_CHANNEL_IDS = [DEMO_HOME_DASHBOARD_ID];
     const isDeckRoute =
       /^\/(?:app\/)?deck(?:\/|$)/.test(window.location.pathname) ||
       truthyPageParam('deck');
@@ -3348,7 +3353,6 @@
       '/videos/build-with-us/tanker.mp4',
       '/videos/build-with-us/tanker-night.mp4',
     ];
-    const BUILD_WITH_US_WARMUP_RADIUS = 3;
     let landingVideoAssetsPreloaded = false;
     let buildWithUsVideoAssetsPrefetched = false;
     const videoHintedUrls = new Set();
@@ -3394,15 +3398,8 @@
 
     function warmDeckResourcesForDashboard(dashboardId) {
       if (!isDeckRoute || !dashboardId) return;
-      const ids = DECK_CHANNEL_IDS;
-      const currentIndex = ids.indexOf(dashboardId);
-      const buildWithUsIndex = ids.indexOf('build-with-us');
-      if (currentIndex < 0 || buildWithUsIndex < 0) return;
-      const slidesUntilBuildWithUs = buildWithUsIndex - currentIndex;
-      if (slidesUntilBuildWithUs >= 0 && slidesUntilBuildWithUs <= BUILD_WITH_US_WARMUP_RADIUS) {
+      if (dashboardId === DEMO_HOME_DASHBOARD_ID) {
         prefetchBuildWithUsVideoAssets();
-      }
-      if (slidesUntilBuildWithUs >= 0 && slidesUntilBuildWithUs <= 2) {
         loadBrowserAvatarFrame().catch(err => {
           console.warn('avatar warmup failed:', err);
         });
@@ -3646,7 +3643,7 @@
 
     const DASHBOARD_CATALOG = window.KATECHON_DASHBOARD_CATALOG || {};
     const CHANNELS = DASHBOARD_CATALOG.channels || {};
-    const CHANNEL_ORDER = isDeckRoute
+    const CHANNEL_ORDER = (DEMO_FOCUSED_MODE || isDeckRoute)
       ? DECK_CHANNEL_IDS
       : Array.isArray(DASHBOARD_CATALOG.channelOrder)
       ? DASHBOARD_CATALOG.channelOrder
@@ -3842,9 +3839,9 @@
     function requestedDashboardId() {
       for (const key of DASHBOARD_LAUNCH_PARAM_KEYS) {
         const id = String(pageParams.get(key) || '').toLowerCase().replace(/[^\w-]/g, '');
-        if (id && DASHBOARDS[id]) return id;
+        if (id && DASHBOARDS[id]) return DEMO_FOCUSED_MODE ? DEMO_HOME_DASHBOARD_ID : id;
       }
-      if (isDeckRoute) return DECK_CHANNEL_IDS.find(id => DASHBOARDS[id]) || null;
+      if (isDeckRoute || isLocalDevelopment) return DEMO_HOME_DASHBOARD_ID;
       return null;
     }
 
@@ -3974,7 +3971,7 @@
       if (!dashboardId) return;
       hideEntryGateForDashboardLaunch();
       openDashboard(dashboardId, {
-        fullscreen: isDeckRoute || paramEnabled('fullscreen') || paramEnabled('autoplay'),
+        fullscreen: dashboardId === DEMO_HOME_DASHBOARD_ID || isDeckRoute || paramEnabled('fullscreen') || paramEnabled('autoplay'),
         autoplayAudio: paramEnabled('audio') || paramEnabled('autoplay'),
         sharedLaunch: true,
         source: isDeckRoute ? 'deck' : 'launch',
@@ -4012,7 +4009,7 @@
       if (value) document.body.dataset.currentDashboard = value;
       else delete document.body.dataset.currentDashboard;
       warmDeckResourcesForDashboard(value);
-      if (value !== 'build-with-us') {
+      if (value !== 'build-with-us' && value !== 'mythos-ban') {
         document.body.classList.remove('seed-channel-cut');
       } else {
         loadBrowserAvatarFrame().catch(err => {
@@ -4396,17 +4393,18 @@
       }
       if (event.data.type === 'seed-channel-init') {
         if (event.origin !== window.location.origin) return;
-        if (currentDashboardId !== 'build-with-us') return;
+        if (currentDashboardId !== 'build-with-us' && currentDashboardId !== 'mythos-ban') return;
         document.body.classList.remove('seed-channel-cut');
+        document.body.classList.remove('seed-channel-brand');
         if (!channelMusicEnabled) setChannelMusicEnabled(true, { userGesture: true });
-        startChannelMusic('build-with-us', { userGesture: true }).catch(err => {
+        startChannelMusic(currentDashboardId, { userGesture: true }).catch(err => {
           console.warn('seed-channel music start failed:', err);
         });
         return;
       }
       if (event.data.type === 'seed-channel-speak') {
         if (event.origin !== window.location.origin) return;
-        if (currentDashboardId !== 'build-with-us') return;
+        if (currentDashboardId !== 'build-with-us' && currentDashboardId !== 'mythos-ban') return;
         const text = String(event.data.text || '').trim();
         if (!text) return;
         const id = String(event.data.id || `seed-${Date.now()}`);
@@ -4423,9 +4421,9 @@
       }
       if (event.data.type === 'seed-channel-build-transition') {
         if (event.origin !== window.location.origin) return;
-        if (currentDashboardId !== 'build-with-us') return;
+        if (currentDashboardId !== 'build-with-us' && currentDashboardId !== 'mythos-ban') return;
         runDashboardBuildEffectTransition({
-          dashboard: 'build-with-us',
+          dashboard: currentDashboardId,
           direction: Number(event.data.direction) || 1,
           durationMs: event.data.durationMs,
           extended: true,
@@ -4440,9 +4438,15 @@
         });
         return;
       }
+      if (event.data.type === 'seed-channel-brand') {
+        if (event.origin !== window.location.origin) return;
+        if (currentDashboardId !== 'build-with-us' && currentDashboardId !== 'mythos-ban') return;
+        document.body.classList.toggle('seed-channel-brand', Boolean(event.data.active));
+        return;
+      }
       if (event.data.type === 'seed-channel-cut') {
         if (event.origin !== window.location.origin) return;
-        if (currentDashboardId !== 'build-with-us') return;
+        if (currentDashboardId !== 'build-with-us' && currentDashboardId !== 'mythos-ban') return;
         document.body.classList.add('seed-channel-cut');
         stopChannelMusic(false);
         stopBrowserAvatarAudio();
@@ -5134,7 +5138,7 @@
     }
 
     function dashboardBuildClipBounds(dashboardId) {
-      if (dashboardId !== 'build-with-us') return null;
+      if (dashboardId !== 'build-with-us' && dashboardId !== 'mythos-ban') return null;
       const frame = activeDashboardFrame();
       if (!frame?.contentWindow || !dashboardFrameStage) return null;
       try {
@@ -5439,7 +5443,7 @@
       if (isDeckRoute) {
         const dashboard = DASHBOARDS[currentDashboardId] || {};
         const compactDeckHud = window.matchMedia && window.matchMedia('(max-width: 620px)').matches;
-        const channelLabel = dashboard.channel || String(index + 18).padStart(2, '0');
+        const channelLabel = DEMO_FOCUSED_MODE ? '01' : dashboard.channel || String(index + 18).padStart(2, '0');
         const dashboardLabel = dashboard.label || currentDashboardId;
         dashboardPosition.textContent = index >= 0
           ? compactDeckHud
@@ -5449,8 +5453,8 @@
         dashboardPosition.title = index >= 0 ? `${channelLabel} · ${dashboardLabel}` : '';
       } else {
         dashboardPosition.textContent = index >= 0
-          ? `${String(index + 1).padStart(2, '0')} / ${ids.length}`
-          : `-- / ${ids.length}`;
+          ? `${String(index + 1).padStart(2, '0')} / ${String(ids.length).padStart(2, '0')}`
+          : `-- / ${String(ids.length).padStart(2, '0')}`;
       }
       if (isDeckRoute && index >= 0) document.body.dataset.deckSlide = String(index + 1);
       else delete document.body.dataset.deckSlide;
@@ -5460,7 +5464,7 @@
     function updateDeckNavHint(index = -1) {
       const hint = document.getElementById('deck-nav-hint');
       if (!hint) return;
-      const shouldShow = isDeckRoute && !deckSwipeHintDismissed && index === 0 && !dashboardOverlay.classList.contains('hidden');
+      const shouldShow = isDeckRoute && channelIds().length > 1 && !deckSwipeHintDismissed && index === 0 && !dashboardOverlay.classList.contains('hidden');
       hint.hidden = !shouldShow;
       if (shouldShow && !deckSwipeHintTimer) {
         deckSwipeHintTimer = setTimeout(() => {
@@ -5998,7 +6002,7 @@
       currentDashboardId = workspace;
       setCurrentDashboardAttr(workspace);
       clearHomeTransitionMask();
-      if (!isDeckRoute || workspace === 'build-with-us') unlockBrowserAvatarAudio().catch(() => {});
+      if (!isDeckRoute || workspace === 'build-with-us' || workspace === 'mythos-ban') unlockBrowserAvatarAudio().catch(() => {});
       const url = dashboard.url(options);
       const rapidNavigation = options.rapid === true;
       trackLaunchEvent('channel_opened', {
